@@ -26,10 +26,13 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/bitly/go-simplejson"
 	"github.com/usechain/go-usechain/accounts"
@@ -79,29 +82,19 @@ passwordfile as argument containing the wallet password in plaintext.`,
 	}
 
 	verifyCommand = cli.Command{
-		Name:  "verify",
-		Usage: "Verify address",
-		// Category: "",
-		// Action: utils.MigrateFlags(verify),
-		Description: `
-Verify the wallet address`,
+		Name:      "verify",
+		Usage:     "Verify address",
+		ArgsUsage: "Verify --id=<id> --photo=<photo> --query=<q>",
+		Action:    utils.MigrateFlags(verify),
 
-		Subcommands: []cli.Command{
-			{
-				Name:   "id",
-				Usage:  "Get ID number from user",
-				Action: utils.MigrateFlags(id),
-				Description: `
-		Input user's ID`,
-			},
-			{
-				Name:   "query",
-				Usage:  "Get CA from CA server via idKey",
-				Action: utils.MigrateFlags(query),
-				Description: `
-		Get CA from CA server via idKey`,
-			},
+		Flags: []cli.Flag{
+			utils.VerifyIdFlag,
+			utils.VerifyPhotoFlag,
+			utils.VerifyQueryFlag,
 		},
+
+		Description: `
+Verify the wallet address via upload id and photo`,
 	}
 
 	accountCommand = cli.Command{
@@ -418,42 +411,103 @@ func accountImport(ctx *cli.Context) error {
 }
 
 func verify(ctx *cli.Context) error {
+
+	id := ctx.GlobalString(utils.VerifyIdFlag.Name)
+	photo := ctx.GlobalString(utils.VerifyPhotoFlag.Name)
+	q := ctx.GlobalString(utils.VerifyQueryFlag.Name)
+
+	if len(id) > 0 && len(photo) > 0 {
+		userAuthOperation(id, photo)
+	} else if len(q) > 0 {
+		query(q)
+	} else {
+		fmt.Println("No parameter found.")
+	}
 	return nil
 }
 
-// var CAurl string = "http://127.0.0.1:8001/echo"
-var CAurl string = "http://usechain.cn:8548/UsechainService/user/auth2"
+var CAurl string = "http://usechain.cn:8548/UsechainService/cert/cerauth"
 var CAquery string = "http://usechain.cn:8548/UsechainService/user/cerauth"
 
-func id(ctx *cli.Context) error {
-	id := ctx.Args().First()
+func userAuthOperation(id string, photo string) error {
+
+	err := postVerifactionData(id, photo)
+	if err != nil {
+		utils.Fatalf("Failed to upload user info, %s\n", err)
+	}
+	return nil
+}
+
+func geneKeyFromId(id string) string {
 	if id == "" {
 		utils.Fatalf("Could not use empty string as ID")
 	}
-	if len(ctx.Args()) != 1 {
-		utils.Fatalf("Only one parameter is required")
-	}
 	idHex := crypto.Keccak256Hash([]byte(id)).Hex()
 	fmt.Printf("idHex: %v\n", idHex)
-	csr := generateCSR(idHex)
+	return idHex
+}
 
-	jsondata, _ := simplejson.NewJson([]byte(getAuthId(CAurl, csr)))
-	idKeyBytes, _ := jsondata.Get("data").Get("idKey").Bytes()
-	idKey := string(idKeyBytes[:])
-	queryId(CAquery, idKey)
+func postVerifactionData(userId string, filename string) error {
+	//Create form
+	buf := new(bytes.Buffer)
+	writer := multipart.NewWriter(buf)
+	formFile, err := writer.CreateFormFile("uploadfile", filename)
+	if err != nil {
+		utils.Fatalf("Create form file failed: %s\n", err)
+	}
+
+	//read file and write data to form
+	srcFile, err := os.Open(filename)
+	if err != nil {
+		utils.Fatalf("Open source file failed: %s\n", err)
+	}
+	defer srcFile.Close()
+	_, err = io.Copy(formFile, srcFile)
+
+	//add user data field
+	idField, err := writer.CreateFormField("data")
+	r := strings.NewReader(geneUserData(userId)) //only id and name for now
+	_, err = io.Copy(idField, r)
+
+	//add CSR field
+	CSR := geneCSR(geneKeyFromId(userId))
+	CSRField, err := writer.CreateFormField("CSR")
+	r = strings.NewReader(CSR)
+	_, err = io.Copy(CSRField, r)
+
+	writer.Close()
+	contentType := writer.FormDataContentType()
+	// resp, err := http.Post("http://192.168.1.26:8548/UsechainService/cert/cerauth", contentType, buf)
+	resp, err := http.Post(CAurl, contentType, buf)
+	fmt.Println(readerToString(resp.Body))
+	if err != nil {
+		utils.Fatalf("Post failed: %s\n", err)
+	}
+
 	return nil
 }
 
-func query(ctx *cli.Context) error {
-	idKey := ctx.Args().First()
-	if idKey == "" {
+func readerToString(r io.Reader) string {
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(r)
+	return buf.String()
+}
+
+func query(s string) error {
+	if s == "" {
 		utils.Fatalf("Only one parameter is required")
 	}
-	queryId(CAquery, idKey)
+	queryId(CAquery, s)
 	return nil
 }
 
-func generateCSR(idHex string) string {
+func geneUserData(userId string) string {
+	values := map[string]string{"userId": userId}
+	userData, _ := json.Marshal(values)
+	return string(userData)
+}
+
+func geneCSR(idHex string) string {
 	keyBytes, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		utils.Fatalf("Generate RSA key pair error: %v", err)
@@ -480,28 +534,12 @@ func generateCSR(idHex string) string {
 	return csrBuf.String()
 }
 
-func getAuthId(CAserver string, CSR string) string {
-	values := map[string]string{"csr": CSR}
-	jsonValue, _ := json.Marshal(values)
-
-	resp, err := http.Post(CAserver, "application/json", bytes.NewBuffer(jsonValue))
-	if err != nil {
-		utils.Fatalf("Fail to get ID from CA server: %v", err)
-	}
-	idbuf := new(bytes.Buffer)
-	idbuf.ReadFrom(resp.Body)
-	fmt.Println("idbuf:" + idbuf.String())
-
-	return idbuf.String()
-	// return "10086"
-}
-
 func queryId(CAserver string, idKey string) error {
 	u, _ := url.Parse(CAserver)
 	q := u.Query()
 	q.Add("idKey", idKey)
 	u.RawQuery = q.Encode()
-	fmt.Printf("query url for idKey:%v\n", u)
+	log.Info("query url for idKey:", "idKey", idKey)
 	resp, err := http.Get(u.String())
 	if err != nil || resp.StatusCode != 200 {
 		utils.Fatalf("Your idKey is %s, please try again later", idKey)
@@ -511,12 +549,15 @@ func queryId(CAserver string, idKey string) error {
 	CAbuf.ReadFrom(resp.Body)
 	jsondata, _ := simplejson.NewJson(CAbuf.Bytes())
 	certBytes, _ := jsondata.Get("data").Get("cert").Bytes()
+	if len(certBytes) == 0 {
+		utils.Fatalf("Failed to download CA file %s\n", certBytes)
+	}
 	cert := string(certBytes[:])
 
 	userCert := node.DefaultDataDir() + "/user.crt"
 	err = ioutil.WriteFile(userCert, []byte(cert), 0644)
 	checkError(err)
-	fmt.Println(CAbuf.String())
+	log.Info("CAbuf:", "CAbuf", CAbuf.String())
 	log.Info("Verification successful, your CA file stored in " + userCert)
 
 	return nil

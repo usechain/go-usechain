@@ -6,7 +6,7 @@ Official golang implementation of the Usechain.
 https://camo.githubusercontent.com/915b7be44ada53c290eb157634330494ebe3e30a/68747470733a2f2f676f646f632e6f72672f6769746875622e636f6d2f676f6c616e672f6764646f3f7374617475732e737667
 )](https://godoc.org/github.com/usechain/go-usechain)
 [![Go Report Card](https://goreportcard.com/badge/github.com/usechain/go-usechain)](https://goreportcard.com/report/github.com/usechain/go-usechain)
-[![Travis](https://travis-ci.org/usechain/go-usechain.svg?branch=master)](https://travis-ci.org/usechain/go-usechain)
+[![Travis](https://travis-ci.org/usechain/go-usechain.svg?branch=develop)](https://travis-ci.org/usechain/go-usechain)
 [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/usechain?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 The source files are based on [go-ethereum](https://github.com/ethereum/go-ethereum), thanks to Ethereum authors.

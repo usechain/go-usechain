@@ -1,0 +1,11 @@
+language: go
+
+before_script:
+  - echo "begin!"
+  - sudo mkdir /root/.usechain
+  - sh $PWD/build/usechain.sh
+
+script: make test
+
+go:
+  - "1.10"

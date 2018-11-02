@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/usechain/go-usechain/contracts/authentication"
 	"math/big"
 	"strings"
 	"time"
@@ -51,7 +52,6 @@ import (
 
 	"io/ioutil"
 	"crypto/rand"
-	"strconv"
 )
 
 const (
@@ -1572,28 +1572,6 @@ func (s *PrivateAccountAPI) GenerateRSAKeypair() error  {
 	return err
 }
 
-// GenRingSign will generate ring signature
-func (s *PrivateAccountAPI) GenRingSign(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (string,string, error) {
-
-	// Look up the wallet containing the requested signer
-	account := accounts.Account{Address: address}
-	statedb, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
-	if statedb == nil || err != nil {
-		return "", "",err
-	}
-
-	am := s.b.AccountManager()
-
-	var from common.Address
-
-	ringsig,keyImage,err:=fetchKeystore(am).GenRingSignData(account,from,statedb)
-	if err !=nil {
-		log.Error("GenRingSign error: ", "error", err)
-	}
-
-	return ringsig,keyImage,nil
-}
-
 // SendOneTimeTransaction creates a transaction for the given argument, sign it and submit it to authentication contract.
 func (s *PublicTransactionPoolAPI) SendOneTimeTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
 
@@ -1680,7 +1658,8 @@ func (s *PublicBlockChainAPI) GetOneTimePubSet(ctx context.Context, contracrAddr
 	if stateDb == nil || err != nil {
 		return "", err
 	}
-	pub,err:= stateDb.GetOneTimePubSet(contracrAddress, PubKeyLen)
+	//pub,err:= stateDb.GetOneTimePubSet(contracrAddress, PubKeyLen)
+	pub, err := authentication.GetOneTimePubSetInterface(stateDb, contracrAddress, PubKeyLen)
 	if err != nil {
 		log.Error("GetOneTimePubSet error: ", "error", err)
 	}
@@ -1693,7 +1672,8 @@ func (s *PublicBlockChainAPI) GetUnConfirmedMainInfo(ctx context.Context, contra
 	if stateDb == nil || err != nil {
 		return "", err
 	}
-	pub,err:= stateDb.GetUnConfirmedMainInfo(contracrAddress, PubKeyLen,pos)
+	//pub,err:= stateDb.GetUnConfirmedMainInfo(contracrAddress, PubKeyLen,pos)
+	pub, err := authentication.GetUnConfirmedMainInfoInterface(stateDb, contracrAddress, PubKeyLen, pos)
 	if err != nil {
 		log.Error("GetUnConfirmedMainInfo error: ", "error", err)
 	}
@@ -1706,7 +1686,8 @@ func (s *PublicBlockChainAPI) GetConfirmedMainInfo(ctx context.Context, contracr
 	if stateDb == nil || err != nil {
 		return "", err
 	}
-	pub,err:= stateDb.GetConfirmedMainInfo(contracrAddress, PubKeyLen,pos)
+	//pub,err:= stateDb.GetConfirmedMainInfo(contracrAddress, PubKeyLen,pos)
+	pub, err := authentication.GetConfirmedMainInfoInterface(stateDb, contracrAddress, PubKeyLen, pos)
 	if err != nil {
 		log.Error("GetConfirmedMainInfo error: ", "error", err)
 	}
@@ -1719,7 +1700,8 @@ func (s *PublicBlockChainAPI) GetConfirmedMainAS(ctx context.Context, contracrAd
 	if stateDb == nil || err != nil {
 		return "", err
 	}
-	pub,err:= stateDb.GetConfirmedMainAS(contracrAddress, KeyLen,pos)
+	//pub,err:= stateDb.GetConfirmedMainAS(contracrAddress, KeyLen,pos)
+	pub, err := authentication.GetConfirmedMainASInterface(stateDb, contracrAddress, KeyLen, pos)
 	if err != nil {
 		log.Error("GetConfirmedMainAS error: ", "error", err)
 	}
@@ -1786,7 +1768,10 @@ func (s *PublicTransactionPoolAPI) SendMainTransaction(ctx context.Context, addr
 	if statedb == nil || err != nil {
 		log.Error("statedb error: ", "error", err)
 	}
-	ringsig,keyImage,err:=fetchKeystore(am).GenRingSignData(accountOTA,args.From,statedb)
+	//ringsig,keyImage,err:=fetchKeystore(am).GenRingSignData(accountOTA,args.From)
+	privateKey, addr, msg := fetchKeystore(am).GetRingSignInfo(accountOTA, args.From)
+
+	ringsig, keyImage, err := authentication.GenRingSignData(msg, privateKey, addr, statedb)
 	if err !=nil{
 		return common.Hash{},err
 	}
@@ -1851,7 +1836,14 @@ func (s *PublicTransactionPoolAPI) SendSubTransaction(ctx context.Context, addre
 	if statedb == nil || err != nil {
 		log.Error("statedb error: ", "error", err)
 	}
-	ringsig,keyImage,err:=fetchKeystore(am).GenRingSignData(accountOTA,args.From,statedb)
+	//ringsig,keyImage,err:=fetchKeystore(am).GenRingSignData(accountOTA,args.From,statedb)
+
+	privateKey, addr, msg := fetchKeystore(am).GetRingSignInfo(accountOTA, args.From)
+
+	ringsig, keyImage, err := authentication.GenSubRingSignData(msg, privateKey, addr, statedb)
+	if err !=nil{
+		return common.Hash{},err
+	}
 
 	myAbi, err := abi.JSON(strings.NewReader(common.UsechainABI))
 	if err != nil {
@@ -1881,49 +1873,4 @@ func (s *PublicTransactionPoolAPI) SendSubTransaction(ctx context.Context, addre
 	return submitTransaction(ctx, s.b, signed)
 }
 
-// SendSubTransaction creates a confirmed account authentication transaction for the given argument, sign it and submit it to authentication contract.
-func (s *PublicTransactionPoolAPI) SendCommTransaction(ctx context.Context,CertID int64, args SendTxArgs) (common.Hash, error) {
-	// Look up the wallet containing the requested signer
-	account := accounts.Account{Address: args.From}
-	wallet, err := s.b.AccountManager().Find(account)
-	if err != nil {
-		return common.Hash{}, err
-	}
 
-	if args.Nonce == nil {
-		// Hold the addresse's mutex around signing to prevent concurrent assignment of
-		// the same nonce to multiple accounts.
-		s.nonceLock.LockAddr(args.From)
-		defer s.nonceLock.UnlockAddr(args.From)
-	}
-
-	// Set some sanity defaults and terminate on failure
-	if err := args.setDefaults(ctx, s.b); err != nil {
-		return common.Hash{}, err
-	}
-
-	certHex:=strconv.FormatInt(CertID,16)
-
-	method:="c03c1796"
-	cert_id:="0000000000000000000000000000000000000000000000000000000000000001"
-	confirm_bool:="0000000000000000000000000000000000000000000000000000000000000001"
-	dataString := method +cert_id[0:len(cert_id)-len(certHex)]+certHex+ confirm_bool
-
-	dst,err:=hex.DecodeString(dataString)
-	if err !=nil {
-		log.Error("decode string error", "error", err)
-	}
-	*args.Data= hexutil.Bytes(dst)[:]
-
-	// Assemble the transaction and sign with the wallet
-	tx:= args.toTransaction()
-	var chainID *big.Int
-	if config := s.b.ChainConfig(); config.IsEIP155(s.b.CurrentBlock().Number()) {
-		chainID = config.ChainId
-	}
-	signed, err := wallet.SignTx(account, tx, chainID)
-	if err != nil {
-		return common.Hash{}, err
-	}
-	return submitTransaction(ctx, s.b, signed)
-}

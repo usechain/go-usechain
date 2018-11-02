@@ -20,26 +20,24 @@
 package state
 
 import (
+	"crypto/ecdsa"
+	"encoding/hex"
+	"errors"
 	"fmt"
-	"math/big"
-	"sort"
-	"sync"
-	"bytes"
+	"github.com/usechain/go-usechain/accounts/abi"
 	"github.com/usechain/go-usechain/commitee/committee/contract"
-	"github.com/usechain/go-usechain/contracts/authentication"
 	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/rlp"
 	"github.com/usechain/go-usechain/trie"
-	"encoding/hex"
+	"math/big"
+	"sort"
 	"strconv"
-	"crypto/ecdsa"
-	"errors"
 	"strings"
-	"github.com/usechain/go-usechain/accounts/abi"
-	"github.com/usechain/go-usechain/common/hexutil"
+	"sync"
 )
 
 type revision struct {
@@ -533,10 +531,10 @@ func (self *StateDB) checkAuthenticateStat(_key []byte) int {
 
 func (self *StateDB) isOTAConfirmed(_addr common.Address) bool {
 	key := contract.ReadOneTimeAddressDetail(_addr.Hex()[2:])
-	log.Info("isOTAConfirmed", "key",contract.ReadOneTimeAddressDetail(_addr.Hex()[2:]))
+	//log.Info("isOTAConfirmed", "key", contract.ReadOneTimeAddressDetail(_addr.Hex()[2:]))
 
 	res := self.GetState(common.HexToAddress(common.AuthenticationContractAddressString), common.HexToHash(key))
-	log.Info("The db get result:", "key",res.Hex())
+	//log.Info("The db get result:", "key", res.Hex())
 
 	return res.Hex() != statDbEmpty
 }
@@ -595,14 +593,14 @@ func (self *StateDB) CheckMultiAccountSig(tx *types.Transaction, _addType int, _
 
 
 	msg:=hexutil.Encode(_from[:])
-	log.Info("Ringsign message","msg",msg)
-	log.Info("Ringsign message","ringsig",ringsign)
+	//log.Info("Ringsign message","msg",msg)
+	//log.Info("Ringsign message","ringsig",ringsign)
 
 	ringRes:=crypto.VerifyRingSign(msg, ringsign)
 	if ringRes == false {
 		return errors.New("verify ring signature error")
 	}
-	log.Info("Ringsign message","ringsig self-verification",ringRes)
+	//log.Info("Ringsign message","ringsig self-verification",ringRes)
 
 	err, pubKeys, pubMirrorKey, _, _ := crypto.DecodeRingSignOut(ringsign)
 	if err != nil {
@@ -775,261 +773,4 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error) 
 	})
 	log.Debug("Trie cache stats after commit", "misses", trie.CacheMisses(), "unloads", trie.CacheUnloads())
 	return root, err
-}
-
-type cachedRandomNumber map[int64]bool
-func (self *StateDB) GetOneTimePubSet(ContractAddr common.Address, PubKeyLen int64) (string,error) {
-
-	// generate a query index
-	keyIndex1, _ := authentication.ExpandToIndex(authentication.OneTimeAddrConfirmedLenIndex, "", 3)
-	// get data from the contract statedb
-	resultOneTimeAddrLen := self.GetState(ContractAddr, common.HexToHash(keyIndex1))
-
-	log.Info("Query result: ", "resultOneTimeAddrLen: ",resultOneTimeAddrLen[:])
-
-	// get one time address length from string
-	oneTimeAddrLen := authentication.GetLen(resultOneTimeAddrLen[:])
-	if oneTimeAddrLen < PubKeyLen {
-		return "",errors.New("PubKeyLen is too large")
-	}
-
-	var res = ""
-	randomExist := cachedRandomNumber{}
-	for  i := int64(0); i < PubKeyLen; i++ {
-		// generate int64 random number in range of oneTimeAddrLen
-		randomNumber := authentication.GenerateRandomNumber(oneTimeAddrLen)
-		for ; randomExist[randomNumber] == true ;  {
-			randomNumber = authentication.GenerateRandomNumber(oneTimeAddrLen)
-		}
-		log.Info("Ringsig publickey random number: ", "number",randomNumber)
-
-		// get data string from stateDb
-		// generate a query index
-		keyIndex2, _ := authentication.ExpandToIndex(authentication.OneTimeAddrConfirmed, "", randomNumber)
-		// get data from the contract statedb
-		confirmedOneTimeAddr := self.GetState(ContractAddr, common.HexToHash(keyIndex2))
-
-		log.Info("confirmedOneTimeAddr: ","address: ", hex.EncodeToString(confirmedOneTimeAddr[:]))
-
-		// generate a query index
-		keyIndex3, _ := authentication.ExpandToIndex(authentication.OneTimeAddr, hex.EncodeToString(confirmedOneTimeAddr[:]), 3)
-		// get data from the contract statedb
-		resIndex := self.GetState(ContractAddr, common.HexToHash(keyIndex3))
-
-		eachPublicKeyLen := authentication.GetLen(resIndex[:])
-
-		if eachPublicKeyLen < common.HashLength {
-			return hex.EncodeToString(resIndex[:eachPublicKeyLen]),nil
-		}
-		forLen := eachPublicKeyLen / (int64(common.HashLength)*2)
-
-		// init query data hash
-		oneTimeAddrHash, _ := authentication.ExpandToIndex(authentication.OneTimeAddr, hex.EncodeToString(confirmedOneTimeAddr[:]), 3)
-
-		newKeyIndex := authentication.CalculateStateDbIndex(oneTimeAddrHash, "")
-		var buff bytes.Buffer
-		for j := int64(0); j <=  forLen; j++ {
-			newKeyIndexString := authentication.IncreaseHexByNum(newKeyIndex, j)
-			result := self.GetState(ContractAddr, common.HexToHash(newKeyIndexString))
-			buff.Write(result[:])
-			//res += BytesToString(result[:])
-		}
-		randomExist[randomNumber] = true
-		res += buff.String()[:eachPublicKeyLen/2] + ","
-		//fmt.Println("res: ", res)
-	}
-
-	return res[:len(res)-1], nil
-}
-
-
-type UnconfirmedAddr map[common.Address]bool
-func (self *StateDB) GetUnconfirmedAddr(ContractAddr common.Address, addrLen int64) ([]byte, error) {
-
-
-	// generate a query index
-	keyIndex4, _ := authentication.ExpandToIndex( authentication.OneTimeAddrConfirmedLenIndex, "",0)
-	// get data from the contract statedb
-	resultOneTimeAddrLen := self.GetState(ContractAddr, common.HexToHash(keyIndex4))
-
-	return resultOneTimeAddrLen[:], nil
-}
-
-func (self *StateDB) GetUnConfirmedMainInfo(ContractAddr common.Address, PubKeyLen int64,pos int64) (string,error) {
-	// generate key
-	//pos = 1 ringsig
-	//pos = 2 ASkey
-	//pos = 3 keyImage
-
-	keyIndex, _ := authentication.ExpandToIndex(authentication.UnConfirmedAddressLen, "", 0)
-	resultUnConfirmedAddressLen := self.GetState(ContractAddr, common.HexToHash(keyIndex))
-	unConfirmedAddressLen := authentication.GetLen(resultUnConfirmedAddressLen[:])
-	fmt.Println("unConfirmedAddressLen: ", unConfirmedAddressLen)
-	if unConfirmedAddressLen == 0 {
-		fmt.Println("No unConfirmedAddress")
-		return "",nil
-	}
-
-	// get unConfirmedAddress data
-	res := ""
-	for i := int64(0); i < unConfirmedAddressLen; i++ {
-
-		// generate i's keyindex to check unconfirmed address index
-		keyIndex, _ := authentication.ExpandToIndex(authentication.UnConfirmedAddress, "", i)
-		resultUnConfirmedAddressIndex :=self.GetState(ContractAddr, common.HexToHash(keyIndex))
-		//unConfirmedAddressIndex := state.G etLen(resultUnConfirmedAddressIndex[:])
-		fmt.Println("unconfirmed address index: ", resultUnConfirmedAddressIndex)
-
-		// generate unConfirmedAddress indexed key
-		newKeyIndex, _ := authentication.ExpandToIndex(authentication.CertToAddress, hex.EncodeToString(resultUnConfirmedAddressIndex[:]), 0)
-		resultUnConfirmedAddress := self.GetState(ContractAddr, common.HexToHash(newKeyIndex))
-		resultUnConfirmedAddr := hex.EncodeToString(resultUnConfirmedAddress[:])
-		fmt.Println("resultUnConfirmedAddress: ", "00"+resultUnConfirmedAddr[:len(resultUnConfirmedAddr)-2])
-
-		// ++++++++++++++++++++++++++++++++++++++++++++
-		// get ringSig
-		resultRingSig, _ := authentication.ExpandToIndex(authentication.CertificateAddr, "00"+resultUnConfirmedAddr[:len(resultUnConfirmedAddr)-2], 1)
-		addressRingSig := self.GetState(ContractAddr, common.HexToHash(resultRingSig))
-		addressRingSigLen := authentication.GetLen(addressRingSig[:])
-		forLen := addressRingSigLen / (int64(common.HashLength) * 2)
-		// init query data hash
-		var buff bytes.Buffer
-		for j := int64(0); j <= forLen; j++ {
-			newKeyIndexHash := authentication.CalculateStateDbIndex(resultRingSig, "")
-			newKeyIndexString := authentication.IncreaseHexByNum(newKeyIndexHash, j)
-			result := self.GetState(ContractAddr, common.HexToHash(newKeyIndexString))
-			buff.Write(result[:])
-		}
-		res += buff.String()[:addressRingSigLen/2]
-		fmt.Println("addressRingSig: ", res)
-
-		// ++++++++++++++++++++++++++++++++++++++++++++
-		// get pubSkey
-		resultPubSKey, _ := authentication.ExpandToIndex(authentication.CertificateAddr, "00"+resultUnConfirmedAddr[:len(resultUnConfirmedAddr)-2], 2)
-		addressPubSKey := self.GetState(ContractAddr, common.HexToHash(resultPubSKey))
-
-		addressPubSKeyLen := authentication.GetLen(addressPubSKey[:])
-		forLen1 := addressPubSKeyLen / (int64(common.HashLength) * 2)
-		var buff1 bytes.Buffer
-		res1 := ""
-		for j := int64(0); j <= forLen1; j++ {
-			newKeyIndexHash := authentication.CalculateStateDbIndex(resultPubSKey, "")
-			newKeyIndexString := authentication.IncreaseHexByNum(newKeyIndexHash, j)
-			result := self.GetState(ContractAddr, common.HexToHash(newKeyIndexString))
-			buff1.Write(result[:])
-		}
-		res1 += buff1.String()[:addressPubSKeyLen/2]
-		fmt.Println("addressPubSKey: ", res1)
-	}
-	return res,nil
-}
-
-func (self *StateDB) GetConfirmedMainInfo(ContractAddr common.Address, keyLen int64,pos int64) (string,error) {
-	// generate key
-	//pos = 1 ringsig
-	//pos = 2 ASkey
-	//pos = 3 keyImage
-	keyIndex, _ := authentication.ExpandToIndex(authentication.ConfirmedMainAddressLenIndex, "", 0)
-	resultConfirmedAddressLen := self.GetState(ContractAddr, common.HexToHash(keyIndex))
-	ConfirmedAddressLen := authentication.GetLen(resultConfirmedAddressLen[:])
-	fmt.Println("ConfirmedAddressLen: ", ConfirmedAddressLen)
-	if ConfirmedAddressLen == 0 {
-		fmt.Println("No ConfirmedAddress")
-		return "",nil
-	}
-
-	var res = ""
-	for  i := int64(0); i < keyLen; i++ {
-		// get data string from stateDb
-
-		// generate a query index
-		keyIndex5, _ := authentication.ExpandToIndex(authentication.ConfirmedMainAddress, "", i)
-		// get data from the contract statedb
-		confirmedMainAddr := self.GetState(ContractAddr, common.HexToHash(keyIndex5))
-
-		log.Info("confirmedMainAddr: ", hex.EncodeToString(confirmedMainAddr[:]))
-
-		// generate a query index
-		keyIndex6, _ := authentication.ExpandToIndex(authentication.CertificateAddr, hex.EncodeToString(confirmedMainAddr[:]), pos)
-		// get data from the contract statedb
-		resIndex := self.GetState(ContractAddr, common.HexToHash(keyIndex6))
-
-		eachPublicKeyLen := authentication.GetLen(resIndex[:])
-		fmt.Println("eachPublickeyLen: ", eachPublicKeyLen)
-		if eachPublicKeyLen < common.HashLength {
-			return hex.EncodeToString(resIndex[:eachPublicKeyLen]),nil
-		}
-		forLen := eachPublicKeyLen / (int64(common.HashLength)*2)
-
-		// init query data hash
-		mainAddrHash, _ := authentication.ExpandToIndex(authentication.CertificateAddr, hex.EncodeToString(confirmedMainAddr[:]), pos)
-		fmt.Println("oneTimeAddrHash: ", mainAddrHash)
-		newKeyIndex := authentication.CalculateStateDbIndex(mainAddrHash, "")
-		var buff bytes.Buffer
-		for j := int64(0); j <=  forLen; j++ {
-			newKeyIndexString := authentication.IncreaseHexByNum(newKeyIndex, j)
-			result := self.GetState(ContractAddr, common.HexToHash(newKeyIndexString))
-			buff.Write(result[:])
-			//res += BytesToString(result[:])
-		}
-		res += buff.String()[:eachPublicKeyLen/2] + ","
-		fmt.Println("res: ", res[:len(res)-1])
-	}
-	return res[:len(res)-1],nil
-}
-
-
-
-func (self *StateDB) GetConfirmedMainAS(ContractAddr common.Address, keyLen int64,pos int64) (string,error) {
-	// generate key
-	//pos = 1 ringsig
-	//pos = 2 ASkey
-	//pos = 3 keyImage
-
-	keyIndex, _ := authentication.ExpandToIndex(authentication.ConfirmedMainAddressLenIndex, "", 0)
-	resultConfirmedAddressLen := self.GetState(ContractAddr, common.HexToHash(keyIndex))
-	ConfirmedAddressLen := authentication.GetLen(resultConfirmedAddressLen[:])
-	fmt.Println("ConfirmedAddressLen: ", ConfirmedAddressLen)
-	if ConfirmedAddressLen == 0 {
-		fmt.Println("No ConfirmedAddress")
-		return "",nil
-	}
-
-	var res = ""
-	for  i := int64(0); i < keyLen; i++ {
-		// get data string from stateDb
-		keyIndex6, _ := authentication.ExpandToIndex(authentication.ConfirmedMainAddress, "", i)
-		// get data from the contract statedb
-		confirmedMainAddr := self.GetState(ContractAddr, common.HexToHash(keyIndex6))
-
-		fmt.Println("confirmedMainAddr: ", hex.EncodeToString(confirmedMainAddr[:]))
-
-
-
-		keyIndex7, _ := authentication.ExpandToIndex(authentication.CertificateAddr, hex.EncodeToString(confirmedMainAddr[:]), 2)
-		// get data from the contract statedb
-		resIndex := self.GetState(ContractAddr, common.HexToHash(keyIndex7))
-
-		eachPublicKeyLen := authentication.GetLen(resIndex[:])
-		fmt.Println("eachPublickeyLen: ", eachPublicKeyLen)
-		if eachPublicKeyLen < common.HashLength {
-			return hex.EncodeToString(resIndex[:eachPublicKeyLen]),nil
-		}
-		forLen := eachPublicKeyLen / (int64(common.HashLength)*2)
-
-		// init query data hash
-		mainAddrHash, _ := authentication.ExpandToIndex(authentication.CertificateAddr, hex.EncodeToString(confirmedMainAddr[:]), 2)
-		fmt.Println("oneTimeAddrHash: ", mainAddrHash)
-		newKeyIndex := authentication.CalculateStateDbIndex(mainAddrHash, "")
-		var buff bytes.Buffer
-		for j := int64(0); j <=  forLen; j++ {
-			newKeyIndexString := authentication.IncreaseHexByNum(newKeyIndex, j)
-			result := self.GetState(ContractAddr, common.HexToHash(newKeyIndexString))
-			buff.Write(result[:])
-			//res += BytesToString(result[:])
-		}
-		res += buff.String()[:eachPublicKeyLen/2] + ","
-		fmt.Println("res: ", res[:len(res)-1])
-	}
-	return res[:len(res)-1],nil
 }

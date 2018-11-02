@@ -17,25 +17,23 @@
 package committee
 
 import (
+	"crypto/ecdsa"
+	"errors"
 	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/accounts/keystore"
+	"github.com/usechain/go-usechain/cmd/utils"
 	"github.com/usechain/go-usechain/commitee/sssa"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/contracts/authentication"
 	"github.com/usechain/go-usechain/core/state"
+	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/eth"
+	"github.com/usechain/go-usechain/internal/ethapi"
 	"github.com/usechain/go-usechain/log"
-	"github.com/usechain/go-usechain/core/types"
-	"crypto/ecdsa"
 	"math/big"
 	"strconv"
-	"errors"
-	"github.com/usechain/go-usechain/internal/ethapi"
-	"encoding/hex"
-	"bytes"
-	"github.com/usechain/go-usechain/cmd/utils"
 )
 
 const (
@@ -274,57 +272,8 @@ func SendAccountConfirmMsg(ethereum *eth.Ethereum, certID int, confirmStat int) 
  * Return the certID, ringSig, pubSkey, checkCertID
  */
 func ReadUnconfirmedAddress(usechain *eth.Ethereum, index int64, contractAddr common.Address, checkCertID int64) (string, string, string, int64){
-	// generate i's keyindex to check unconfirmed address index
-	keyIndex, _ := authentication.ExpandToIndex(authentication.UnConfirmedAddress, "", index)
-	resultUnConfirmedAddressIndex := usechain.TxPool().State().GetState(contractAddr, common.HexToHash(keyIndex))
-	unConfirmedAddressIndex := authentication.GetLen(resultUnConfirmedAddressIndex[:])
-	log.Info("unconfirmed address", "index", resultUnConfirmedAddressIndex.String())
-
-	// check added
-	if  checkCertID >= unConfirmedAddressIndex {
-		return resultUnConfirmedAddressIndex.String(),"","", 0
-	}
-
-	// generate unConfirmedAddress indexed key
-	newKeyIndex, _ := authentication.ExpandToIndex(authentication.CertToAddress, hex.EncodeToString(resultUnConfirmedAddressIndex[:]), 0)
-	resultUnConfirmedAddress := usechain.TxPool().State().GetState(contractAddr, common.HexToHash(newKeyIndex))
-	resultUnConfirmedAddr := hex.EncodeToString(resultUnConfirmedAddress[:])
-	log.Info("resultUnConfirmed",  "address", "00"+resultUnConfirmedAddr[:len(resultUnConfirmedAddr)-2])
-
-	// get ringSig
-	resultRingSig, _ := authentication.ExpandToIndex(authentication.CertificateAddr, "00"+resultUnConfirmedAddr[:len(resultUnConfirmedAddr)-2], 1)
-	addressRingSig := usechain.TxPool().State().GetState(contractAddr, common.HexToHash(resultRingSig))
-	addressRingSigLen := authentication.GetLen(addressRingSig[:])
-	forLen := addressRingSigLen / (int64(common.HashLength) * 2)
-	// init query data hash
-	var buff bytes.Buffer
-	res := ""
-	for j := int64(0); j <= forLen; j++ {
-		newKeyIndexHash := authentication.CalculateStateDbIndex(resultRingSig, "")
-		newKeyIndexString := authentication.IncreaseHexByNum(newKeyIndexHash, j)
-		result := usechain.TxPool().State().GetState(contractAddr, common.HexToHash(newKeyIndexString))
-		buff.Write(result[:])
-	}
-	res += buff.String()[:addressRingSigLen/2]
-	log.Info("address", "RingSig", res)
-
-	// get pubSkey
-	resultPubSKey, _ := authentication.ExpandToIndex(authentication.CertificateAddr, "00"+resultUnConfirmedAddr[:len(resultUnConfirmedAddr)-2], 2)
-	addressPubSKey := usechain.TxPool().State().GetState(contractAddr, common.HexToHash(resultPubSKey))
-
-	addressPubSKeyLen := authentication.GetLen(addressPubSKey[:])
-	forLen1 := addressPubSKeyLen / (int64(common.HashLength) * 2)
-	var buff1 bytes.Buffer
-	res1 := ""
-	for j := int64(0); j <= forLen1; j++ {
-		newKeyIndexHash := authentication.CalculateStateDbIndex(resultPubSKey, "")
-		newKeyIndexString := authentication.IncreaseHexByNum(newKeyIndexHash, j)
-		result := usechain.TxPool().State().GetState(contractAddr, common.HexToHash(newKeyIndexString))
-		buff1.Write(result[:])
-	}
-	res1 += buff1.String()[:addressPubSKeyLen/2]
-	checkCertID = unConfirmedAddressIndex
-	return resultUnConfirmedAddressIndex.String(), res, res1, checkCertID
+	currentState := usechain.TxPool().State()
+	return authentication.ReadUnconfirmedAddressInterface(currentState, index, contractAddr, checkCertID)
 }
 
 

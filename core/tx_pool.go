@@ -710,23 +710,23 @@ func checkMultiAccountSig(tx *types.Transaction, _db *state.StateDB, _addType in
 
 	ringRes:=crypto.VerifyRingSign(msg, ringsign)
 	if ringRes == false {
-		return errors.New("verify ring signature error")
+		return errors.New("Verify ring signature error")
 	}
 
 	err, pubKeys, pubMirrorKey, _, _ := crypto.DecodeRingSignOut(ringsign)
 	if err != nil {
-		log.Error("The  ringSig decode failed")
+		log.Error("The ringSig decode failed")
 		return err
 	}
 
 	if  common.ToHex((crypto.FromECDSAPub(pubMirrorKey))) != pubMirror {
 		log.Error("The pubMirror doesn't match with ringSig")
-		return errors.New("the pubMirror doesn't match with ringSig")
+		return errors.New("The pubMirror doesn't match with ringSig")
 	}
 
 	if !_db.CheckRingSigPubKey(_addType, pubKeys) {
 		log.Error("The ringSig pubkey is illegal!")
-		return errors.New("the ringSig pubkey is illegal")
+		return errors.New("The ringSig pubkey is illegal")
 	}
 
 	return nil

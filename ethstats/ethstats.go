@@ -475,6 +475,8 @@ type blockStats struct {
 	Miner      common.Address `json:"miner"`
 	MinerNum   *big.Int		  `json:"minerNum"`
 	MinerTag   string		  `json:"minerTag"`
+	MinerQrSignature string   `json:"minerQrSignature"`
+	DifficultyLevel   *big.Int		  `json:"difficultyLevel"`
 	GasUsed    uint64         `json:"gasUsed"`
 	GasLimit   uint64         `json:"gasLimit"`
 	Diff       string         `json:"difficulty"`
@@ -563,6 +565,8 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 		Miner:      author,
 		MinerNum:	header.MinerNum,
 		MinerTag:   string(header.MinerTag),
+		MinerQrSignature: string((header.MinerQrSignature)),
+		DifficultyLevel:	header.DifficultyLevel,
 		GasUsed:    header.GasUsed,
 		GasLimit:   header.GasLimit,
 		Diff:       header.Difficulty.String(),

@@ -18,33 +18,55 @@ pragma solidity ^0.4.24;
 
 contract MinerList {
 
-    /// Indicator of miner
-    uint256 public MinerNum;
-    mapping (address => bool) public MinerAdded;
+    address[] public Miner;
 
     modifier onlyMiner(address _miner) {
-        require (MinerAdded[_miner] == true);
+        bool isMiner = false;
+        uint len=Miner.length;
+        for (uint i = 0; i<len; i++){
+            if(_miner == Miner[i]){
+                isMiner = true;
+                break;
+            }
+        }
+        require (isMiner == true);
         _;
     }
 
     modifier onlyNotMiner(address _miner) {
-        require (MinerAdded[_miner] == false);
+        bool isMiner = false;
+        uint len=Miner.length;
+        for (uint i = 0; i<len; i++){
+            if(_miner == Miner[i]){
+                isMiner = true;
+                break;
+            }
+        }
+        require (isMiner == false);
         _;
     }
 
-    ///change the owner
+    ///add miner
     function addMiner() public onlyNotMiner(msg.sender) returns(bool) {
-        MinerAdded[msg.sender] = true;
-        MinerNum++;
+        Miner.push(msg.sender);
         return true;
     }
 
-    ///del the owner
+    ///del miner
     function delMiner() public onlyMiner(msg.sender) returns(bool) {
-        MinerAdded[msg.sender] = false;
-        MinerNum--;
+        uint len=Miner.length;
+        for (uint i = 0; i<len; i++){
+            if(msg.sender == Miner[i]){
+                if(len == 1) {
+                    delete Miner[len-1];
+                    break;
+                }
+                Miner[i] = Miner[len-1];
+                delete Miner[len-1];
+                break;
+            }
+        }
         return true;
     }
-
 }
 

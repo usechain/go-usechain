@@ -20,6 +20,8 @@ func (h Header) MarshalJSON() ([]byte, error) {
 		Coinbase    common.Address `json:"miner"            gencodec:"required"`
 		MinerNum    *hexutil.Big   `json:"minerNum"         gencodec:"required"`
 		MinerTag    hexutil.Bytes  `json:"minerTag"         gencodec:"required"`
+		MinerQrSignature     hexutil.Bytes  `json:"minerQrSignature"          gencodec:"required"`
+		DifficultyLevel    *hexutil.Big   `json:"difficultyLevel"         gencodec:"required"`
 		Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
 		TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`
 		ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`
@@ -40,6 +42,8 @@ func (h Header) MarshalJSON() ([]byte, error) {
 	enc.Coinbase = h.Coinbase
 	enc.MinerNum = (*hexutil.Big)(h.MinerNum)
 	enc.MinerTag = h.MinerTag
+	enc.MinerQrSignature = h.MinerQrSignature
+	enc.DifficultyLevel = (*hexutil.Big)(h.DifficultyLevel)
 	enc.Root = h.Root
 	enc.TxHash = h.TxHash
 	enc.ReceiptHash = h.ReceiptHash
@@ -63,6 +67,8 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		Coinbase    *common.Address `json:"miner"            gencodec:"required"`
 		MinerNum	*hexutil.Big    `json:"minerNum"         gencodec:"required"`
 		MinerTag    *hexutil.Bytes  `json:"minerTag"         gencodec:"required"`
+		MinerQrSignature     *hexutil.Bytes  `json:"minerQrSignature"          gencodec:"required"`
+		DifficultyLevel	*hexutil.Big    `json:"difficultyLevel"         gencodec:"required"`
 		Root        *common.Hash    `json:"stateRoot"        gencodec:"required"`
 		TxHash      *common.Hash    `json:"transactionsRoot" gencodec:"required"`
 		ReceiptHash *common.Hash    `json:"receiptsRoot"     gencodec:"required"`
@@ -100,8 +106,16 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		return errors.New("missing required field 'minerTag' for Header")
 	}
 	h.MinerTag = *dec.MinerTag
+	if dec.MinerQrSignature == nil {
+		return errors.New("missing required field 'minerQrSignature' for Header")
+	}
+	h.MinerQrSignature = *dec.MinerQrSignature
 	if dec.Root == nil {
 		return errors.New("missing required field 'stateRoot' for Header")
+	}
+	h.DifficultyLevel = (*big.Int)(dec.DifficultyLevel)
+	if dec.DifficultyLevel == nil {
+		return errors.New("missing required field 'difficultyLevel' for Header")
 	}
 	h.Root = *dec.Root
 	if dec.TxHash == nil {

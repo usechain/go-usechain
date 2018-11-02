@@ -344,7 +344,8 @@ func (self *LightChain) postChainEvents(events []interface{}) {
 // chain events when necessary.
 func (self *LightChain) InsertHeaderChain(chain []*types.Header, checkFreq int) (int, error) {
 	start := time.Now()
-	if i, err := self.hc.ValidateHeaderChain(chain, checkFreq); err != nil {
+	state, _ := self.State()
+	if i, err := self.hc.ValidateHeaderChain(chain, checkFreq, state); err != nil {
 		return i, err
 	}
 

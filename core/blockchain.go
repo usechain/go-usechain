@@ -97,6 +97,7 @@ type BlockChain struct {
 	rmLogsFeed    event.Feed
 	chainFeed     event.Feed
 	chainSideFeed event.Feed
+	chainRpowFeed event.Feed
 	chainHeadFeed event.Feed
 	logsFeed      event.Feed
 	scope         event.SubscriptionScope
@@ -1041,7 +1042,10 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		headers[i] = block.Header()
 		seals[i] = true
 	}
-	abort, results := bc.engine.VerifyHeaders(bc, headers, seals)
+	var parentForVerifyHeaders *types.Block
+	parentForVerifyHeaders = bc.GetBlock(bc.CurrentBlock().Hash(), bc.CurrentBlock().NumberU64())
+	stateForVerifyHeaders, _ := state.New(parentForVerifyHeaders.Root(), bc.stateCache)
+	abort, results := bc.engine.VerifyHeaders(bc, headers, seals, stateForVerifyHeaders)
 	defer close(abort)
 
 	// Iterate over the blocks and insert when the verifier permits
@@ -1435,9 +1439,11 @@ Error: %v
 // of the header retrieval mechanisms already need to verify nonces, as well as
 // because nonces can be verified sparsely, not needing to check each.
 func (bc *BlockChain) InsertHeaderChain(chain []*types.Header, checkFreq int) (int, error) {
-
+	var parentForValidateHeaderChain *types.Block
+	parentForValidateHeaderChain = bc.GetBlock(bc.CurrentBlock().Hash(), bc.CurrentBlock().NumberU64())
+	stateForValidateHeaderChain, _ := state.New(parentForValidateHeaderChain.Root(), bc.stateCache)
 	start := time.Now()
-	if i, err := bc.hc.ValidateHeaderChain(chain, checkFreq); err != nil {
+	if i, err := bc.hc.ValidateHeaderChain(chain, checkFreq, stateForValidateHeaderChain); err != nil {
 		return i, err
 	}
 
@@ -1551,6 +1557,10 @@ func (bc *BlockChain) SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Su
 // SubscribeChainSideEvent registers a subscription of ChainSideEvent.
 func (bc *BlockChain) SubscribeChainSideEvent(ch chan<- ChainSideEvent) event.Subscription {
 	return bc.scope.Track(bc.chainSideFeed.Subscribe(ch))
+}
+
+func (bc *BlockChain) SubscribeChainRpowEvent(ch chan<- ChainRpowEvent) event.Subscription {
+	return bc.scope.Track(bc.chainRpowFeed.Subscribe(ch))
 }
 
 // SubscribeLogsEvent registers a subscription of []*types.Log.

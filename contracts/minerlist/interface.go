@@ -17,16 +17,22 @@
 package minerlist
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
-	"math/big"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/core/state"
+	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/crypto/sha3"
+	"math"
+	"math/big"
+	"strconv"
+	"strings"
 )
 
 const (
 	MinerListContract = "0xfffffffffffffffffffffffffffffffff0000002"
+	//MinerListContract = "0xe07723EadAc4Af9F198488acc3638F4F853D8f07"
 )
 
 func decodeHex(s string) []byte {
@@ -37,19 +43,6 @@ func decodeHex(s string) []byte {
 	return b
 }
 
-func formatData64bytes(_data string) string{
-	dataRawlength := len(_data)
-
-	if dataRawlength > 64 {
-		fmt.Println("the string is explicit the length")
-		return _data;
-	}
-	for index := 0; index < 64 - dataRawlength; index++ {
-		_data = "0" + _data;
-	}
-	return _data
-}
-
 func ReadMinerNum(statedb *state.StateDB) *big.Int {
 	paramIndex := "0000000000000000000000000000000000000000000000000000000000000000"
 
@@ -58,20 +51,56 @@ func ReadMinerNum(statedb *state.StateDB) *big.Int {
 	return res.Big()
 }
 
+// return the string data that has been added to the num
+func IncreaseHexByNum(indexKeyHash []byte, num int64) string {
+	x := big.NewInt(0)
+	y := big.NewInt(int64(num))
+	x.SetBytes(indexKeyHash)
+	x.Add(x, y)
+	return hex.EncodeToString(x.Bytes())
+}
 
 func IsMiner(statedb *state.StateDB, miner common.Address) bool {
-	key := formatData64bytes(miner.Hex()[2:])
-	paramIndex := "0000000000000000000000000000000000000000000000000000000000000001"
-
-	web3key := key + paramIndex
-
+	paramIndex := "0000000000000000000000000000000000000000000000000000000000000000"
 	hash := sha3.NewKeccak256()
+	hash.Write(decodeHex(paramIndex))
 	var keyIndex []byte
-	hash.Write(decodeHex(web3key))
 	keyIndex = hash.Sum(keyIndex)
+	for i := int64(0); i < ReadMinerNum(statedb).Int64() ; i++ {
+		res := statedb.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex,i)))
+		if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
+			return true
+		}
+	}
+	return false
+}
 
+func IsValidMiner(state *state.StateDB, miner common.Address, n *big.Int, difficultyLevel *big.Int) bool {
+	totalNum, _ := strconv.ParseFloat(ReadMinerNum(state).String(), 64)
+	level, _ := strconv.ParseFloat(difficultyLevel.String(),64)
+	id, _ := strconv.ParseFloat(n.String(), 64)
+
+	fmt.Println("totalNum",totalNum)
+	fmt.Println("level",level)
+	fmt.Println("id",id)
+
+	if id > totalNum * math.Pow(1, level) && totalNum > 1{
+		return false
+	}
+
+	paramIndex := "0000000000000000000000000000000000000000000000000000000000000000"
+	hash := sha3.NewKeccak256()
+	hash.Write(decodeHex(paramIndex))
+	var keyIndex []byte
+	keyIndex = hash.Sum(keyIndex)
 	// get data from the contract statedb
-	res := statedb.GetState(common.HexToAddress(MinerListContract), common.HexToHash(hex.EncodeToString(keyIndex)))
+	res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex,n.Int64())))
+	if strings.EqualFold(res.String()[26:], miner.String()[2:]){
+		return true
+	}
+	return false
+}
 
-	return res.Big().Cmp(big.NewInt(1)) == 0
+func CalQr(base []byte, number *big.Int, preQrSignature []byte) (common.Hash) {
+	return crypto.Keccak256Hash(bytes.Join([][]byte{base, number.Bytes(), preQrSignature}, []byte("")))
 }

@@ -524,6 +524,13 @@ func (pool *TxPool) State() *state.ManagedState {
 	return pool.pendingState
 }
 
+// State returns the current state in the blockchain head
+func (pool *TxPool) StateDB() *state.StateDB {
+	pool.mu.RLock()
+	defer pool.mu.RUnlock()
+	return pool.currentState
+}
+
 // Stats retrieves the current pool stats, namely the number of pending and the
 // number of queued (non-executable) transactions.
 func (pool *TxPool) Stats() (int, int) {

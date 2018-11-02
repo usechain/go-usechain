@@ -26,7 +26,7 @@ import (
 	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/consensus"
-	//"github.com/usechain/go-usechain/contracts/minerlist"
+	"github.com/usechain/go-usechain/contracts/minerlist"
 	"github.com/usechain/go-usechain/core"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
@@ -37,7 +37,6 @@ import (
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/params"
 	"gopkg.in/fatih/set.v0"
-	"github.com/usechain/go-usechain/contracts/minerlist"
 )
 
 const (
@@ -52,7 +51,12 @@ const (
 	// chainSideChanSize is the size of channel listening to ChainSideEvent.
 	chainSideChanSize = 10
 
-	genesisTag = "8287dbe2b47bcc884dce4b9ea1a0dc7681a91823af2267fb35f046dfdebaad32"
+	chainRpowChanSize = 10
+
+	genesisTag = "8287dbe2b47bcc884dce4b9ea1a0dc76"
+	genesisQrSignature = "8287dbe2b47bcc884dce4b9ea1a0dc76"
+
+	slot = 10
 )
 
 // Agent can register themself with the worker
@@ -105,6 +109,8 @@ type worker struct {
 	chainHeadSub event.Subscription
 	chainSideCh  chan core.ChainSideEvent
 	chainSideSub event.Subscription
+	chainRpowCh  chan core.ChainRpowEvent
+	chainRpowSub event.Subscription
 	wg           sync.WaitGroup
 
 	agents map[Agent]struct{}
@@ -140,6 +146,7 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		txCh:           make(chan core.TxPreEvent, txChanSize),
 		chainHeadCh:    make(chan core.ChainHeadEvent, chainHeadChanSize),
 		chainSideCh:    make(chan core.ChainSideEvent, chainSideChanSize),
+		chainRpowCh:    make(chan core.ChainRpowEvent, chainRpowChanSize),
 		chainDb:        eth.ChainDb(),
 		recv:           make(chan *Result, resultQueueSize),
 		chain:          eth.BlockChain(),
@@ -154,6 +161,7 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 	// Subscribe events for blockchain
 	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
 	worker.chainSideSub = eth.BlockChain().SubscribeChainSideEvent(worker.chainSideCh)
+	worker.chainRpowSub = eth.BlockChain().SubscribeChainRpowEvent(worker.chainRpowCh)
 	go worker.update()
 
 	go worker.wait()
@@ -256,13 +264,16 @@ func (self *worker) update() {
 		case <-self.chainHeadCh:
 			self.commitNewWork()
 
-		// Handle ChainSideEvent
+			// Handle ChainSideEvent
 		case ev := <-self.chainSideCh:
 			self.uncleMu.Lock()
 			self.possibleUncles[ev.Block.Hash()] = ev.Block
 			self.uncleMu.Unlock()
 
-		// Handle TxPreEvent
+		case <-self.chainRpowCh:
+			self.commitNewWork()
+
+			// Handle TxPreEvent
 		case ev := <-self.txCh:
 			// Apply transaction to the pending state if we're not mining
 			if atomic.LoadInt32(&self.mining) == 0 {
@@ -280,7 +291,7 @@ func (self *worker) update() {
 				}
 			}
 
-		// System stopped
+			// System stopped
 		case <-self.txSub.Err():
 			return
 		case <-self.chainHeadSub.Err():
@@ -424,13 +435,29 @@ func (self *worker) commitNewWork() {
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&self.mining) == 1 {
 		///TODO: add miner filter, and when there is only one miner, doesn't needs registration
-		if !minerlist.IsMiner(self.current.state, self.coinbase) && minerlist.ReadMinerNum(self.current.state).Int64() > 1  {
+		totalMinerNum := minerlist.ReadMinerNum(self.current.state)
+		if !minerlist.IsMiner(self.current.state, self.coinbase) && totalMinerNum.Int64() > 1  {
 			log.Error("Coinbase should be legal miner address, please register for mining")
 			return
 		}
 
-		header.Coinbase = self.coinbase
-		header.MinerNum = minerlist.ReadMinerNum(self.current.state)
+		preCoinbase := parent.Coinbase()
+		blockNumber := header.Number
+
+		var preSignatureQr []byte
+		if header.Number.Cmp(big.NewInt(1)) == 0 {
+			preSignatureQr = []byte(genesisQrSignature)
+		}else{
+			preSignatureQr = parent.MinerQrSignature()
+		}
+
+		qr := minerlist.CalQr(preCoinbase.Bytes(), blockNumber, preSignatureQr)
+		//idTarget := qr.Big().Rem(qr.Big(), totalMinerNum)
+
+		tstampParent := parent.Time()
+		tstampHead := time.Now().Unix()
+		tstampSub := tstampHead - tstampParent.Int64()
+		n := big.NewInt(tstampSub / slot)
 
 		// Look up the wallet containing the requested signer
 		account := accounts.Account{Address: self.coinbase}
@@ -446,15 +473,50 @@ func (self *worker) commitNewWork() {
 			log.Error("Failed to unlock the coinbase account", "err", err)
 			return
 		}
-		if header.Number.Cmp(big.NewInt(0)) == 0 {
+		preDifficultyLevel := parent.DifficultyLevel()
+		if header.Number.Cmp(big.NewInt(1)) == 0 {
 			header.MinerTag = []byte(genesisTag)
+			header.MinerQrSignature = []byte(genesisQrSignature)
+			header.DifficultyLevel = big.NewInt(1)
 		} else {
 			header.MinerTag = signature[:20]
+			qr := minerlist.CalQr(parent.Coinbase().Bytes(), header.Number, parent.MinerQrSignature()).Bytes()
+			minerQrSignature, _ := wallet.SignHash(account, qr)
+			header.MinerQrSignature = minerQrSignature[:20]
+			if n.Cmp(big.NewInt(0)) == 0 {
+				header.DifficultyLevel = big.NewInt(1)
+			}else{
+				header.DifficultyLevel = preDifficultyLevel.Add(preDifficultyLevel, n)
+				if header.DifficultyLevel.Cmp(big.NewInt(3)) > 0 {
+					header.DifficultyLevel = big.NewInt(3)
+				}
+			}
 		}
-	}
-	if err := self.engine.Prepare(self.chain, header); err != nil {
-		log.Error("Failed to prepare header for mining", "err", err)
-		return
+
+		if n.Cmp(big.NewInt(0)) == 0 && header.Number.Cmp(big.NewInt(10)) > 0 && !minerlist.IsValidMiner(self.current.state, self.coinbase, qr.Big().Rem(qr.Big(), totalMinerNum), header.DifficultyLevel ) {
+			self.chainRpowCh <- 1
+			return
+		}
+
+		if n.Cmp(big.NewInt(0)) > 0 && header.Number.Cmp(big.NewInt(10)) > 0{
+			id := minerlist.CalQr(qr.Big().Rem(qr.Big(), totalMinerNum).Bytes(), n, preSignatureQr).Big().Rem(minerlist.CalQr(qr.Big().Rem(qr.Big(), totalMinerNum).Bytes(), n, preSignatureQr).Big(), totalMinerNum)
+			if !minerlist.IsValidMiner(self.current.state, self.coinbase, id, header.DifficultyLevel) {
+				self.chainRpowCh <- 1
+				return
+			}
+		}
+
+		header.Coinbase = self.coinbase
+
+		if err := self.engine.Prepare(self.chain, header, self.current.state); err != nil {
+			log.Error("Failed to prepare header for mining", "err", err)
+			return
+		}
+	}else {
+		if err := self.engine.Prepare(self.chain, header, nil); err != nil {
+			log.Error("Failed to prepare header for mining", "err", err)
+			return
+		}
 	}
 
 	// Could potentially happen if starting to mine in an odd state.

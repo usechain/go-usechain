@@ -19,7 +19,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/usechain/go-usechain/contracts/authentication"
 	"os"
 	"runtime"
 	"sort"
@@ -32,6 +31,7 @@ import (
 	"github.com/usechain/go-usechain/common"
 	//"github.com/usechain/go-usechain/commitee/committee"
 	"github.com/usechain/go-usechain/console"
+	"github.com/usechain/go-usechain/contracts/authentication"
 	"github.com/usechain/go-usechain/core"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/eth"

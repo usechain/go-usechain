@@ -63,14 +63,6 @@ type StateDB interface {
 
 	ForEachStorage(common.Address, func(common.Hash, common.Hash) bool)
 
-
-
-	CheckAddrAuthenticateStat(common.Address) int
-	GetOneTimePubSet(common.Address, int64) (string,error)
-	GetUnConfirmedMainInfo(common.Address, int64,int64) (string,error)
-	GetConfirmedMainInfo(common.Address, int64,int64) (string,error)
-	GetConfirmedMainAS(common.Address, int64,int64) (string,error)
-
 	CheckMultiAccountSig(*types.Transaction, int, common.Address) error
 }
 

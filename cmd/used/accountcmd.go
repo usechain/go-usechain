@@ -17,31 +17,17 @@
 package main
 
 import (
-	"bytes"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/asn1"
-	"encoding/json"
-	"encoding/pem"
 	"fmt"
-	"io"
 	"io/ioutil"
-	"mime/multipart"
-	"net/http"
-	"net/url"
-	"os"
 	"strings"
 
-	"github.com/bitly/go-simplejson"
 	"github.com/usechain/go-usechain/accounts"
+	"github.com/usechain/go-usechain/accounts/cacertreg"
 	"github.com/usechain/go-usechain/accounts/keystore"
 	"github.com/usechain/go-usechain/cmd/utils"
 	"github.com/usechain/go-usechain/console"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/log"
-	"github.com/usechain/go-usechain/node"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -417,188 +403,13 @@ func verify(ctx *cli.Context) error {
 	q := ctx.GlobalString(utils.VerifyQueryFlag.Name)
 
 	if len(id) > 0 && len(photo) > 0 {
-		userAuthOperation(id, photo)
+		fileName := strings.Split(photo, ";")
+
+		cacertreg.UserAuthOperation(id, fileName)
 	} else if len(q) > 0 {
-		query(q)
+		cacertreg.Query(q)
 	} else {
 		fmt.Println("No parameter found.")
 	}
 	return nil
-}
-
-var CAurl string = "http://usechain.cn:8548/UsechainService/cert/cerauth"
-var CAquery string = "http://usechain.cn:8548/UsechainService/user/cerauth"
-
-func userAuthOperation(id string, photo string) error {
-
-	err := postVerifactionData(id, photo)
-	if err != nil {
-		utils.Fatalf("Failed to upload user info, %s\n", err)
-	}
-	return nil
-}
-
-func geneKeyFromId(id string) string {
-	if id == "" {
-		utils.Fatalf("Could not use empty string as ID")
-	}
-	idHex := crypto.Keccak256Hash([]byte(id)).Hex()
-	fmt.Printf("idHex: %v\n", idHex)
-	return idHex
-}
-
-func postVerifactionData(userId string, filename string) error {
-	//Create form
-	buf := new(bytes.Buffer)
-	writer := multipart.NewWriter(buf)
-	formFile, err := writer.CreateFormFile("uploadfile", filename)
-	if err != nil {
-		utils.Fatalf("Create form file failed: %s\n", err)
-	}
-
-	//read file and write data to form
-	srcFile, err := os.Open(filename)
-	if err != nil {
-		utils.Fatalf("Open source file failed: %s\n", err)
-	}
-	defer srcFile.Close()
-	_, err = io.Copy(formFile, srcFile)
-
-	//add user data field
-	idField, err := writer.CreateFormField("data")
-	r := strings.NewReader(geneUserData(userId)) //only id and name for now
-	_, err = io.Copy(idField, r)
-
-	//add CSR field
-	CSR := geneCSR(geneKeyFromId(userId))
-	CSRField, err := writer.CreateFormField("CSR")
-	r = strings.NewReader(CSR)
-	_, err = io.Copy(CSRField, r)
-
-	writer.Close()
-	contentType := writer.FormDataContentType()
-	// resp, err := http.Post("http://192.168.1.26:8548/UsechainService/cert/cerauth", contentType, buf)
-	resp, err := http.Post(CAurl, contentType, buf)
-	fmt.Println(readerToString(resp.Body))
-	if err != nil {
-		utils.Fatalf("Post failed: %s\n", err)
-	}
-
-	return nil
-}
-
-func readerToString(r io.Reader) string {
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(r)
-	return buf.String()
-}
-
-func query(s string) error {
-	if s == "" {
-		utils.Fatalf("Only one parameter is required")
-	}
-	queryId(CAquery, s)
-	return nil
-}
-
-func geneUserData(userId string) string {
-	values := map[string]string{"userId": userId}
-	userData, _ := json.Marshal(values)
-	return string(userData)
-}
-
-func geneCSR(idHex string) string {
-	keyBytes, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		utils.Fatalf("Generate RSA key pair error: %v", err)
-	}
-	publicKey := keyBytes.PublicKey
-	savePEMKey(node.DefaultDataDir()+"/userrsa.prv", keyBytes)
-	savePublicPEMKey(node.DefaultDataDir()+"/userrsa.pub", publicKey)
-
-	subj := pkix.Name{
-		CommonName: idHex,
-		// Locality:   []string{idHex},
-	}
-	rawSubj := subj.ToRDNSequence()
-	asn1Subj, _ := asn1.Marshal(rawSubj)
-	template := x509.CertificateRequest{
-		RawSubject:         asn1Subj,
-		SignatureAlgorithm: x509.SHA256WithRSA,
-	}
-
-	csrBytes, _ := x509.CreateCertificateRequest(rand.Reader, &template, keyBytes)
-	csrBuf := new(bytes.Buffer)
-	pem.Encode(csrBuf, &pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrBytes})
-
-	return csrBuf.String()
-}
-
-func queryId(CAserver string, idKey string) error {
-	u, _ := url.Parse(CAserver)
-	q := u.Query()
-	q.Add("idKey", idKey)
-	u.RawQuery = q.Encode()
-	log.Info("query url for idKey:", "idKey", idKey)
-	resp, err := http.Get(u.String())
-	if err != nil || resp.StatusCode != 200 {
-		utils.Fatalf("Your idKey is %s, please try again later", idKey)
-	}
-
-	CAbuf := new(bytes.Buffer)
-	CAbuf.ReadFrom(resp.Body)
-	jsondata, _ := simplejson.NewJson(CAbuf.Bytes())
-	certBytes, _ := jsondata.Get("data").Get("cert").Bytes()
-	if len(certBytes) == 0 {
-		utils.Fatalf("Failed to download CA file %s\n", certBytes)
-	}
-	cert := string(certBytes[:])
-
-	userCert := node.DefaultDataDir() + "/user.crt"
-	err = ioutil.WriteFile(userCert, []byte(cert), 0644)
-	checkError(err)
-	log.Info("CAbuf:", "CAbuf", CAbuf.String())
-	log.Info("Verification successful, your CA file stored in " + userCert)
-
-	return nil
-}
-
-func savePEMKey(fileName string, key *rsa.PrivateKey) {
-	outFile, err := os.Create(fileName)
-	checkError(err)
-	defer outFile.Close()
-
-	var privateKey = &pem.Block{
-		Type:  "PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(key),
-	}
-
-	err = pem.Encode(outFile, privateKey)
-	log.Info("Private key saved at " + fileName)
-	checkError(err)
-}
-
-func savePublicPEMKey(fileName string, pubkey rsa.PublicKey) {
-	asn1Bytes, err := asn1.Marshal(pubkey)
-	checkError(err)
-
-	var pemkey = &pem.Block{
-		Type:  "PUBLIC KEY",
-		Bytes: asn1Bytes,
-	}
-
-	pemfile, err := os.Create(fileName)
-	checkError(err)
-	defer pemfile.Close()
-
-	err = pem.Encode(pemfile, pemkey)
-	log.Info("Public key saved at " + fileName)
-	checkError(err)
-}
-
-func checkError(err error) {
-	if err != nil {
-		utils.Fatalf("Fatal error ", err.Error())
-		os.Exit(1)
-	}
 }

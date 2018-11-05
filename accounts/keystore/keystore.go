@@ -43,6 +43,7 @@ import (
 	"github.com/usechain/go-usechain/event"
 
 	"encoding/hex"
+
 	"github.com/usechain/go-usechain/log"
 )
 
@@ -115,6 +116,7 @@ func (ks *KeyStore) init(keydir string) {
 	})
 	// Create the initial list of wallets from the cache
 	accs := ks.cache.accounts()
+
 	ks.wallets = make([]accounts.Wallet, len(accs))
 	for i := 0; i < len(accs); i++ {
 		ks.wallets[i] = &keystoreWallet{account: accs[i], keystore: ks}
@@ -521,9 +523,9 @@ func (ks *KeyStore) GetAprivBaddress(a accounts.Account) (common.ABaddress, *ecd
 		return common.ABaddress{}, nil, ErrLocked
 	}
 
-	AprivKey:=unlockedKey.PrivateKey
-	ret:=GenerateBaseABaddress(&AprivKey.PublicKey)
-	return *ret,AprivKey, nil
+	AprivKey := unlockedKey.PrivateKey
+	ret := GenerateBaseABaddress(&AprivKey.PublicKey)
+	return *ret, AprivKey, nil
 }
 
 // B is commitee's publickey
@@ -614,7 +616,7 @@ func (ks *KeyStore) GetABaddr(a accounts.Account) (string, error) {
 	return ABaddress, nil
 }
 
-func (ks *KeyStore) GetRingSignInfo(a accounts.Account, from common.Address, ) (string, string, string)  {
+func (ks *KeyStore) GetRingSignInfo(a accounts.Account, from common.Address) (string, string, string) {
 	ks.mu.RLock()
 	defer ks.mu.RUnlock()
 

@@ -259,10 +259,10 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 
 	qr := minerlist.CalQr(preCoinbase.Bytes(), blockNumber, preSignatureQr)
 	totalMinerNum := minerlist.ReadMinerNum(state)
-	//idTarget := qr.Big().Rem(qr.Big(), totalMinerNum)
+	idTarget := qr.Big().Rem(qr.Big(), totalMinerNum)
 	n := tstampSub.Div(tstampSub, big.NewInt(10))
 
-	if n.Cmp(big.NewInt(0)) == 0  && header.Number.Cmp(big.NewInt(10)) > 0 && !minerlist.IsValidMiner(state, header.Coinbase, qr.Big().Rem(qr.Big(), totalMinerNum), big.NewInt(1)){
+	if n.Cmp(big.NewInt(0)) == 0  && header.Number.Cmp(big.NewInt(10)) > 0 && !minerlist.IsValidMiner(state, header.Coinbase, idTarget, big.NewInt(1)){
 		return fmt.Errorf("invalid miner")
 	}
 
@@ -271,7 +271,8 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 		if expectedLevel.Cmp(header.DifficultyLevel) != 0 {
 			return fmt.Errorf("invalid difficulty: have %v, want %v", header.DifficultyLevel, expectedLevel)
 		}
-		id := minerlist.CalQr(qr.Big().Rem(qr.Big(), totalMinerNum).Bytes(), n, preSignatureQr).Big().Rem(minerlist.CalQr(qr.Big().Rem(qr.Big(), totalMinerNum).Bytes(), n, preSignatureQr).Big(), totalMinerNum)
+		idn := minerlist.CalQr(idTarget.Bytes(), n, preSignatureQr)
+		id := idn.Big().Rem(idn.Big(), totalMinerNum)
 		if !minerlist.IsValidMiner(state, header.Coinbase, id, header.DifficultyLevel) {
 			return fmt.Errorf("invalid miner")
 		}

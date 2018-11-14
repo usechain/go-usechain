@@ -31,7 +31,7 @@
   "parentHash":"0x0000000000000000000000000000000000000000000000000000000000000000",
   "extraData": "",
   "config":{
-    "chainId":2
+    "chainId":15
   },
 
   "gasLimit":"0xffffffff"

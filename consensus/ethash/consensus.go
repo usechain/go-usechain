@@ -32,7 +32,7 @@ import (
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/params"
-	set "gopkg.in/fatih/set.v0"
+	"gopkg.in/fatih/set.v0"
 )
 
 // Ethash proof-of-work protocol constants.
@@ -229,6 +229,11 @@ func (ethash *Ethash) VerifyUncles(chain consensus.ChainReader, block *types.Blo
 // stock Ethereum ethash engine.
 // See YP section 4.3.4. "Block Header Validity"
 func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *types.Header, uncle bool, seal bool, state *state.StateDB) error {
+	///TODO: add miner filter, and when there is only one miner, doesn't needs registration
+	totalMinerNum := minerlist.ReadMinerNum(state)
+	if !minerlist.IsMiner(state, header.Coinbase) && totalMinerNum.Int64() > 1  {
+		return fmt.Errorf("Coinbase should be legal miner address, invalid miner")
+	}
 	// Ensure that the header's extra-data section is of a reasonable size
 	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
 		return fmt.Errorf("extra-data too long: %d > %d", len(header.Extra), params.MaximumExtraDataSize)
@@ -250,7 +255,7 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	// Verify block miner
 	tstampParent := parent.Time
 	tstampHead := header.Time
-	tstampSub := tstampHead.Sub(tstampHead, tstampParent)
+	tstampSub := new(big.Int).Sub(tstampHead, tstampParent)
 
 	preCoinbase := parent.Coinbase
 	blockNumber := header.Number
@@ -258,21 +263,23 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	preDifficultyLevel := parent.DifficultyLevel
 
 	qr := minerlist.CalQr(preCoinbase.Bytes(), blockNumber, preSignatureQr)
-	totalMinerNum := minerlist.ReadMinerNum(state)
-	idTarget := qr.Big().Rem(qr.Big(), totalMinerNum)
-	n := tstampSub.Div(tstampSub, big.NewInt(10))
+	idTarget := new(big.Int).Rem(qr.Big(), totalMinerNum)
+	n := new(big.Int).Div(tstampSub, big.NewInt(10))
 
-	if n.Cmp(big.NewInt(0)) == 0  && header.Number.Cmp(big.NewInt(10)) > 0 && !minerlist.IsValidMiner(state, header.Coinbase, idTarget, big.NewInt(1)){
+	if n.Cmp(common.Big0) == 0  && header.Number.Cmp(big.NewInt(10)) > 0 && !minerlist.IsValidMiner(state, header.Coinbase, idTarget, common.Big0){
 		return fmt.Errorf("invalid miner")
 	}
 
-	if n.Cmp(big.NewInt(0)) > 0 && header.Number.Cmp(big.NewInt(10)) > 0{
-		expectedLevel := preDifficultyLevel.Add(preDifficultyLevel, n)
+	if n.Cmp(common.Big0) > 0 && header.Number.Cmp(big.NewInt(10)) > 0{
+		expectedLevel := new(big.Int).Add(preDifficultyLevel, n)
+		if expectedLevel.Cmp(common.Big3) > 0 {
+			expectedLevel = common.Big3
+		}
 		if expectedLevel.Cmp(header.DifficultyLevel) != 0 {
-			return fmt.Errorf("invalid difficulty: have %v, want %v", header.DifficultyLevel, expectedLevel)
+			return fmt.Errorf("invalid difficultylevel: have %v, want %v", header.DifficultyLevel, expectedLevel)
 		}
 		idn := minerlist.CalQr(idTarget.Bytes(), n, preSignatureQr)
-		id := idn.Big().Rem(idn.Big(), totalMinerNum)
+		id := new(big.Int).Rem(idn.Big(), totalMinerNum)
 		if !minerlist.IsValidMiner(state, header.Coinbase, id, header.DifficultyLevel) {
 			return fmt.Errorf("invalid miner")
 		}

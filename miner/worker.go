@@ -441,25 +441,6 @@ func (self *worker) commitNewWork() {
 			return
 		}
 
-		preCoinbase := parent.Coinbase()
-		blockNumber := header.Number
-		var preSignatureQr []byte
-
-		if header.Number.Cmp(big.NewInt(1)) == 0 {
-			preSignatureQr = []byte(genesisQrSignature)
-		}else{
-			preSignatureQr = parent.MinerQrSignature()
-		}
-
-		qr := minerlist.CalQr(preCoinbase.Bytes(), blockNumber, preSignatureQr)
-		idTarget := qr.Big().Rem(qr.Big(), totalMinerNum)
-
-		tstampParent := parent.Time()
-		tstampHead := time.Now().Unix()
-		tstampSub := tstampHead - tstampParent.Int64()
-
-		n := big.NewInt(tstampSub / slot)
-
 		// Look up the wallet containing the requested signer
 		account := accounts.Account{Address: self.coinbase}
 		wallet, err :=self.eth.AccountManager().Find(account)
@@ -469,39 +450,57 @@ func (self *worker) commitNewWork() {
 
 		minerHash := crypto.Keccak256Hash(append((parent.Coinbase()).Bytes(), header.Number.Bytes()...))
 		// Assemble sign the data with the wallet
-		signature, err := wallet.SignHash(account, minerHash.Bytes())
 		if err != nil {
 			log.Error("Failed to unlock the coinbase account", "err", err)
 			return
 		}
 
+		var preSignatureQr []byte
+		if header.Number.Cmp(common.Big1) == 0 {
+			preSignatureQr = []byte(genesisQrSignature)
+		}else{
+			preSignatureQr = parent.MinerQrSignature()
+		}
+
+		preCoinbase := parent.Coinbase()
+		blockNumber := header.Number
+		qr := minerlist.CalQr(preCoinbase.Bytes(), blockNumber, preSignatureQr)
+		idTarget := new(big.Int).Rem(qr.Big(), totalMinerNum)
+
+		tstampParent := parent.Time()
+		tstampHead := time.Now().Unix()
+		tstampSub := tstampHead - tstampParent.Int64()
+		n := big.NewInt(tstampSub / slot)
+
+		signature, err := wallet.SignHash(account, minerHash.Bytes())
 		preDifficultyLevel := parent.DifficultyLevel()
-		if header.Number.Cmp(big.NewInt(1)) == 0 {
+
+		if header.Number.Cmp(common.Big1) == 0 {
 			header.MinerTag = []byte(genesisTag)
 			header.MinerQrSignature = []byte(genesisQrSignature)
-			header.DifficultyLevel = big.NewInt(1)
+			header.DifficultyLevel = common.Big0
 		} else {
 			header.MinerTag = signature[:20]
 			minerQrSignature, _ := wallet.SignHash(account, qr.Bytes())
 			header.MinerQrSignature = minerQrSignature[:20]
-			if n.Cmp(big.NewInt(0)) == 0 {
-				header.DifficultyLevel = big.NewInt(1)
+			if n.Cmp(common.Big0) == 0 {
+				header.DifficultyLevel = common.Big0
 			}else{
-				header.DifficultyLevel = preDifficultyLevel.Add(preDifficultyLevel, n)
-				if header.DifficultyLevel.Cmp(big.NewInt(3)) > 0 {
-					header.DifficultyLevel = big.NewInt(3)
+				header.DifficultyLevel = new(big.Int).Add(preDifficultyLevel, n)
+				if header.DifficultyLevel.Cmp(common.Big3) > 0 {
+					header.DifficultyLevel = common.Big3
 				}
 			}
 		}
 
-		if n.Cmp(big.NewInt(0)) == 0 && header.Number.Cmp(big.NewInt(10)) > 0 && !minerlist.IsValidMiner(self.current.state, self.coinbase, idTarget, header.DifficultyLevel ) {
+		if n.Cmp(common.Big0) == 0 && header.Number.Cmp(big.NewInt(10)) > 0 && !minerlist.IsValidMiner(self.current.state, self.coinbase, idTarget, header.DifficultyLevel ) {
 			self.chainRpowCh <- 1
 			return
 		}
 
-		if n.Cmp(big.NewInt(0)) > 0 && header.Number.Cmp(big.NewInt(10)) > 0{
+		if n.Cmp(common.Big0) > 0 && header.Number.Cmp(big.NewInt(10)) > 0{
 			idn := minerlist.CalQr(idTarget.Bytes(), n, preSignatureQr)
-			id := idn.Big().Rem(idn.Big(), totalMinerNum)
+			id := new(big.Int).Rem(idn.Big(), totalMinerNum)
 			if !minerlist.IsValidMiner(self.current.state, self.coinbase, id, header.DifficultyLevel) {
 				self.chainRpowCh <- 1
 				return

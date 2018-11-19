@@ -24,6 +24,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/hashicorp/golang-lru"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/consensus"
 	"github.com/usechain/go-usechain/core"
@@ -34,7 +35,6 @@ import (
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/params"
 	"github.com/usechain/go-usechain/rlp"
-	"github.com/hashicorp/golang-lru"
 )
 
 var (

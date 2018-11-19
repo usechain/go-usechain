@@ -133,7 +133,6 @@ search:
 				header = types.CopyHeader(header)
 				header.Nonce = types.EncodeNonce(nonce)
 				header.MixDigest = common.BytesToHash(digest)
-
 				// Seal and return a block (if still needed)
 				select {
 				case found <- block.WithSeal(header):

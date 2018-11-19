@@ -108,6 +108,8 @@ func (h *Header) GetUncleHash() *Hash    { return &Hash{h.header.UncleHash} }
 func (h *Header) GetCoinbase() *Address  { return &Address{h.header.Coinbase} }
 func (h *Header) GetMinerNum() *BigInt   { return &BigInt{h.header.MinerNum} }
 func (h *Header) GetMinerTag() []byte    { return h.header.MinerTag }
+func (h *Header) GetMinerQrSignature() []byte    { return h.header.MinerQrSignature }
+func (h *Header) GetDifficultyLevel() *BigInt   { return &BigInt{h.header.DifficultyLevel} }
 func (h *Header) GetRoot() *Hash         { return &Hash{h.header.Root} }
 func (h *Header) GetTxHash() *Hash       { return &Hash{h.header.TxHash} }
 func (h *Header) GetReceiptHash() *Hash  { return &Hash{h.header.ReceiptHash} }

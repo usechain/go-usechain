@@ -44,7 +44,6 @@ func decodeHex(s string) []byte {
 
 func ReadMinerNum(statedb *state.StateDB) *big.Int {
 	paramIndex := "0000000000000000000000000000000000000000000000000000000000000000"
-
 	// get data from the contract statedb
 	res := statedb.GetState(common.HexToAddress(MinerListContract), common.HexToHash(paramIndex))
 	return res.Big()
@@ -52,7 +51,7 @@ func ReadMinerNum(statedb *state.StateDB) *big.Int {
 
 // return the string data that has been added to the num
 func IncreaseHexByNum(indexKeyHash []byte, num int64) string {
-	x := big.NewInt(0)
+	x := common.Big0
 	y := big.NewInt(int64(num))
 	x.SetBytes(indexKeyHash)
 	x.Add(x, y)

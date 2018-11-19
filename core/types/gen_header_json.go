@@ -110,12 +110,12 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		return errors.New("missing required field 'minerQrSignature' for Header")
 	}
 	h.MinerQrSignature = *dec.MinerQrSignature
-	if dec.Root == nil {
-		return errors.New("missing required field 'stateRoot' for Header")
-	}
-	h.DifficultyLevel = (*big.Int)(dec.DifficultyLevel)
 	if dec.DifficultyLevel == nil {
 		return errors.New("missing required field 'difficultyLevel' for Header")
+	}
+	h.DifficultyLevel = (*big.Int)(dec.DifficultyLevel)
+	if dec.Root == nil {
+		return errors.New("missing required field 'stateRoot' for Header")
 	}
 	h.Root = *dec.Root
 	if dec.TxHash == nil {

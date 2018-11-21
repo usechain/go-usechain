@@ -21,46 +21,49 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/big"
 	"strings"
 	"time"
 
+	"github.com/usechain/go-usechain/contracts/authentication"
+
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/usechain/go-usechain/accounts"
+	"github.com/usechain/go-usechain/accounts/cacertreg"
 	"github.com/usechain/go-usechain/accounts/keystore"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/common/math"
 	"github.com/usechain/go-usechain/consensus/ethash"
+	"github.com/usechain/go-usechain/contracts/minerlist"
 	"github.com/usechain/go-usechain/core"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/core/vm"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/crypto/ecies"
-	"github.com/usechain/go-usechain/contracts/minerlist"
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/p2p"
 	"github.com/usechain/go-usechain/params"
 	"github.com/usechain/go-usechain/rlp"
 	"github.com/usechain/go-usechain/rpc"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/util"
 
-	"github.com/usechain/go-usechain/node"
 	"encoding/hex"
-	"github.com/usechain/go-usechain/accounts/abi"
 
-	"io/ioutil"
+	"github.com/usechain/go-usechain/accounts/abi"
+	"github.com/usechain/go-usechain/node"
+
 	"crypto/rand"
-	"strconv"
 )
 
 const (
-	defaultGasPrice = 50 * params.Shannon
+	defaultGasPrice          = 50 * params.Shannon
 	defaultGas               = 90000
 	emptyHex                 = "0x"
 	PublicKeyContractAddress = ""
 	TagInformation           = "0xffffffff"
-	testInfo 				 = "113b218c583e05d08130e04ddd9ff852095e3352ca79b0249385ce438035b3af"
+	testInfo                 = "113b218c583e05d08130e04ddd9ff852095e3352ca79b0249385ce438035b3af"
 )
 
 // PublicEthereumAPI provides an API to access Ethereum related information.
@@ -301,6 +304,24 @@ func (s *PrivateAccountAPI) DeriveAccount(url string, path string, pin *bool) (a
 	return wallet.Derive(derivPath, *pin)
 }
 
+//Verify will register a user id and prints the infomation about this id after register.
+func (s *PrivateAccountAPI) Verify(id string, photos []string) (string, error) {
+	IDKey, err := cacertreg.CAVerify(id, photos)
+	if err != nil {
+		return "", err
+	}
+	return IDKey, nil
+}
+
+//VerifyQuery supports user query their information after register.
+func (s *PrivateAccountAPI) VerifyQuery(id string) (bool, error) {
+	err := cacertreg.VerifyQuery(id)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // NewAccount will create a new account and returns the address for the new account.
 func (s *PrivateAccountAPI) NewAccount(password string) (common.Address, error) {
 	acc, err := fetchKeystore(s.am).NewAccount(password)
@@ -391,8 +412,8 @@ func (s *PrivateAccountAPI) SendTransaction(ctx context.Context, args SendTxArgs
 
 // Communications between committees
 func (s *PublicTransactionPoolAPI) SendMsg(ctx context.Context, args SendTxArgs) (common.Hash, error) {
-	input := make([]byte,len(*args.Data))
-	copy(input,*args.Data)
+	input := make([]byte, len(*args.Data))
+	copy(input, *args.Data)
 	args.Data = sendMsgWithTag(input)
 
 	return s.SendTransaction(ctx, args)
@@ -421,7 +442,6 @@ func sendMsgWithTag(msg []byte) *hexutil.Bytes {
 	out := hexutil.Bytes(output)
 	return &out
 }
-
 
 // SignTransaction will create a transaction from the given arguments and
 // tries to sign it with the key associated with args.To. If the given passwd isn't
@@ -854,7 +874,7 @@ func (s *PublicBlockChainAPI) rpcOutputBlock(b *types.Block, inclTx bool, fullTx
 		"logsBloom":        head.Bloom,
 		"stateRoot":        head.Root,
 		"miner":            head.Coinbase,
-		"minerNum":			head.MinerNum,
+		"minerNum":         head.MinerNum,
 		"minerTag":         head.MinerTag,
 		"difficulty":       (*hexutil.Big)(head.Difficulty),
 		"totalDifficulty":  (*hexutil.Big)(s.b.GetTd(b.Hash())),
@@ -1148,7 +1168,6 @@ func (s *PublicTransactionPoolAPI) sign(addr common.Address, tx *types.Transacti
 		chainID = config.ChainId
 	}
 
-
 	return wallet.SignTx(account, tx, chainID)
 }
 
@@ -1162,7 +1181,7 @@ type SendTxArgs struct {
 	Nonce    *hexutil.Uint64 `json:"nonce"`
 	// We accept "data" and "input" for backwards-compatibility reasons. "input" is the
 	// newer name and should be preferred by clients.
-	Data  *hexutil.Bytes `json:"data"`
+	Data *hexutil.Bytes `json:"data"`
 	//Data  []byte `json:"data"`
 	Input *hexutil.Bytes `json:"input"`
 }
@@ -1534,9 +1553,9 @@ func (s *PublicNetAPI) Version() string {
 }
 
 // NewABaccount will create a new account and returns the address for the new account.
-func (s *PrivateAccountAPI) NewABaccount(address common.Address,password string) (common.Address, error) {
+func (s *PrivateAccountAPI) NewABaccount(address common.Address, password string) (common.Address, error) {
 	account := accounts.Account{Address: address}
-	acc,_,err := fetchKeystore(s.am).NewABaccount(account,password)
+	acc, _, err := fetchKeystore(s.am).NewABaccount(account, password)
 	if err == nil {
 		return acc.Address, nil
 	}
@@ -1544,31 +1563,9 @@ func (s *PrivateAccountAPI) NewABaccount(address common.Address,password string)
 }
 
 // GenerateRSAKeypair will generate a  RSA key and RSA publick key
-func (s *PrivateAccountAPI) GenerateRSAKeypair() error  {
+func (s *PrivateAccountAPI) GenerateRSAKeypair() error {
 	err := crypto.GenerateRSAKeypair()
 	return err
-}
-
-// GenRingSign will generate ring signature
-func (s *PrivateAccountAPI) GenRingSign(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (string,string, error) {
-
-	// Look up the wallet containing the requested signer
-	account := accounts.Account{Address: address}
-	statedb, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
-	if statedb == nil || err != nil {
-		return "", "",err
-	}
-
-	am := s.b.AccountManager()
-
-	var from common.Address
-
-	ringsig,keyImage,err:=fetchKeystore(am).GenRingSignData(account,from,statedb)
-	if err !=nil {
-		log.Error("GenRingSign error: ", "error", err)
-	}
-
-	return ringsig,keyImage,nil
 }
 
 // SendOneTimeTransaction creates a transaction for the given argument, sign it and submit it to authentication contract.
@@ -1594,29 +1591,29 @@ func (s *PublicTransactionPoolAPI) SendOneTimeTransaction(ctx context.Context, a
 	}
 
 	//public key
-	am:=s.b.AccountManager()
-	pub,err:=fetchKeystore(am).GetPublicKey(account)
+	am := s.b.AccountManager()
+	pub, err := fetchKeystore(am).GetPublicKey(account)
 
 	//signature
-	message:=hex.EncodeToString(args.From[:])
-	sig,err:=crypto.RSA_Sign(message)
-	if err !=nil{
-		return common.Hash{},err
+	message := hex.EncodeToString(args.From[:])
+	sig, err := crypto.RSA_Sign(message)
+	if err != nil {
+		return common.Hash{}, err
 	}
 
 	//certificate
-	cert,err:=getCert()
-	if err !=nil{
-		return common.Hash{},err
+	cert, err := getCert()
+	if err != nil {
+		return common.Hash{}, err
 	}
 
 	myAbi, err := abi.JSON(strings.NewReader(common.UsechainABI))
 	if err != nil {
-		abierror:=fmt.Sprintf("abi.JSON error: %v",err)
+		abierror := fmt.Sprintf("abi.JSON error: %v", err)
 		log.Warn(abierror)
 	}
 
-	bytesData, _ := myAbi.Pack("storeOneTimeAddress", pub, sig,cert)
+	bytesData, _ := myAbi.Pack("storeOneTimeAddress", pub, sig, cert)
 
 	if args.Data == nil {
 		args.Data = new(hexutil.Bytes)
@@ -1625,7 +1622,7 @@ func (s *PublicTransactionPoolAPI) SendOneTimeTransaction(ctx context.Context, a
 	*args.Data = hexutil.Bytes(bytesData)[:]
 
 	// Assemble the transaction and sign with the wallet
-	tx:= args.toTransaction()
+	tx := args.toTransaction()
 	var chainID *big.Int
 	if config := s.b.ChainConfig(); config.IsEIP155(s.b.CurrentBlock().Number()) {
 		chainID = config.ChainId
@@ -1638,16 +1635,16 @@ func (s *PublicTransactionPoolAPI) SendOneTimeTransaction(ctx context.Context, a
 }
 
 // getCert will read user.crt and return certificate string
-func getCert() (string,error) {
-	cert := node.DefaultDataDir()+"/user.crt"
+func getCert() (string, error) {
+	cert := node.DefaultDataDir() + "/user.crt"
 	// parse user certificate
 	certByte, err := ioutil.ReadFile(cert)
 	if err != nil {
 		log.Error("ReadFile err:", "error", err)
-		return "",err
+		return "", err
 	}
-	certAscii:=hex.EncodeToString(certByte[:])
-	return certAscii,err
+	certAscii := hex.EncodeToString(certByte[:])
+	return certAscii, err
 }
 
 // Added 2018/07/16
@@ -1657,7 +1654,8 @@ func (s *PublicBlockChainAPI) GetOneTimePubSet(ctx context.Context, contracrAddr
 	if stateDb == nil || err != nil {
 		return "", err
 	}
-	pub,err:= stateDb.GetOneTimePubSet(contracrAddress, PubKeyLen)
+	//pub,err:= stateDb.GetOneTimePubSet(contracrAddress, PubKeyLen)
+	pub, err := authentication.GetOneTimePubSetInterface(stateDb, contracrAddress, PubKeyLen)
 	if err != nil {
 		log.Error("GetOneTimePubSet error: ", "error", err)
 	}
@@ -1665,12 +1663,13 @@ func (s *PublicBlockChainAPI) GetOneTimePubSet(ctx context.Context, contracrAddr
 }
 
 // GetUnConfirmedMainInfo query contract UnConfirmed transaction data
-func (s *PublicBlockChainAPI) GetUnConfirmedMainInfo(ctx context.Context, contracrAddress common.Address, PubKeyLen int64,pos int64, blockNr rpc.BlockNumber) (string, error) {
+func (s *PublicBlockChainAPI) GetUnConfirmedMainInfo(ctx context.Context, contracrAddress common.Address, PubKeyLen int64, pos int64, blockNr rpc.BlockNumber) (string, error) {
 	stateDb, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if stateDb == nil || err != nil {
 		return "", err
 	}
-	pub,err:= stateDb.GetUnConfirmedMainInfo(contracrAddress, PubKeyLen,pos)
+	//pub,err:= stateDb.GetUnConfirmedMainInfo(contracrAddress, PubKeyLen,pos)
+	pub, err := authentication.GetUnConfirmedMainInfoInterface(stateDb, contracrAddress, PubKeyLen, pos)
 	if err != nil {
 		log.Error("GetUnConfirmedMainInfo error: ", "error", err)
 	}
@@ -1678,12 +1677,13 @@ func (s *PublicBlockChainAPI) GetUnConfirmedMainInfo(ctx context.Context, contra
 }
 
 // GetConfirmedMainInfo query contract Confirmed transaction data
-func (s *PublicBlockChainAPI) GetConfirmedMainInfo(ctx context.Context, contracrAddress common.Address, PubKeyLen int64,pos int64, blockNr rpc.BlockNumber) (string, error) {
+func (s *PublicBlockChainAPI) GetConfirmedMainInfo(ctx context.Context, contracrAddress common.Address, PubKeyLen int64, pos int64, blockNr rpc.BlockNumber) (string, error) {
 	stateDb, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if stateDb == nil || err != nil {
 		return "", err
 	}
-	pub,err:= stateDb.GetConfirmedMainInfo(contracrAddress, PubKeyLen,pos)
+	//pub,err:= stateDb.GetConfirmedMainInfo(contracrAddress, PubKeyLen,pos)
+	pub, err := authentication.GetConfirmedMainInfoInterface(stateDb, contracrAddress, PubKeyLen, pos)
 	if err != nil {
 		log.Error("GetConfirmedMainInfo error: ", "error", err)
 	}
@@ -1691,22 +1691,23 @@ func (s *PublicBlockChainAPI) GetConfirmedMainInfo(ctx context.Context, contracr
 }
 
 // GetConfirmedMainAS query contract Confirmed transaction data and select AS randomly
-func (s *PublicBlockChainAPI) GetConfirmedMainAS(ctx context.Context, contracrAddress common.Address, KeyLen int64,pos int64, blockNr rpc.BlockNumber) (string, error) {
+func (s *PublicBlockChainAPI) GetConfirmedMainAS(ctx context.Context, contracrAddress common.Address, KeyLen int64, pos int64, blockNr rpc.BlockNumber) (string, error) {
 	stateDb, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if stateDb == nil || err != nil {
 		return "", err
 	}
-	pub,err:= stateDb.GetConfirmedMainAS(contracrAddress, KeyLen,pos)
+	//pub,err:= stateDb.GetConfirmedMainAS(contracrAddress, KeyLen,pos)
+	pub, err := authentication.GetConfirmedMainASInterface(stateDb, contracrAddress, KeyLen, pos)
 	if err != nil {
 		log.Error("GetConfirmedMainAS error: ", "error", err)
 	}
 	return pub, err
 }
 
-func (s *PublicBlockChainAPI) QueryAddr(ctx context.Context, addr common.Address,blockNr rpc.BlockNumber) (uint64) {
+func (s *PublicBlockChainAPI) QueryAddr(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) uint64 {
 	stateDb, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if stateDb == nil || err != nil {
-		return  0
+		return 0
 	}
 
 	if stateDb.CheckAddrAuthenticateStat(addr) == 0 {
@@ -1715,10 +1716,10 @@ func (s *PublicBlockChainAPI) QueryAddr(ctx context.Context, addr common.Address
 	return 1
 }
 
-func (s *PublicBlockChainAPI) MinerAddr(ctx context.Context, addr common.Address,blockNr rpc.BlockNumber) (uint64) {
+func (s *PublicBlockChainAPI) MinerAddr(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) uint64 {
 	stateDb, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if stateDb == nil || err != nil {
-		return  0
+		return 0
 	}
 
 	if minerlist.IsMiner(stateDb, addr) == false {
@@ -1727,18 +1728,16 @@ func (s *PublicBlockChainAPI) MinerAddr(ctx context.Context, addr common.Address
 	return 1
 }
 
-
 /// SendMainTransaction send  account transaction
-func (s *PublicTransactionPoolAPI) SendMainTransaction(ctx context.Context, address common.Address,args SendTxArgs, blockNr rpc.BlockNumber) (common.Hash, error) {
+func (s *PublicTransactionPoolAPI) SendMainTransaction(ctx context.Context, address common.Address, args SendTxArgs, blockNr rpc.BlockNumber) (common.Hash, error) {
 
 	accountOTA := accounts.Account{Address: address}
-	am:=s.b.AccountManager()
+	am := s.b.AccountManager()
 
 	// Look up the wallet containing the requested signer
-	account:= accounts.Account{Address: args.From}
+	account := accounts.Account{Address: args.From}
 	wallet, err := s.b.AccountManager().Find(account)
 	if err != nil {
-
 
 		return common.Hash{}, err
 	}
@@ -1756,34 +1755,37 @@ func (s *PublicTransactionPoolAPI) SendMainTransaction(ctx context.Context, addr
 	}
 
 	//get A1S1
-	AS,err:=fetchKeystore(am).GetABaddr(account)
+	AS, err := fetchKeystore(am).GetABaddr(account)
 
 	//generate ringsig,KeyImage
 	statedb, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if statedb == nil || err != nil {
 		log.Error("statedb error: ", "error", err)
 	}
-	ringsig,keyImage,err:=fetchKeystore(am).GenRingSignData(accountOTA,args.From,statedb)
-	if err !=nil{
-		return common.Hash{},err
+	//ringsig,keyImage,err:=fetchKeystore(am).GenRingSignData(accountOTA,args.From)
+	privateKey, addr, msg := fetchKeystore(am).GetRingSignInfo(accountOTA, args.From)
+
+	ringsig, keyImage, err := authentication.GenRingSignData(msg, privateKey, addr, statedb)
+	if err != nil {
+		return common.Hash{}, err
 	}
 
 	myAbi, err := abi.JSON(strings.NewReader(common.UsechainABI))
 	if err != nil {
-		abierror:=fmt.Sprintf("abi.JSON error: %v",err)
+		abierror := fmt.Sprintf("abi.JSON error: %v", err)
 		log.Warn(abierror)
 	}
 
-	bytesData, _ := myAbi.Pack("storeMainUserCert", ringsig, AS,keyImage)
+	bytesData, _ := myAbi.Pack("storeMainUserCert", ringsig, AS, keyImage)
 
 	if args.Data == nil {
 		args.Data = new(hexutil.Bytes)
 	}
 
-	*args.Data= hexutil.Bytes(bytesData)[:]
+	*args.Data = hexutil.Bytes(bytesData)[:]
 
 	// Assemble the transaction and sign with the wallet
-	tx:= args.toTransaction()
+	tx := args.toTransaction()
 
 	var chainID *big.Int
 	if config := s.b.ChainConfig(); config.IsEIP155(s.b.CurrentBlock().Number()) {
@@ -1797,69 +1799,10 @@ func (s *PublicTransactionPoolAPI) SendMainTransaction(ctx context.Context, addr
 }
 
 // SendSubTransaction creates a sub account authentication transaction for the given argument, sign it and submit it to authentication contract.
-func (s *PublicTransactionPoolAPI) SendSubTransaction(ctx context.Context, address common.Address,args SendTxArgs, blockNr rpc.BlockNumber) (common.Hash, error) {
+func (s *PublicTransactionPoolAPI) SendSubTransaction(ctx context.Context, address common.Address, args SendTxArgs, blockNr rpc.BlockNumber) (common.Hash, error) {
 	accountOTA := accounts.Account{Address: address}
-	am:=s.b.AccountManager()
+	am := s.b.AccountManager()
 
-	// Look up the wallet containing the requested signer
-	account:= accounts.Account{Address: args.From}
-	wallet, err := s.b.AccountManager().Find(account)
-	if err != nil {
-		return common.Hash{}, err
-	}
-
-	if args.Nonce == nil {
-		// Hold the addresse's mutex around signing to prevent concurrent assignment of
-		// the same nonce to multiple accounts.
-		s.nonceLock.LockAddr(args.From)
-		defer s.nonceLock.UnlockAddr(args.From)
-	}
-
-	// Set some sanity defaults and terminate on failure
-	if err := args.setDefaults(ctx, s.b); err != nil {
-		return common.Hash{}, err
-	}
-
-	//get A1S1
-	AS,err:=fetchKeystore(am).GetABaddr(account)
-
-	//generate ringsig,KeyImage
-	statedb, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
-	if statedb == nil || err != nil {
-		log.Error("statedb error: ", "error", err)
-	}
-	ringsig,keyImage,err:=fetchKeystore(am).GenRingSignData(accountOTA,args.From,statedb)
-
-	myAbi, err := abi.JSON(strings.NewReader(common.UsechainABI))
-	if err != nil {
-		abierror:=fmt.Sprintf("abi.JSON error: %v",err)
-		log.Warn(abierror)
-	}
-
-	bytesData, _ := myAbi.Pack("storeSubUserCert", ringsig, AS,keyImage)
-
-	if args.Data == nil {
-		args.Data = new(hexutil.Bytes)
-	}
-
-	*args.Data= hexutil.Bytes(bytesData)[:]
-
-	// Assemble the transaction and sign with the wallet
-	tx:= args.toTransaction()
-
-	var chainID *big.Int
-	if config := s.b.ChainConfig(); config.IsEIP155(s.b.CurrentBlock().Number()) {
-		chainID = config.ChainId
-	}
-	signed, err := wallet.SignTx(account, tx, chainID)
-	if err != nil {
-		return common.Hash{}, err
-	}
-	return submitTransaction(ctx, s.b, signed)
-}
-
-// SendSubTransaction creates a confirmed account authentication transaction for the given argument, sign it and submit it to authentication contract.
-func (s *PublicTransactionPoolAPI) SendCommTransaction(ctx context.Context,CertID int64, args SendTxArgs) (common.Hash, error) {
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: args.From}
 	wallet, err := s.b.AccountManager().Find(account)
@@ -1879,21 +1822,40 @@ func (s *PublicTransactionPoolAPI) SendCommTransaction(ctx context.Context,CertI
 		return common.Hash{}, err
 	}
 
-	certHex:=strconv.FormatInt(CertID,16)
+	//get A1S1
+	AS, err := fetchKeystore(am).GetABaddr(account)
 
-	method:="c03c1796"
-	cert_id:="0000000000000000000000000000000000000000000000000000000000000001"
-	confirm_bool:="0000000000000000000000000000000000000000000000000000000000000001"
-	dataString := method +cert_id[0:len(cert_id)-len(certHex)]+certHex+ confirm_bool
-
-	dst,err:=hex.DecodeString(dataString)
-	if err !=nil {
-		log.Error("decode string error", "error", err)
+	//generate ringsig,KeyImage
+	statedb, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if statedb == nil || err != nil {
+		log.Error("statedb error: ", "error", err)
 	}
-	*args.Data= hexutil.Bytes(dst)[:]
+	//ringsig,keyImage,err:=fetchKeystore(am).GenRingSignData(accountOTA,args.From,statedb)
+
+	privateKey, addr, msg := fetchKeystore(am).GetRingSignInfo(accountOTA, args.From)
+
+	ringsig, keyImage, err := authentication.GenSubRingSignData(msg, privateKey, addr, statedb)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	myAbi, err := abi.JSON(strings.NewReader(common.UsechainABI))
+	if err != nil {
+		abierror := fmt.Sprintf("abi.JSON error: %v", err)
+		log.Warn(abierror)
+	}
+
+	bytesData, _ := myAbi.Pack("storeSubUserCert", ringsig, AS, keyImage)
+
+	if args.Data == nil {
+		args.Data = new(hexutil.Bytes)
+	}
+
+	*args.Data = hexutil.Bytes(bytesData)[:]
 
 	// Assemble the transaction and sign with the wallet
-	tx:= args.toTransaction()
+	tx := args.toTransaction()
+
 	var chainID *big.Int
 	if config := s.b.ChainConfig(); config.IsEIP155(s.b.CurrentBlock().Number()) {
 		chainID = config.ChainId

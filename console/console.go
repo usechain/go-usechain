@@ -28,12 +28,12 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/usechain/go-usechain/internal/jsre"
-	"github.com/usechain/go-usechain/internal/web3ext"
-	"github.com/usechain/go-usechain/rpc"
 	"github.com/mattn/go-colorable"
 	"github.com/peterh/liner"
 	"github.com/robertkrimen/otto"
+	"github.com/usechain/go-usechain/internal/jsre"
+	"github.com/usechain/go-usechain/internal/web3ext"
+	"github.com/usechain/go-usechain/rpc"
 )
 
 var (
@@ -185,11 +185,19 @@ func (c *Console) init(preload []string) error {
 			if _, err = c.jsre.Run(`jeth.sign = personal.sign;`); err != nil {
 				return fmt.Errorf("personal.sign: %v", err)
 			}
+			if _, err = c.jsre.Run(`jeth.verify = personal.verify;`); err != nil {
+				return fmt.Errorf("personal.verify: %v", err)
+			}
+			if _, err = c.jsre.Run(`jeth.verifyQuery = personal.verifyQuery;`); err != nil {
+				return fmt.Errorf("personal.verifyQuery: %v", err)
+			}
 			obj.Set("openWallet", bridge.OpenWallet)
 			obj.Set("unlockAccount", bridge.UnlockAccount)
 			obj.Set("newAccount", bridge.NewAccount)
 			obj.Set("newABaccount", bridge.NewABaccount)
 			obj.Set("sign", bridge.Sign)
+			obj.Set("verify", bridge.Verify)
+			obj.Set("verifyQuery", bridge.VerifyQuery)
 		}
 	}
 	// The admin.sleep and admin.sleepBlocks are offered by the console and not by the RPC layer.

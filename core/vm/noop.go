@@ -69,11 +69,6 @@ func (NoopStateDB) AddLog(*types.Log)                                           
 func (NoopStateDB) AddPreimage(common.Hash, []byte)                                    {}
 func (NoopStateDB) ForEachStorage(common.Address, func(common.Hash, common.Hash) bool) {}
 
-func (NoopStateDB) CheckAddrAuthenticateStat(common.Address) int						{return 0}
-func (NoopStateDB) GetOneTimePubSet(common.Address, int64) (string,error)				{return "",nil}
-func (NoopStateDB) GetUnConfirmedMainInfo(common.Address, int64,int64) (string,error)					{return "",nil}
-func (NoopStateDB) GetConfirmedMainInfo(common.Address, int64,int64) (string,error)						{return "",nil}
-func (NoopStateDB) GetConfirmedMainAS(common.Address, int64,int64) (string,error)							{return "",nil}
 func (NoopStateDB) CheckMultiAccountSig(*types.Transaction, int, common.Address) error {return nil}
 
 

@@ -464,7 +464,7 @@ func CheckUserCert(userCert string) bool {
 	}
 
 	err = userCert2.CheckSignatureFrom(rcaCert)
-	log.Info("check eCert signature: ", "err", err == nil)
+	//log.Info("check eCert signature: ", "err", err == nil)
 	return err == nil
 }
 
@@ -494,7 +494,7 @@ func CheckUserCertStandard(userCert string, addr common.Address, signature []byt
 	}
 
 	err = userCert2.CheckSignatureFrom(rcaCert)
-	log.Info("check eCert signature: ", "err", err)
+	//log.Info("check eCert signature: ", "err", err)
 	if err != nil {
 		return err
 	}
@@ -513,7 +513,7 @@ func CheckUserCertStandard(userCert string, addr common.Address, signature []byt
 		log.Info("address signature verify passed")
 	}
 
-	log.Info("check address signature: ", "err", err)
+	//log.Info("check address signature: ", "err", err)
 	return nil
 }
 

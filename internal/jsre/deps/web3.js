@@ -3831,60 +3831,6 @@ var inputMinerUnRegisterFormatter = function (options){
 };
 
 /**
- * Formats the input of a main account authentication transaction and converts all values to HEX
- *
- * @method inputAuthenticationFormatter
- * @param {Object} transaction options
- * @returns object
- */
-
-var inputAuthenticationFormatter = function (options){
-
-    options.from = options.from || config.defaultAccount;
-    options.from = inputAddressFormatter(options.from);
-
-    if (options.to) { // it might be contract creation
-        options.to = inputAddressFormatter(options.to);
-    }
-    options.data = "0xfdf03f86" + options.data;
-
-    ['gasPrice', 'gas', 'value', 'nonce'].filter(function (key) {
-        return options[key] !== undefined;
-    }).forEach(function(key){
-        options[key] = utils.fromDecimal(options[key]);
-    });
-
-    return options;
-};
-
-/**
- * Formats the input of a sub account authentication transaction and converts all values to HEX
- *
- * @method inputSubAuthenticationFormatter
- * @param {Object} transaction options
- * @returns object
- */
-
-var inputSubAuthenticationFormatter = function (options){
-
-    options.from = options.from || config.defaultAccount;
-    options.from = inputAddressFormatter(options.from);
-
-    if (options.to) { // it might be contract creation
-        options.to = inputAddressFormatter(options.to);
-    }
-    options.data = "0x10c956ea" + options.data;
-
-    ['gasPrice', 'gas', 'value', 'nonce'].filter(function (key) {
-        return options[key] !== undefined;
-    }).forEach(function(key){
-        options[key] = utils.fromDecimal(options[key]);
-    });
-
-    return options;
-};
-
-/**
  * Formats the output of a transaction to its proper values
  *
  * @method outputTransactionFormatter
@@ -4070,8 +4016,6 @@ module.exports = {
     inputTransactionFormatter: inputTransactionFormatter,
     inputMinerRegisterFormatter: inputMinerRegisterFormatter,
     inputMinerUnRegisterFormatter: inputMinerUnRegisterFormatter,
-    inputAuthenticationFormatter: inputAuthenticationFormatter,
-    inputSubAuthenticationFormatter: inputSubAuthenticationFormatter,
     inputAddressFormatter: inputAddressFormatter,
     inputPostFormatter: inputPostFormatter,
     outputBigNumberFormatter: outputBigNumberFormatter,
@@ -5745,6 +5689,18 @@ function Personal(web3) {
 }
 
 var methods = function () {
+    var verify = new Method({
+        name: 'verify',
+        call: 'personal_verify',
+        params: 2,
+        inputFormatter: [null, null]
+    });
+    var verifyQuery = new Method({
+        name: 'verifyQuery',
+        call: 'personal_verifyQuery',
+        params: 1,
+        inputFormatter: [null]
+    });
     var newAccount = new Method({
         name: 'newAccount',
         call: 'personal_newAccount',
@@ -5808,6 +5764,8 @@ var methods = function () {
     });
 
     return [
+        verify,
+        verifyQuery,
         newAccount,
         importRawKey,
         unlockAccount,
@@ -13781,13 +13739,6 @@ module.exports = XMLHttpRequest;
                 inputFormatter: [null,formatters.inputTransactionFormatter,formatters.inputDefaultBlockNumberFormatter]
             });
 
-            var sendCommTransaction = new Method({
-                name: 'sendCommTransaction',
-                call: 'use_sendCommTransaction',
-                params: 2,
-                inputFormatter: [null,formatters.inputTransactionFormatter]
-            });
-
             var sendSubTransaction = new Method({
                 name: 'sendSubTransaction',
                 call: 'use_sendSubTransaction',
@@ -13815,21 +13766,6 @@ module.exports = XMLHttpRequest;
                 params: 2,
                 inputFormatter: [null,formatters.inputDefaultBlockNumberFormatter]
             });
-
-            var sendAuthentication = new Method({
-                name: 'sendAuthentication',
-                call: 'use_sendTransaction',
-                params: 1,
-                inputFormatter: [formatters.inputAuthenticationFormatter]
-            });
-
-            var sendSubAuthentication = new Method({
-                name: 'sendSubAuthentication',
-                call: 'use_sendTransaction',
-                params: 1,
-                inputFormatter: [formatters.inputSubAuthenticationFormatter]
-            });
-
 
             var sendOneTimeTransaction = new Method({
                 name: 'sendOneTimeTransaction',
@@ -13880,15 +13816,11 @@ module.exports = XMLHttpRequest;
                 getOneTimePubSet,
                 getUnConfirmedMainInfo,
 
-                sendCommTransaction,
                 getConfirmedMainInfo,
                 getConfirmedMainAS,
 
                 queryAddr,
                 minerAddr,
-
-                sendAuthentication,
-                sendSubAuthentication,
 
                 minerRegister,
                 minerUnRegister

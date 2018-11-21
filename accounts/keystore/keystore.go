@@ -42,11 +42,9 @@ import (
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/event"
 
-	"github.com/usechain/go-usechain/core/state"
-
 	"encoding/hex"
+
 	"github.com/usechain/go-usechain/log"
-	"strings"
 )
 
 var (
@@ -118,6 +116,7 @@ func (ks *KeyStore) init(keydir string) {
 	})
 	// Create the initial list of wallets from the cache
 	accs := ks.cache.accounts()
+
 	ks.wallets = make([]accounts.Wallet, len(accs))
 	for i := 0; i < len(accs); i++ {
 		ks.wallets[i] = &keystoreWallet{account: accs[i], keystore: ks}
@@ -524,9 +523,9 @@ func (ks *KeyStore) GetAprivBaddress(a accounts.Account) (common.ABaddress, *ecd
 		return common.ABaddress{}, nil, ErrLocked
 	}
 
-	AprivKey:=unlockedKey.PrivateKey
-	ret:=GenerateBaseABaddress(&AprivKey.PublicKey)
-	return *ret,AprivKey, nil
+	AprivKey := unlockedKey.PrivateKey
+	ret := GenerateBaseABaddress(&AprivKey.PublicKey)
+	return *ret, AprivKey, nil
 }
 
 // B is commitee's publickey
@@ -617,15 +616,13 @@ func (ks *KeyStore) GetABaddr(a accounts.Account) (string, error) {
 	return ABaddress, nil
 }
 
-//Get onetime address publickeys set from statedb and generate main address ring signature data
-func (ks *KeyStore) GenRingSignData(a accounts.Account, from common.Address, statedb *state.StateDB) (string, string, error) {
-
+func (ks *KeyStore) GetRingSignInfo(a accounts.Account, from common.Address) (string, string, string) {
 	ks.mu.RLock()
 	defer ks.mu.RUnlock()
 
 	unlockedKey, found := ks.unlocked[a.Address]
 	if !found {
-		return "", "", ErrLocked
+		return "", "", ""
 	}
 
 	AprivKey := unlockedKey.PrivateKey
@@ -638,72 +635,5 @@ func (ks *KeyStore) GenRingSignData(a accounts.Account, from common.Address, sta
 	msg1 := crypto.Keccak256(msg)
 	msg2 := hexutil.Encode(msg1)
 
-	//Get public keys from contract.
-	var ContractAddr common.Address
-	ContractAddr2, _ := hexutil.Decode(common.AuthenticationContractAddressString)
-	copy(ContractAddr[:], ContractAddr2)
-	publickeys, err := statedb.GetOneTimePubSet(ContractAddr, 5)
-
-	ringsig, keyImage, err := crypto.GenRingSignData(msg2, privateKey, publickeys)
-	if err != nil {
-		log.Error("ringsing error: ", "err", err)
-		return "", "", err
-	}
-
-	resul := crypto.VerifyRingSign(addr, ringsig)
-	log.Info("verify ringsig: ", "result", resul)
-
-	return ringsig, keyImage, nil
-}
-
-//Get main address publickeys set from statedb and generate  ring signature data of sub address authentication
-func (ks *KeyStore) GenSubRingSignData(a accounts.Account, from common.Address, statedb *state.StateDB) (string, string, error) {
-
-	ks.mu.RLock()
-	defer ks.mu.RUnlock()
-
-	unlockedKey, found := ks.unlocked[a.Address]
-	if !found {
-		return "", "", ErrLocked
-	}
-
-	AprivKey := unlockedKey.PrivateKey
-	privateKey := hexutil.Encode(AprivKey.D.Bytes())
-
-	//ring signature message
-	addr := from.Hex()
-	msg := crypto.Keccak256([]byte(addr))
-	msg2 := hexutil.Encode(msg)
-
-	//Get public keys from contract.
-	var ContractAddr common.Address
-	ContractAddr2, _ := hexutil.Decode(common.AuthenticationContractAddressString)
-	copy(ContractAddr[:], ContractAddr2)
-
-	ASset, err := statedb.GetConfirmedMainAS(ContractAddr, 5, 1)
-	if err != nil {
-		return "", "", err
-	}
-
-	ASslice := strings.Split(ASset, ",")
-	publicKeyset := make([]string, 0)
-	for _, AS := range ASslice {
-		ASbyte, _ := hex.DecodeString(AS)
-		pk1, _, err := GeneratePKPairFromABaddress(ASbyte)
-		if err != nil {
-		}
-		pub := common.ToHex(crypto.FromECDSAPub(pk1))
-		publicKeyset = append(publicKeyset, pub)
-	}
-	publickeys := strings.Join(publicKeyset, ",")
-
-	ringsig, keyImage, err := crypto.GenRingSignData(msg2, privateKey, publickeys)
-	if err != nil {
-		log.Error("ringsing error: ", "err", err)
-	}
-
-	resul := crypto.VerifyRingSign(addr, ringsig)
-	log.Info("Verify ringsig: ", "result", resul)
-
-	return ringsig, keyImage, nil
+	return privateKey, addr, msg2
 }

@@ -3,9 +3,12 @@ package bn256
 import (
 	"errors"
 	"fmt"
+	"golang.org/x/sys/cpu"
 )
 
 type gfP [4]uint64
+
+var hasBMI2 = cpu.X86.HasBMI2
 
 func newGFp(x int64) (out *gfP) {
 	if x >= 0 {

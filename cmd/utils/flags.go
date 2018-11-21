@@ -315,6 +315,18 @@ var (
 		Usage: "Number of trie node generations to keep in memory",
 		Value: int(state.MaxTrieCacheGen),
 	}
+	VerifyIdFlag = cli.StringFlag{
+		Name:  "id",
+		Usage: "User identity id",
+	}
+	VerifyPhotoFlag = cli.StringFlag{
+		Name:  "photo",
+		Usage: "User identity photos",
+	}
+	VerifyQueryFlag = cli.StringFlag{
+		Name:  "query",
+		Usage: "query for CA",
+	}
 	// Committee settings
 	CommitteeEnabledFlag = cli.BoolFlag{
 		Name:  "committee",

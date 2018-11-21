@@ -19,7 +19,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/usechain/go-usechain/contracts/authentication"
 	"os"
 	"runtime"
 	"sort"
@@ -32,6 +31,7 @@ import (
 	"github.com/usechain/go-usechain/common"
 	//"github.com/usechain/go-usechain/commitee/committee"
 	"github.com/usechain/go-usechain/console"
+	"github.com/usechain/go-usechain/contracts/authentication"
 	"github.com/usechain/go-usechain/core"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/eth"
@@ -48,7 +48,7 @@ import (
 const (
 	clientIdentifier = "used" // Client identifier to advertise over the network
 
-	normalRole	  = 0
+	normalRole    = 0
 	committeeRole = 1
 	verifierRole  = 2
 )
@@ -63,6 +63,9 @@ var (
 	// flags that configure the node
 	nodeFlags = []cli.Flag{
 		utils.IdentityFlag,
+		utils.VerifyIdFlag,
+		utils.VerifyPhotoFlag,
+		utils.VerifyQueryFlag,
 		utils.UnlockedAccountFlag,
 		utils.PasswordFileFlag,
 		utils.BootnodesFlag,
@@ -302,7 +305,7 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 	if err != nil || commitFlag == normalRole {
 		log.Info("Normal node")
 	} else {
-		log.Info("Committee node","ID", ID)
+		log.Info("Committee node", "ID", ID)
 		log.Warn("As a committee, pls keep your account unlocked in 30 second")
 	}
 
@@ -334,7 +337,7 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 				if res4 == 0 {
 					continue
 				}
-				log.Info("res1, res2, res3", "res1",res1, "res2", res2, "res3", res3)
+				log.Info("res1, res2, res3", "res1", res1, "res2", res2, "res3", res3)
 				log.Info("unConfirmedAddressLen: ", "len", unConfirmedAddressLen)
 				cachedLastCertIDChecked = res4
 
@@ -348,10 +351,10 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 				}
 
 				shareStrSet := committee.GeneratePubShare(pubSet, privShare)
-				log.Info("A1, S1, pubSet","A1S1", A1S1, "shareStrSet", shareStrSet)
+				log.Info("A1, S1, pubSet", "A1S1", A1S1, "shareStrSet", shareStrSet)
 				ID := "00000000000000000000000000000000000000000001"
 
-				log.Info("The sending msg:", "info",A1S1+certID+ID+shareStrSet)
+				log.Info("The sending msg:", "info", A1S1+certID+ID+shareStrSet)
 
 				committee.SendCommitteeMsg(usechain, A1S1+certID+ID+shareStrSet)
 			}

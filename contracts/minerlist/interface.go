@@ -23,7 +23,6 @@ import (
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/crypto/sha3"
-	"math"
 	"math/big"
 	"strconv"
 	"strings"
@@ -77,7 +76,7 @@ func IsValidMiner(state *state.StateDB, miner common.Address, n *big.Int, diffic
 	level, _ := strconv.ParseFloat(difficultyLevel.String(),64)
 	id, _ := strconv.ParseFloat(n.String(), 64)
 
-	if id > totalNum * math.Pow(0.618, level) && totalNum > 1{
+	if id >= totalNum / level && totalNum > 1{
 		return false
 	}
 

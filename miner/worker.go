@@ -423,11 +423,18 @@ func (self *worker) commitNewWork() {
 		time.Sleep(wait)
 	}
 
+	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp - 2)) >= 0 {
+		log.Info("Block time slot should be less than two seconds")
+		time.Sleep(2*time.Second)
+		tstamp = tstamp + 2
+	}
+
 	num := parent.Number()
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
-		GasLimit:   core.CalcGasLimit(parent),
+		//GasLimit:   core.CalcGasLimit(parent),
+		GasLimit:	new(big.Int).Exp(big.NewInt(2), big.NewInt(32), big.NewInt(0)).Uint64(),
 		Extra:      self.extra,
 		Time:       big.NewInt(tstamp),
 	}
@@ -468,8 +475,7 @@ func (self *worker) commitNewWork() {
 		idTarget := new(big.Int).Rem(qr.Big(), totalMinerNum)
 
 		tstampParent := parent.Time()
-		tstampHead := time.Now().Unix()
-		tstampSub := tstampHead - tstampParent.Int64()
+		tstampSub := header.Time.Int64() - tstampParent.Int64()
 		n := big.NewInt(tstampSub / slot)
 
 		signature, err := wallet.SignHash(account, minerHash.Bytes())
@@ -478,13 +484,13 @@ func (self *worker) commitNewWork() {
 		if header.Number.Cmp(common.Big1) == 0 {
 			header.MinerTag = []byte(genesisTag)
 			header.MinerQrSignature = []byte(genesisQrSignature)
-			header.DifficultyLevel = common.Big0
+			header.DifficultyLevel = common.Big1
 		} else {
 			header.MinerTag = signature[:20]
 			minerQrSignature, _ := wallet.SignHash(account, qr.Bytes())
 			header.MinerQrSignature = minerQrSignature[:20]
 			if n.Cmp(common.Big0) == 0 {
-				header.DifficultyLevel = common.Big0
+				header.DifficultyLevel = common.Big1
 			}else{
 				header.DifficultyLevel = new(big.Int).Add(preDifficultyLevel, n)
 				if header.DifficultyLevel.Cmp(common.Big3) > 0 {
@@ -569,6 +575,21 @@ func (self *worker) commitNewWork() {
 		log.Info("Commit new mining work", "number", work.Block.Number(), "txs", work.tcount, "uncles", len(uncles), "elapsed", common.PrettyDuration(time.Since(tstart)))
 		self.unconfirmed.Shift(work.Block.NumberU64() - 1)
 	}
+
+
+	preCoinbase := parent.Coinbase()
+	preSignatureQr := parent.MinerQrSignature()
+	blockNumber := header.Number
+	qr := minerlist.CalQr(preCoinbase.Bytes(), blockNumber, preSignatureQr)
+	idTarget := new(big.Int).Rem(qr.Big(), big.NewInt(6))
+
+	fmt.Print("block number now ")
+	fmt.Print(blockNumber)
+	fmt.Print(" is mined by ")
+	fmt.Print(idTarget)
+	fmt.Print("\n")
+
+
 	self.push(work)
 }
 

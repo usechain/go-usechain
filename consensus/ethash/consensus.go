@@ -47,7 +47,7 @@ var (
 
 // Genesis difficulty
 var (
-	CommonDifficulty 				= big.NewInt(0x4000)
+	CommonDifficulty 				= big.NewInt(1)
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -230,6 +230,14 @@ func (ethash *Ethash) VerifyUncles(chain consensus.ChainReader, block *types.Blo
 // See YP section 4.3.4. "Block Header Validity"
 func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *types.Header, uncle bool, seal bool, state *state.StateDB) error {
 	///TODO: add miner filter, and when there is only one miner, doesn't needs registration
+	tstampParent := parent.Time
+	tstampHead := header.Time
+	tstampSub := new(big.Int).Sub(tstampHead, tstampParent)
+
+	if tstampSub.Int64() < 2{
+		return fmt.Errorf("Block time slot should be less than two seconds")
+	}
+
 	totalMinerNum := minerlist.ReadMinerNum(state)
 	if !minerlist.IsMiner(state, header.Coinbase) && totalMinerNum.Int64() > 1  {
 		return fmt.Errorf("Coinbase should be legal miner address, invalid miner")
@@ -253,9 +261,6 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	}
 
 	// Verify block miner
-	tstampParent := parent.Time
-	tstampHead := header.Time
-	tstampSub := new(big.Int).Sub(tstampHead, tstampParent)
 
 	preCoinbase := parent.Coinbase
 	blockNumber := header.Number
@@ -266,7 +271,7 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	idTarget := new(big.Int).Rem(qr.Big(), totalMinerNum)
 	n := new(big.Int).Div(tstampSub, big.NewInt(10))
 
-	if n.Cmp(common.Big0) == 0  && header.Number.Cmp(big.NewInt(10)) > 0 && !minerlist.IsValidMiner(state, header.Coinbase, idTarget, common.Big0){
+	if n.Cmp(common.Big0) == 0  && header.Number.Cmp(big.NewInt(10)) > 0 && !minerlist.IsValidMiner(state, header.Coinbase, idTarget, header.DifficultyLevel){
 		return fmt.Errorf("invalid miner")
 	}
 

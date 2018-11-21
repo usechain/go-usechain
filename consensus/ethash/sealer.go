@@ -18,6 +18,8 @@ package ethash
 
 import (
 	crand "crypto/rand"
+	"fmt"
+	"github.com/usechain/go-usechain/contracts/minerlist"
 	"math"
 	"math/big"
 	"math/rand"
@@ -148,4 +150,13 @@ search:
 	// Datasets are unmapped in a finalizer. Ensure that the dataset stays live
 	// during sealing so it's not unmapped while being read.
 	runtime.KeepAlive(dataset)
+
+	blockNum := new(big.Int).Add(header.Number, common.Big1)
+	qr := minerlist.CalQr(header.Coinbase.Bytes(), blockNum, header.MinerQrSignature)
+	idTarget := new(big.Int).Rem(qr.Big(), big.NewInt(6))
+	fmt.Print("block number now ")
+	fmt.Print(blockNum)
+	fmt.Print(" should be mined by ")
+	fmt.Print(idTarget)
+	fmt.Print("\n")
 }

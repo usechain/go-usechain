@@ -51,9 +51,8 @@ func ReadMinerNum(statedb *state.StateDB) *big.Int {
 
 // return the string data that has been added to the num
 func IncreaseHexByNum(indexKeyHash []byte, num int64) string {
-	x := common.Big0
+	x := new(big.Int).SetBytes(indexKeyHash)
 	y := big.NewInt(int64(num))
-	x.SetBytes(indexKeyHash)
 	x.Add(x, y)
 	return hex.EncodeToString(x.Bytes())
 }

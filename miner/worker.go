@@ -18,6 +18,7 @@ package miner
 
 import (
 	"fmt"
+	"github.com/usechain/go-usechain/crypto"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -31,7 +32,6 @@ import (
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/core/vm"
-	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/ethdb"
 	"github.com/usechain/go-usechain/event"
 	"github.com/usechain/go-usechain/log"
@@ -298,6 +298,8 @@ func (self *worker) update() {
 			return
 		case <-self.chainSideSub.Err():
 			return
+		case <-self.chainRpowSub.Err():
+			return
 		}
 	}
 }
@@ -423,10 +425,10 @@ func (self *worker) commitNewWork() {
 		time.Sleep(wait)
 	}
 
-	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp - 2)) >= 0 {
-		log.Info("Block time slot should be less than two seconds")
-		time.Sleep(2*time.Second)
-		tstamp = tstamp + 2
+	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp - 5)) >= 0 {
+		log.Debug("Block time slot should be more than five seconds")
+		time.Sleep(5*time.Second)
+		tstamp = tstamp + 5
 	}
 
 	num := parent.Number()
@@ -434,7 +436,7 @@ func (self *worker) commitNewWork() {
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
 		//GasLimit:   core.CalcGasLimit(parent),
-		GasLimit:	new(big.Int).Exp(big.NewInt(2), big.NewInt(32), big.NewInt(0)).Uint64(),
+		GasLimit:	210000000,
 		Extra:      self.extra,
 		Time:       big.NewInt(tstamp),
 	}
@@ -457,6 +459,7 @@ func (self *worker) commitNewWork() {
 
 		minerHash := crypto.Keccak256Hash(append((parent.Coinbase()).Bytes(), header.Number.Bytes()...))
 		// Assemble sign the data with the wallet
+		_ , err = wallet.SignHash(account, minerHash.Bytes())
 		if err != nil {
 			log.Error("Failed to unlock the coinbase account", "err", err)
 			return
@@ -478,15 +481,14 @@ func (self *worker) commitNewWork() {
 		tstampSub := header.Time.Int64() - tstampParent.Int64()
 		n := big.NewInt(tstampSub / slot)
 
-		signature, err := wallet.SignHash(account, minerHash.Bytes())
+		//signature, err := wallet.SignHash(account, minerHash.Bytes())
 		preDifficultyLevel := parent.DifficultyLevel()
 
 		if header.Number.Cmp(common.Big1) == 0 {
-			header.MinerTag = []byte(genesisTag)
 			header.MinerQrSignature = []byte(genesisQrSignature)
 			header.DifficultyLevel = common.Big1
 		} else {
-			header.MinerTag = signature[:20]
+			//header.MinerTag = signature[:20]
 			minerQrSignature, _ := wallet.SignHash(account, qr.Bytes())
 			header.MinerQrSignature = minerQrSignature[:20]
 			if n.Cmp(common.Big0) == 0 {
@@ -500,6 +502,14 @@ func (self *worker) commitNewWork() {
 		}
 
 		if n.Cmp(common.Big0) == 0 && header.Number.Cmp(big.NewInt(10)) > 0 && !minerlist.IsValidMiner(self.current.state, self.coinbase, idTarget, header.DifficultyLevel ) {
+			DONE:
+				for{
+					select {
+					case <-self.chainRpowCh:
+					default:
+						break DONE
+					}
+				}
 			self.chainRpowCh <- 1
 			return
 		}
@@ -508,6 +518,14 @@ func (self *worker) commitNewWork() {
 			idn := minerlist.CalQr(idTarget.Bytes(), n, preSignatureQr)
 			id := new(big.Int).Rem(idn.Big(), totalMinerNum)
 			if !minerlist.IsValidMiner(self.current.state, self.coinbase, id, header.DifficultyLevel) {
+				DONE1:
+					for{
+						select {
+						case <-self.chainRpowCh:
+						default:
+							break DONE1
+						}
+					}
 				self.chainRpowCh <- 1
 				return
 			}
@@ -575,21 +593,6 @@ func (self *worker) commitNewWork() {
 		log.Info("Commit new mining work", "number", work.Block.Number(), "txs", work.tcount, "uncles", len(uncles), "elapsed", common.PrettyDuration(time.Since(tstart)))
 		self.unconfirmed.Shift(work.Block.NumberU64() - 1)
 	}
-
-
-	preCoinbase := parent.Coinbase()
-	preSignatureQr := parent.MinerQrSignature()
-	blockNumber := header.Number
-	qr := minerlist.CalQr(preCoinbase.Bytes(), blockNumber, preSignatureQr)
-	idTarget := new(big.Int).Rem(qr.Big(), big.NewInt(6))
-
-	fmt.Print("block number now ")
-	fmt.Print(blockNumber)
-	fmt.Print(" is mined by ")
-	fmt.Print(idTarget)
-	fmt.Print("\n")
-
-
 	self.push(work)
 }
 

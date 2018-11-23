@@ -34,5 +34,5 @@
     "chainId":15
   },
 
-  "gasLimit":"0xffffffff"
+  "gasLimit": "0xc845880"
 }

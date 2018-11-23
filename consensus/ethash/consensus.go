@@ -234,8 +234,8 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	tstampHead := header.Time
 	tstampSub := new(big.Int).Sub(tstampHead, tstampParent)
 
-	if tstampSub.Int64() < 2{
-		return fmt.Errorf("Block time slot should be less than two seconds")
+	if tstampSub.Int64() < 5{
+		return fmt.Errorf("Block time slot should be more than five seconds")
 	}
 
 	totalMinerNum := minerlist.ReadMinerNum(state)
@@ -342,64 +342,7 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
  * given the parent block's time and difficulty.
  */
 func (ethash *Ethash) CalcDifficulty(chain consensus.ChainReader, time uint64, header *types.Header, parent *types.Header) *big.Int {
-	//return CalcDifficultyVerRPOW(chain, time, header, parent)
 	return CommonDifficulty
-}
-
-/*
- * RPOW Algorithm version 0.2
- * The miner difficulty depends on the byte differences between minerTag and miner's address
- * MinerTag = Sig(HASH{parent.coinbase + block.number})
- */
-func  CalcDifficultyVerRPOW(chain consensus.ChainReader, time uint64, header *types.Header, parent *types.Header) *big.Int {
-	difficulty := CalcDifficulty(chain.Config(), time, parent)
-
-	//Get current block header
-	currentHeader := header
-	if currentHeader.Number.Cmp(big.NewInt(10)) == -1{
-		return difficulty
-	}
-
-	return calcDifficultyAdjustmentByMinerTag(parent, currentHeader, difficulty)
-}
-
-// CalcDifficulty is the difficulty adjustment algorithm. It returns
-// the difficulty that a new block should have when created at time
-// given the parent block's time and difficulty.
-func CalcDifficulty(config *params.ChainConfig, time uint64, parent *types.Header) *big.Int {
-	return calcDifficultySapphire(time, parent)
-}
-
-func calcDifficultyAdjustmentByMinerTag(parent *types.Header, current *types.Header, difficulty *big.Int) *big.Int {
-	parentRatio := calculateAdjustment(parent)
-	currentRatio := calculateAdjustment(current)
-
-	normalDifficulty := big.NewInt(0).Mul(difficulty, parentRatio)
-	return big.NewInt(0).Div(normalDifficulty, currentRatio)
-}
-
-func calculateAdjustment(header *types.Header) *big.Int {
-	coinbaseBytes := common.BytesToBinary(header.Coinbase.Bytes())
-	minertagBytes := common.BytesToBinary(header.MinerTag)
-	bytequalNum := uint(0)
-
-	for i := 0; i < len(coinbaseBytes) && i < len(minertagBytes); i++ {
-		if coinbaseBytes[i] == minertagBytes[i] {
-			bytequalNum ++
-		}else {
-			break
-		}
-	}
-
-	miners := int64(3)
-	if header.MinerNum != nil {
-		miners = header.MinerNum.Int64()
-	}
-
-	if 1<<(bytequalNum + 1) >= miners && miners >= 3  {
-		return big.NewInt(int64(miners))
-	}
-	return big.NewInt(1)
 }
 
 // Some weird constants to avoid constant memory allocs for them.
@@ -413,78 +356,6 @@ var (
 	bigMinus99    = big.NewInt(-99)
 	big2999999    = big.NewInt(2999999)
 )
-
-
-// calcDifficultySapphire is the difficulty adjustment algorithm for normal POW nodes.
-// It returns the difficulty that a new block should have when created at time given
-// the parent block's time and difficulty. The calculation uses the Sapphire rules.
-func calcDifficultySapphire(time uint64, parent *types.Header) *big.Int {
-	// https://github.com/ethereum/EIPs/issues/100.
-	// algorithm:
-	// if the previous block is normal POW difficulty
-	// diff = (parent_diff +
-	//         (parent_diff / 2048 * max((2 if len(parent.uncles) else 1) - ((timestamp - parent.timestamp) // 9), -99))
-	//        ) + 2^(periodCount - 2)
-	// else if the previous block is  RPOW difficulty
-	// diff = (parent_diff + (parent_diff / 2048 * (2 if len(parent.uncles) else 1))) + 2^(periodCount - 2)
-	// that equals
-	// diff = (parent_diff +
-	//         (parent_diff / 2048 * max((2 if len(parent.uncles) else 1) - (9 // 9), -99))
-	//        ) + 2^(periodCount - 2)
-
-	bigTime := new(big.Int).SetUint64(time)
-	bigParentTime := new(big.Int).Set(parent.Time)
-
-	// holds intermediate values to make the algo easier to read & audit
-	x := new(big.Int)
-	y := new(big.Int)
-
-	// (2 if len(parent_uncles) else 1) - (block_timestamp - parent_timestamp) // 9
-	x.Sub(bigTime, bigParentTime)
-	// if the parent block is RPOW block
-	if parent.Number.Cmp(big.NewInt(10)) == 1 && calculateAdjustment(parent).Uint64() > 1 {
-		x = big9
-	}
-	x.Div(x, big9)
-
-	if parent.UncleHash == types.EmptyUncleHash {
-		x.Sub(big1, x)
-	} else {
-		x.Sub(big2, x)
-	}
-	// max((2 if len(parent_uncles) else 1) - (block_timestamp - parent_timestamp) // 9, -99)
-	if x.Cmp(bigMinus99) < 0 {
-		x.Set(bigMinus99)
-	}
-	// parent_diff + (parent_diff / 2048 * max((2 if len(parent.uncles) else 1) - ((timestamp - parent.timestamp) // 9), -99))
-	y.Div(parent.Difficulty, params.DifficultyBoundDivisor)
-	x.Mul(y, x)
-	x.Add(parent.Difficulty, x)
-
-	// minimum difficulty can ever be (before exponential factor)
-	if x.Cmp(params.MinimumDifficulty) < 0 {
-		x.Set(params.MinimumDifficulty)
-	}
-	// calculate a fake block number for the ice-age delay:
-	//   https://github.com/ethereum/EIPs/pull/669
-	//   fake_block_number = min(0, block.number - 3_000_000
-	fakeBlockNumber := new(big.Int)
-	if parent.Number.Cmp(big2999999) >= 0 {
-		fakeBlockNumber = fakeBlockNumber.Sub(parent.Number, big2999999) // Note, parent is 1 less than the actual block number
-	}
-	// for the exponential factor
-	periodCount := fakeBlockNumber
-	periodCount.Div(periodCount, expDiffPeriod)
-
-	// the exponential factor, commonly referred to as "the bomb"
-	// diff = diff + 2^(periodCount - 2)
-	if periodCount.Cmp(big1) > 0 {
-		y.Sub(periodCount, big2)
-		y.Exp(big2, y, nil)
-		x.Add(x, y)
-	}
-	return x
-}
 
 // VerifySeal implements consensus.Engine, checking whether the given block satisfies
 // the PoW difficulty requirements.

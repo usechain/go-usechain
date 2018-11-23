@@ -18,8 +18,6 @@ func (h Header) MarshalJSON() ([]byte, error) {
 		ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
 		UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
 		Coinbase    common.Address `json:"miner"            gencodec:"required"`
-		MinerNum    *hexutil.Big   `json:"minerNum"         gencodec:"required"`
-		MinerTag    hexutil.Bytes  `json:"minerTag"         gencodec:"required"`
 		MinerQrSignature     hexutil.Bytes  `json:"minerQrSignature"          gencodec:"required"`
 		DifficultyLevel    *hexutil.Big   `json:"difficultyLevel"         gencodec:"required"`
 		Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
@@ -40,8 +38,6 @@ func (h Header) MarshalJSON() ([]byte, error) {
 	enc.ParentHash = h.ParentHash
 	enc.UncleHash = h.UncleHash
 	enc.Coinbase = h.Coinbase
-	enc.MinerNum = (*hexutil.Big)(h.MinerNum)
-	enc.MinerTag = h.MinerTag
 	enc.MinerQrSignature = h.MinerQrSignature
 	enc.DifficultyLevel = (*hexutil.Big)(h.DifficultyLevel)
 	enc.Root = h.Root
@@ -65,8 +61,6 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		ParentHash  *common.Hash    `json:"parentHash"       gencodec:"required"`
 		UncleHash   *common.Hash    `json:"sha3Uncles"       gencodec:"required"`
 		Coinbase    *common.Address `json:"miner"            gencodec:"required"`
-		MinerNum	*hexutil.Big    `json:"minerNum"         gencodec:"required"`
-		MinerTag    *hexutil.Bytes  `json:"minerTag"         gencodec:"required"`
 		MinerQrSignature     *hexutil.Bytes  `json:"minerQrSignature"          gencodec:"required"`
 		DifficultyLevel	*hexutil.Big    `json:"difficultyLevel"         gencodec:"required"`
 		Root        *common.Hash    `json:"stateRoot"        gencodec:"required"`
@@ -98,14 +92,6 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		return errors.New("missing required field 'miner' for Header")
 	}
 	h.Coinbase = *dec.Coinbase
-	if dec.MinerNum == nil {
-		return errors.New("missing required field 'minerNum' for Header")
-	}
-	h.MinerNum = (*big.Int)(dec.MinerNum)
-	if dec.MinerTag == nil {
-		return errors.New("missing required field 'minerTag' for Header")
-	}
-	h.MinerTag = *dec.MinerTag
 	if dec.MinerQrSignature == nil {
 		return errors.New("missing required field 'minerQrSignature' for Header")
 	}

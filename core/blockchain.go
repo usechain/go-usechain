@@ -1050,9 +1050,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		headers[i] = block.Header()
 		seals[i] = true
 	}
-	var parentForVerifyHeaders *types.Block
-	parentForVerifyHeaders = bc.GetBlock(bc.CurrentBlock().Hash(), bc.CurrentBlock().NumberU64())
-	stateForVerifyHeaders, _ := state.New(parentForVerifyHeaders.Root(), bc.stateCache)
+	stateForVerifyHeaders, _ := bc.State()
 	abort, results := bc.engine.VerifyHeaders(bc, headers, seals, stateForVerifyHeaders)
 	defer close(abort)
 

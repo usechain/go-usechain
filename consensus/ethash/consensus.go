@@ -276,9 +276,14 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	}
 
 	if n.Cmp(common.Big0) > 0 {
-		expectedLevel := new(big.Int).Add(preDifficultyLevel, n)
-		if expectedLevel.Cmp(common.Big3) > 0 {
-			expectedLevel = common.Big3
+		var expectedLevel = new(big.Int)
+		if header.Number.Cmp(common.Big1) == 0 {
+			expectedLevel = common.Big1
+		} else {
+			expectedLevel = new(big.Int).Add(preDifficultyLevel, n)
+			if expectedLevel.Cmp(common.Big3) > 0 {
+				expectedLevel = common.Big3
+			}
 		}
 		if expectedLevel.Cmp(header.DifficultyLevel) != 0 {
 			return fmt.Errorf("invalid difficultylevel: have %v, want %v", header.DifficultyLevel, expectedLevel)

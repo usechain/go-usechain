@@ -546,17 +546,8 @@ func (self *StateDB) isMultiAccountConfirmed(_addr common.Address) bool {
 	return res.Hex() != statDbEmpty
 }
 
-func (self *StateDB) IsCommittee(_addr common.Address) bool {
-	key := contract.ReadIsCommitteeAddr(_addr.Hex()[2:])
-	res := self.GetState(common.HexToAddress(common.AuthenticationContractAddressString), common.HexToHash(key))
-
-	return res.Hex() != statDbEmpty
-}
-
 //TODO:
 func (self *StateDB) CheckAddrAuthenticateStat(_addr common.Address) int {
-
-
 	if self.isMultiAccountConfirmed(_addr) || self.isOTAConfirmed(_addr) {
 		return 1
 	}

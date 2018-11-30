@@ -25,22 +25,16 @@ import (
 	"sync"
 	"time"
 
-	"crypto/rand"
-	"encoding/binary"
-	db "github.com/syndtr/goleveldb/leveldb"
 	"github.com/usechain/go-usechain/accounts"
-	"github.com/usechain/go-usechain/accounts/keystore"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/crypto"
-	"github.com/usechain/go-usechain/crypto/ecies"
 	"github.com/usechain/go-usechain/event"
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/metrics"
 	"github.com/usechain/go-usechain/params"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
-	"reflect"
 	"strings"
 	"github.com/usechain/go-usechain/accounts/abi"
 	"github.com/usechain/go-usechain/common/hexutil"
@@ -657,19 +651,6 @@ func (pool *TxPool) local() map[common.Address]types.Transactions {
 	return txs
 }
 
-//check the certificate signature if the transaction is authentication Tx
-func checkAddrLegality(_db *state.StateDB, tx *types.Transaction, _from common.Address) error {
-
-	if _db.GetCode(_from) == nil {
-		if _db.CheckAddrAuthenticateStat(_from) == 0 {
-			return ErrIllegalSourceAddress
-		}
-
-		log.Info("The normal transaction addr checking passed!")
-	}
-	return nil
-}
-
 //check the certificate signature if the transaction is multiAccount authentication Tx
 //   MultiAB account authentication TX:
 //   -------------------------------------------------------------------
@@ -937,50 +918,6 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 
 			return old != nil, nil
 		}
-	}
-	// committee transaction check
-	store := pool.accountManager.Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
-	if len(store.Accounts()) > 0 {
-		localAccount := store.Accounts()[0]
-		localAddress := localAccount.Address
-
-		go func() {
-			sender, _ := types.Sender(pool.signer, tx)
-			//fmt.Printf("in range , the addr now is %x ---- and tx.To() is %x \n", sender, tx.To())
-
-			if tx.To() != nil && pool.currentState.IsCommittee(*(tx.To())) && pool.currentState.IsCommittee(sender) {
-				if reflect.DeepEqual(sender, localAddress) {
-					tag := tx.Data()[:len(DefaultSendTagMsg)]
-					if reflect.DeepEqual(string(tag), DefaultSendTagMsg) {
-						cryptoMsg := tx.Data()[len(DefaultSendTagMsg):]
-						msg, err := AnalyticMsgInfo(cryptoMsg, localAccount, store)
-						if err != nil {
-							log.Info("some err between AnalyticMsgInfo", err)
-						}
-						GlobalMsgMapStore(sender, msg, tx.Hash())
-						select {
-						case <-time.After(20 * time.Second):
-							return
-						case <-replayCh:
-							return
-						}
-					}
-				} else if reflect.DeepEqual(*tx.To(), localAddress) {
-					tag := tx.Data()[:len(DefaultSendTagMsg)]
-					if reflect.DeepEqual(string(tag), DefaultSendTagMsg) {
-						cryptoMsg := tx.Data()[len(DefaultSendTagMsg):]
-						msg, err := AnalyticMsgInfo(cryptoMsg, localAccount, store)
-						if err != nil {
-							log.Info("some err between AnalyticMsgInfo", err)
-						}
-						GlobalMsgMapStore(sender, msg, tx.Hash())
-						//ReplayToCommitteeOnce(*tx.To(), sender, tx.GasPrice(), pool, tx.Data(), store)
-					} else if reflect.DeepEqual(string(tag), DefaultReplayMsg) {
-						replayCh <- tx.Hash()
-					}
-				}
-			}
-		}()
 	}
 
 	// New transaction isn't replacing a pending one, push into queue
@@ -1595,244 +1532,4 @@ func (as *accountSet) containsTx(tx *types.Transaction) bool {
 // add inserts a new address into the set to track.
 func (as *accountSet) add(addr common.Address) {
 	as.accounts[addr] = struct{}{}
-}
-
-func ReplayToCommitteeOnce(sender common.Address, to common.Address, gasPrice *big.Int, pool *TxPool, data []byte, store *keystore.KeyStore) {
-	copy(data[:len(DefaultSendTagMsg)], []byte(DefaultReplayMsg)[:])
-	tx := GenerateTransaction(sender, to, big.NewInt(0), pool, gasPrice, data)
-
-	accounts := store.Accounts()
-
-	signTx, err := store.SignTx(accounts[0], tx, pool.chainconfig.ChainId)
-	if err != nil {
-		log.Info("Transaction pool committee internal communication callback error, error content is ", err)
-	}
-	//bool, err := pool.enqueueTx(txHash, signTx)
-	// Add the batch of transaction, tracking the accepted ones
-	//dirty := make(map[common.Address]struct{})
-	replace, err := pool.add(signTx, true)
-	fmt.Println("finished pool.add in go func replace and err is ", replace, err)
-	if err != nil {
-		return
-	}
-	// If we added a new transaction, run promotion checks and return
-	if !replace {
-		from, _ := types.Sender(pool.signer, signTx) // already validated
-		pool.promoteExecutables([]common.Address{from})
-	}
-}
-
-func ReplayToCommittee(sender common.Address, to common.Address, gasPrice *big.Int, pool *TxPool, data []byte, store *keystore.KeyStore, msg []byte) {
-	tx := GenerateTransaction(sender, to, big.NewInt(0), pool, gasPrice, data)
-
-	accounts := store.Accounts()
-	signTx, err := store.SignTx(accounts[0], tx, pool.chainconfig.ChainId)
-	if err != nil {
-		log.Info("Transaction pool committee internal communication callback error, error content is ", err)
-	}
-	//bool, err := pool.enqueueTx(txHash, signTx)
-	// Add the batch of transaction, tracking the accepted ones
-	//dirty := make(map[common.Address]struct{})
-	replace, err := pool.add(signTx, true)
-	if err != nil {
-		return
-	}
-	// If we added a new transaction, run promotion checks and return
-	if !replace {
-		from, _ := types.Sender(pool.signer, signTx) // already validated
-		fmt.Printf("---- go func prepare to go into promoteExecutables and from is ::: %x\n", from)
-		pool.promoteExecutables([]common.Address{from})
-	}
-	GlobalMsgMapStore(sender, msg, signTx.Hash())
-	if err == nil {
-		select {
-		case <-time.After(20 * time.Second):
-			go ReplayToCommittee(sender, to, gasPrice, pool, data, store, msg)
-			return
-		case <-replayCh:
-			return
-		}
-	}
-}
-
-// Generate transactions based on data
-func GenerateTransaction(from common.Address, to common.Address, value *big.Int, pool *TxPool, gasPrice *big.Int, data []byte) *types.Transaction {
-	managedState := pool.State()
-	nonce := managedState.GetNonce(from) + 1
-	managedState.SetNonce(from, nonce)
-	//newData := data
-	gasLimit := big.NewInt(defaultGasForCommittee).Uint64()
-	return types.NewTransaction(nonce, to, value, gasLimit, gasPrice, data)
-}
-
-// The global thread-safe map stores internal data
-var GlobalMsgStoreMap sync.Map
-
-// slice to store the key of the map
-var GlobalMsgKeyStoreSlice []common.Hash
-
-type Interior struct {
-	Info map[common.Hash][]msgInfo
-}
-
-type msgInfo struct {
-	addr  common.Address
-	nonce uint64
-	msg   []byte
-}
-
-type Persistence struct {
-	Sender common.Address `json:"sender"`
-	Nonce  uint64         `json:"nonce"`
-	Msg    []byte         `json:"msg"`
-}
-
-func NewInterior() *Interior {
-	return &Interior{
-		Info: make(map[common.Hash][]msgInfo),
-	}
-}
-
-func (i *Interior) SetInfoIntoMap(sender common.Address, msg []byte, nonce uint64, txHash common.Hash) {
-	value := msgInfo{
-		nonce: nonce,
-		msg:   msg,
-		addr:  sender}
-	i.insert(txHash, value)
-}
-
-func (i *Interior) insert(txHash common.Hash, msg msgInfo) {
-	i.Info[txHash] = append(i.Info[txHash], msg)
-}
-
-func (i *Interior) DeleteByKey(txHash common.Hash) error {
-	if _, ok := i.Info[txHash]; !ok {
-		return errors.New("given address is not exist in the map")
-	}
-	delete(i.Info, txHash)
-	return nil
-}
-
-func (i *Interior) GetTheWholeMap() map[common.Hash][]msgInfo {
-	return i.Info
-}
-
-func (i *Interior) FindIfExist(txHash common.Hash) (x bool) {
-	_, x = i.Info[txHash]
-	return
-}
-
-func NewPersistence(sender common.Address, nonce uint64, msg []byte) *Persistence {
-	return &Persistence{
-		Sender: sender,
-		Nonce:  nonce,
-		Msg:    msg,
-	}
-}
-
-func (n *Persistence) PutIntoDatabase() error {
-	db, err := db.OpenFile("", nil)
-	if err != nil {
-		return err
-	}
-	uniqueKey := getUniqueKey(n.Sender, n.Nonce)
-	uniqueValue := n.Msg
-	err = db.Put(uniqueKey, uniqueValue, nil)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (n *Persistence) GetFromDatabase(sender common.Address, nonce uint64) ([]byte, error) {
-	uniqueKey := getUniqueKey(sender, nonce)
-	db, err := db.OpenFile("", nil)
-	if err != nil {
-		return nil, err
-	}
-	msg, err := db.Get(uniqueKey, nil)
-	if err != nil {
-		return nil, err
-	}
-	return msg, nil
-}
-
-func getUniqueKey(sender common.Address, nonce uint64) []byte {
-	nonceToByte := make([]byte, 8)
-	binary.BigEndian.PutUint64(nonceToByte, nonce)
-
-	unique := make([]byte, len(sender)+len(nonceToByte))
-
-	copy(unique[:len(sender)], sender[:])
-	copy(unique[len(sender):], nonceToByte)
-
-	return unique
-}
-
-func AnalyticMsgInfo(cryptoMsg []byte, localAccount accounts.Account, store *keystore.KeyStore) ([]byte, error) {
-	privateKeyEcies := ecies.ImportECDSA(privateKeyECDSA_text)
-	msg, err := privateKeyEcies.Decrypt(rand.Reader, cryptoMsg, nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	return msg, nil
-}
-
-
-// CURD for map
-func GlobalMsgMapStore(sender common.Address, msg []byte, txHash common.Hash) {
-	GlobalMsgKeyStoreSlice = append(GlobalMsgKeyStoreSlice, txHash)
-	msgStoreKey := txHash
-	msgStoreValue := make([]byte, len(sender)+len(msg))
-	copy(msgStoreValue[:len(sender)], sender[:])
-	copy(msgStoreValue[len(sender):], msg)
-	GlobalMsgStoreMap.Store(msgStoreKey, msgStoreValue)
-}
-
-func GlobalMsgMapLoad(key interface{}) bool {
-	_, exist := GlobalMsgStoreMap.Load(key)
-	return exist
-}
-
-func GlobalMsgMapDelete(key interface{}) {
-	GlobalMsgStoreMap.Delete(key)
-	for i, index := range GlobalMsgKeyStoreSlice {
-		if reflect.DeepEqual(key, index) {
-			GlobalMsgKeyStoreSlice = append(GlobalMsgKeyStoreSlice[:i], GlobalMsgKeyStoreSlice[i+1:]...)
-		}
-	}
-}
-
-// Read self message from tx queue
-func GetTheLastInternalTrans() (common.Address, []byte) {
-	if len(GlobalMsgKeyStoreSlice) == 0 {
-		return common.Address{}, nil
-	}
-
-	maxIndex := len(GlobalMsgKeyStoreSlice) - 1
-	lastKeyInMap := GlobalMsgKeyStoreSlice[maxIndex]
-	info := GetValueByKey(lastKeyInMap)
-	if info != nil {
-		senderAddr := common.Address{}
-		copy(senderAddr[:], info[:len(common.Address{})])
-		//senderAddr[:] = info[:len(common.Address{})]
-		msgInfo := info[len(common.Address{}):]
-		GlobalMsgMapDelete(lastKeyInMap)
-		return senderAddr, msgInfo
-	}
-	GlobalMsgMapDelete(lastKeyInMap)
-	return common.Address{}, nil
-}
-
-func GetValueByKey(key interface{}) []byte {
-	value, ok := GlobalMsgStoreMap.Load(key)
-	if ok {
-		msgInfo, valid := value.([]byte)
-		if valid {
-			return msgInfo
-		} else {
-			return nil
-		}
-	}
-	return nil
 }

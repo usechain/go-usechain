@@ -29,15 +29,9 @@ import (
 	"github.com/usechain/go-usechain/accounts/keystore"
 	"github.com/usechain/go-usechain/cmd/utils"
 	"github.com/usechain/go-usechain/common"
-	//"github.com/usechain/go-usechain/commitee/committee"
 	"github.com/usechain/go-usechain/console"
-	"github.com/usechain/go-usechain/contracts/authentication"
-	"github.com/usechain/go-usechain/core"
-	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/eth"
 	"github.com/usechain/go-usechain/ethclient"
-	//"github.com/usechain/go-usechain/common/hexutil"
-	"github.com/usechain/go-usechain/commitee/committee"
 	"github.com/usechain/go-usechain/internal/debug"
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/metrics"
@@ -47,10 +41,6 @@ import (
 
 const (
 	clientIdentifier = "used" // Client identifier to advertise over the network
-
-	normalRole    = 0
-	committeeRole = 1
-	verifierRole  = 2
 )
 
 var (
@@ -291,111 +281,6 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 			case accounts.WalletDropped:
 				log.Info("Old wallet dropped", "url", event.Wallet.URL())
 				event.Wallet.Close()
-			}
-		}
-	}()
-
-	var usechain *eth.Ethereum
-	if err := stack.Service(&usechain); err != nil {
-		utils.Fatalf("Usechain service not running: %v", err)
-	}
-
-	///TODO: committee config should read from contract, update it in next version
-	commitFlag, ID, privShare, err := crypto.ParseCommitteeID()
-	if err != nil || commitFlag == normalRole {
-		log.Info("Normal node")
-	} else {
-		log.Info("Committee node", "ID", ID)
-		log.Warn("As a committee, pls keep your account unlocked in 30 second")
-	}
-
-	///TODO:leave the space for committee, add shares storage in future
-	go func() {
-		cachedLastCertIDChecked := int64(0)
-		time.Sleep(30 * time.Second)
-		// Committing only makes sense if it is a committee
-		for commitFlag == committeeRole {
-			// statdb read
-			// wait for some second to read data from stateDB
-			time.Sleep(2 * time.Second)
-
-			// contract address added
-			ContractAddr := common.HexToAddress(common.AuthenticationContractAddressString)
-
-			// read unConfirmedAddressLen from unconfirmed address list
-			// generate key
-			keyIndex, _ := authentication.ExpandToIndex(authentication.UnConfirmedAddressLen, "", 0)
-			resultUnConfirmedAddressLen := usechain.TxPool().State().GetState(ContractAddr, common.HexToHash(keyIndex))
-			unConfirmedAddressLen := authentication.GetLen(resultUnConfirmedAddressLen[:])
-			if unConfirmedAddressLen == 0 {
-				continue
-			}
-			// get unConfirmedAddress data
-			for i := int64(0); i < unConfirmedAddressLen; i++ {
-				res1, res2, res3, res4 := committee.ReadUnconfirmedAddress(usechain, i, ContractAddr, cachedLastCertIDChecked)
-
-				if res4 == 0 {
-					continue
-				}
-				log.Info("res1, res2, res3", "res1", res1, "res2", res2, "res3", res3)
-				log.Info("unConfirmedAddressLen: ", "len", unConfirmedAddressLen)
-				cachedLastCertIDChecked = res4
-
-				certID := res1[22:]
-				ringSig := res2
-				A1S1 := res3
-
-				err, pubSet, _, _, _ := crypto.DecodeRingSignOut(ringSig)
-				if err != nil {
-					log.Error("RingSig decode failed!", err)
-				}
-
-				shareStrSet := committee.GeneratePubShare(pubSet, privShare)
-				log.Info("A1, S1, pubSet", "A1S1", A1S1, "shareStrSet", shareStrSet)
-				ID := "00000000000000000000000000000000000000000001"
-
-				log.Info("The sending msg:", "info", A1S1+certID+ID+shareStrSet)
-
-				committee.SendCommitteeMsg(usechain, A1S1+certID+ID+shareStrSet)
-			}
-		}
-	}()
-
-	///TODO:leave the space for verifier, add shares storage in future
-	go func() {
-		time.Sleep(30 * time.Second)
-		// Committing only makes sense if it is
-		for commitFlag == verifierRole {
-			time.Sleep(time.Second * 1)
-			if true {
-				///TODO: GetTheLastInternalTrans Optimization
-				addr, msg := core.GetTheLastInternalTrans()
-				if msg == nil {
-					continue
-				}
-				log.Info("The sender is: ", "sender", addr)
-
-				//committee scan
-				A1S1, certID, senderId, shares, err := committee.ExtractPubShareMsg(string(msg))
-				if err != nil {
-					log.Error("The pub share msg extract failed", err)
-					break
-				}
-				log.Info("Result is:", A1S1, certID, senderId, shares)
-
-				//insert in local map, first check whether existed already
-				if !committee.InStringArraySet(A1S1, senderId) {
-					committee.MsgMap[A1S1] = append(committee.MsgMap[A1S1], shares)
-					committee.MsgCheckMap[A1S1] = append(committee.MsgCheckMap[A1S1], 1)
-
-					if len(committee.MsgMap[A1S1]) >= 2 {
-						//if scan the map and get a matched account，
-						//send a confirm tx to contract to change the account verify stat
-						if committee.CheckGetValidA1S1(A1S1) {
-							committee.SendAccountConfirmMsg(usechain, certID, 1)
-						}
-					}
-				}
 			}
 		}
 	}()

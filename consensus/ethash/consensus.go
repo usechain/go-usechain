@@ -271,11 +271,11 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	idTarget := new(big.Int).Rem(qr.Big(), totalMinerNum)
 	n := new(big.Int).Div(tstampSub, big.NewInt(10))
 
-	if n.Cmp(common.Big0) == 0  && header.Number.Cmp(big.NewInt(10)) > 0 && !minerlist.IsValidMiner(state, header.Coinbase, idTarget, header.DifficultyLevel){
+	if n.Cmp(common.Big0) == 0 && !minerlist.IsValidMiner(state, header.Coinbase, idTarget, header.DifficultyLevel){
 		return fmt.Errorf("invalid miner")
 	}
 
-	if n.Cmp(common.Big0) > 0 && header.Number.Cmp(big.NewInt(10)) > 0{
+	if n.Cmp(common.Big0) > 0 {
 		expectedLevel := new(big.Int).Add(preDifficultyLevel, n)
 		if expectedLevel.Cmp(common.Big3) > 0 {
 			expectedLevel = common.Big3

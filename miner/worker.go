@@ -501,7 +501,7 @@ func (self *worker) commitNewWork() {
 			}
 		}
 
-		if n.Cmp(common.Big0) == 0 && header.Number.Cmp(big.NewInt(10)) > 0 && !minerlist.IsValidMiner(self.current.state, self.coinbase, idTarget, header.DifficultyLevel ) {
+		if n.Cmp(common.Big0) == 0 && !minerlist.IsValidMiner(self.current.state, self.coinbase, idTarget, header.DifficultyLevel ) {
 			DONE:
 				for{
 					select {
@@ -514,7 +514,7 @@ func (self *worker) commitNewWork() {
 			return
 		}
 
-		if n.Cmp(common.Big0) > 0 && header.Number.Cmp(big.NewInt(10)) > 0{
+		if n.Cmp(common.Big0) > 0 {
 			idn := minerlist.CalQr(idTarget.Bytes(), n, preSignatureQr)
 			id := new(big.Int).Rem(idn.Big(), totalMinerNum)
 			if !minerlist.IsValidMiner(self.current.state, self.coinbase, id, header.DifficultyLevel) {

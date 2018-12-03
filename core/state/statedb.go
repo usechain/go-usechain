@@ -20,14 +20,8 @@
 package state
 
 import (
-	"crypto/ecdsa"
-	"encoding/hex"
-	"errors"
 	"fmt"
-	"github.com/usechain/go-usechain/accounts/abi"
-	"github.com/usechain/go-usechain/commitee/committee/contract"
 	"github.com/usechain/go-usechain/common"
-	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/log"
@@ -35,8 +29,6 @@ import (
 	"github.com/usechain/go-usechain/trie"
 	"math/big"
 	"sort"
-	"strconv"
-	"strings"
 	"sync"
 )
 
@@ -54,7 +46,7 @@ var (
 )
 
 const (
-	statDbEmpty = "0x0000000000000000000000000000000000000000000000000000000000000000"
+	StatDbEmpty = "0x0000000000000000000000000000000000000000000000000000000000000000"
 )
 
 // StateDBs within the ethereum protocol are used to store anything
@@ -511,127 +503,6 @@ func (self *StateDB) Snapshot() int {
 	self.nextRevisionId++
 	self.validRevisions = append(self.validRevisions, revision{id, len(self.journal)})
 	return id
-}
-
-func (self *StateDB) checkAuthenticateStat(_key []byte) int {
-	keyString := "0x" + hex.EncodeToString(_key)
-
-	_addr := common.HexToAddress(common.AuthenticationContractAddressString)
-	log.Debug("GetstorageAt, address:", _addr.Hex(), "key", keyString)
-	res := self.GetState(_addr, common.HexToHash(keyString))
-	log.Debug("The db get result:", "key",res.Hex())
-
-	level, err := strconv.Atoi(res.Hex()[2:])
-	if err != nil {
-		log.Debug("The db result parse error:", err)
-		return 0
-	}
-	return level
-}
-
-func (self *StateDB) isOTAConfirmed(_addr common.Address) bool {
-	key := contract.ReadOneTimeAddressDetail(_addr.Hex()[2:])
-	//log.Info("isOTAConfirmed", "key", contract.ReadOneTimeAddressDetail(_addr.Hex()[2:]))
-
-	res := self.GetState(common.HexToAddress(common.AuthenticationContractAddressString), common.HexToHash(key))
-	//log.Info("The db get result:", "key", res.Hex())
-
-	return res.Hex() != statDbEmpty
-}
-
-func (self *StateDB) isMultiAccountConfirmed(_addr common.Address) bool {
-	key := contract.ReadCertificateAddr(_addr.Hex()[2:])
-	res := self.GetState(common.HexToAddress(common.AuthenticationContractAddressString), common.HexToHash(key))
-
-	return res.Hex() != statDbEmpty
-}
-
-//TODO:
-func (self *StateDB) CheckAddrAuthenticateStat(_addr common.Address) int {
-	if self.isMultiAccountConfirmed(_addr) || self.isOTAConfirmed(_addr) {
-		return 1
-	}
-
-	return 0
-}
-
-
-func (self *StateDB) CheckMultiAccountSig(tx *types.Transaction, _addType int, _from common.Address) error {
-	usechainABI, err := abi.JSON(strings.NewReader(common.UsechainABI))
-	if err != nil {
-		log.Error("usechainABI error")
-	}
-
-	method, exist := usechainABI.Methods["storeMainUserCert"]
-	if !exist {
-		log.Error("method storeMainUserCert not found")
-	}
-
-	InputDataInterface,err :=method.Inputs.UnpackABI(tx.Data()[4:])
-	if err !=nil {
-		fmt.Println("method.Inputs: ",err)
-		return err
-	}
-
-	var inputData []string
-	for _, param := range InputDataInterface {
-		inputData = append(inputData, param.(string))
-	}
-
-	ringsign := inputData[0]
-	//pub := inputData[1]
-	pubMirror := inputData[2]
-
-
-	msg:=hexutil.Encode(_from[:])
-	//log.Info("Ringsign message","msg",msg)
-	//log.Info("Ringsign message","ringsig",ringsign)
-
-	ringRes:=crypto.VerifyRingSign(msg, ringsign)
-	if ringRes == false {
-		return errors.New("verify ring signature error")
-	}
-	//log.Info("Ringsign message","ringsig self-verification",ringRes)
-
-	err, pubKeys, pubMirrorKey, _, _ := crypto.DecodeRingSignOut(ringsign)
-	if err != nil {
-		log.Error("The  ringSig decode failed")
-		return err
-	}
-
-	fmt.Println(pubKeys)
-	fmt.Println(crypto.FromECDSAPub(pubMirrorKey))
-	fmt.Println(pubMirror)
-
-	if  common.ToHex((crypto.FromECDSAPub(pubMirrorKey))) != pubMirror {
-		log.Error("The pubMirror doesn't match with ringSig")
-		return errors.New("the pubMirror doesn't match with ringSig")
-	}
-
-	if !self.CheckRingSigPubKey(_addType, pubKeys) {
-		log.Error("The ringSig pubkey is illegal!")
-		return errors.New("the ringSig pubkey is illegal")
-	}
-
-	return nil
-}
-
-
-func (self *StateDB) CheckRingSigPubKey(addType int, pubKeys []*ecdsa.PublicKey) bool {
-	for i := range pubKeys {
-		address := crypto.PubkeyToAddress(*pubKeys[i])
-
-		if addType == common.MainAddress {
-			if !self.isOTAConfirmed(address) {
-				return false
-			}
-		}else {
-			if !self.isMultiAccountConfirmed(address) && !self.isOTAConfirmed(address) {
-				return false
-			}
-		}
-	}
-	return true
 }
 
 // RevertToSnapshot reverts all state changes made since the given revision.

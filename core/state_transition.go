@@ -17,15 +17,18 @@
 package core
 
 import (
+	"os"
 	"errors"
 	"math"
 	"math/big"
 
 	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/vm"
-	"github.com/usechain/go-usechain/log"
-	"github.com/usechain/go-usechain/params"
 	"github.com/usechain/go-usechain/core/types"
+	"github.com/usechain/go-usechain/params"
+	"github.com/usechain/go-usechain/log"
+	"github.com/usechain/go-usechain/contracts/authentication"
 )
 
 var (
@@ -215,9 +218,14 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	}
 	msg := st.msg
 	sender := st.from() // err checked in preCheck
-
 	homestead := st.evm.ChainConfig().IsHomestead(st.evm.BlockNumber)
 	contractCreation := msg.To() == nil
+
+	db, ok := (st.state).(*state.StateDB)
+	if !ok {
+		log.Error("vm state assert failed")
+		os.Exit(1)
+	}
 
 	switch contractCreation {
 	case true:
@@ -236,12 +244,12 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 				return nil, 0, false, vm.ErrInvalidAuthenticationsig
 			}
 		} else if transactionFormat.IsMainAuthentication() {
-			err = st.state.CheckMultiAccountSig(transactionFormat, common.MainAddress, msg.From())
+			err = authentication.CheckMultiAccountSig(db, transactionFormat, common.MainAddress, msg.From())
 			if err != nil {
 				return nil, 0, false, vm.ErrInvalidAuthenticationsig
 			}
 		} else if transactionFormat.IsSubAuthentication() {
-			err = st.state.CheckMultiAccountSig(transactionFormat, common.MainAddress, msg.From())
+			err = authentication.CheckMultiAccountSig(db, transactionFormat, common.SubAddress, msg.From())
 			if err != nil {
 				return nil, 0, false, vm.ErrInvalidAuthenticationsig
 			}

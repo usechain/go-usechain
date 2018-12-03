@@ -29,15 +29,12 @@ import (
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
-	"github.com/usechain/go-usechain/crypto"
+	"github.com/usechain/go-usechain/contracts/authentication"
 	"github.com/usechain/go-usechain/event"
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/metrics"
 	"github.com/usechain/go-usechain/params"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
-	"strings"
-	"github.com/usechain/go-usechain/accounts/abi"
-	"github.com/usechain/go-usechain/common/hexutil"
 )
 
 const (
@@ -155,21 +152,6 @@ const (
 	TxStatusIncluded
 	TxStatusPbft
 )
-
-const (
-	defaultKeystoreDict    = ""
-	defaultGasForCommittee = 1000000
-	DefaultReplayMsg       = "0xeeeeeeee"
-	DefaultSendTagMsg      = "0xffffffff"
-	TextAddress1           = "0xd2a132139ca63447a7affc49143c17bf81948d54"
-	TextAddress2           = "0xfa01c38d39625a76d2f13af3203e82555236f9ea"
-
-)
-
-var priv string = "113b218c583e05d08130e04ddd9ff852095e3352ca79b0249385ce438035b3af"
-var privateKeyECDSA_text, _ = crypto.HexToECDSA(priv)
-
-var replayCh = make(chan common.Hash)
 
 // blockChain provides the state of blockchain and current gas limit to do
 // some pre checks in tx pool and event subscribers.
@@ -651,68 +633,6 @@ func (pool *TxPool) local() map[common.Address]types.Transactions {
 	return txs
 }
 
-//check the certificate signature if the transaction is multiAccount authentication Tx
-//   MultiAB account authentication TX:
-//   -------------------------------------------------------------------
-//  |             |              |               |                      |
-//  |   ABI_tag   |   ringSig    |   pub_S_key   |   publicKeyMirror    |
-//  |             |              |               |                      |
-//   -------------------------------------------------------------------
-//  ======================================================================
-func checkMultiAccountSig(tx *types.Transaction, _db *state.StateDB, _addType int, _from common.Address) error {
-
-	usechainABI, err := abi.JSON(strings.NewReader(common.UsechainABI))
-	if err != nil {
-		log.Error("usechainABI error")
-	}
-
-	method, exist := usechainABI.Methods["storeMainUserCert"]
-	if !exist {
-		log.Error("method storeMainUserCert not found")
-	}
-
-	InputDataInterface,err :=method.Inputs.UnpackABI(tx.Data()[4:])
-	if err !=nil {
-		log.Error("method.Inputs: ",err)
-		return err
-	}
-
-	var inputData []string
-	for _, param := range InputDataInterface {
-		inputData = append(inputData, param.(string))
-	}
-
-	ringsign := inputData[0]
-	//pub := inputData[1]
-	pubMirror := inputData[2]
-
-
-	msg:=hexutil.Encode(_from[:])
-
-	ringRes:=crypto.VerifyRingSign(msg, ringsign)
-	if ringRes == false {
-		return errors.New("Verify ring signature error")
-	}
-
-	err, pubKeys, pubMirrorKey, _, _ := crypto.DecodeRingSignOut(ringsign)
-	if err != nil {
-		log.Error("The ringSig decode failed")
-		return err
-	}
-
-	if  common.ToHex((crypto.FromECDSAPub(pubMirrorKey))) != pubMirror {
-		log.Error("The pubMirror doesn't match with ringSig")
-		return errors.New("The pubMirror doesn't match with ringSig")
-	}
-
-	if !_db.CheckRingSigPubKey(_addType, pubKeys) {
-		log.Error("The ringSig pubkey is illegal!")
-		return errors.New("The ringSig pubkey is illegal")
-	}
-
-	return nil
-}
-
 // validateTx checks whether a transaction is valid according to the consensus
 // rules and adheres to some heuristic limits of the local node (price and size).
 func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
@@ -778,13 +698,13 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		}
 	} else if tx.IsMainAuthentication() {
 		//log.Info("Is a Main authentication tx")
-		err = checkMultiAccountSig(tx, pool.currentState, common.MainAddress, from)
+		err = authentication.CheckMultiAccountSig(pool.currentState, tx, common.MainAddress, from)
 		if err != nil {
 			return ErrInvalidAuthenticationsig
 		}
 	} else if tx.IsSubAuthentication() {
 		//log.Info("Is a Sub authentication tx")
-		err = checkMultiAccountSig(tx, pool.currentState, common.SubAddress, from)
+		err = authentication.CheckMultiAccountSig(pool.currentState, tx, common.SubAddress, from)
 		if err != nil {
 			return ErrInvalidAuthenticationsig
 		}

@@ -222,7 +222,7 @@ func (tx *Transaction) IsMainAuthentication() bool {
 	}
 
 	if !strings.EqualFold((*tx.To()).Hex(), common.AuthenticationContractAddressString) {
-		fmt.Println("Contract address doesn't match")
+		log.Debug("contract address doesn't match")
 		return false
 	}
 
@@ -243,7 +243,7 @@ func (tx *Transaction) IsSubAuthentication() bool {
 	}
 
 	if !strings.EqualFold((*tx.To()).Hex(), common.AuthenticationContractAddressString) {
-		fmt.Println("Contract address doesn't match")
+		log.Debug("Contract address doesn't match")
 		return false
 	}
 
@@ -266,7 +266,7 @@ func (tx *Transaction) IsAuthentication() bool {
 	}
 
 	if !strings.EqualFold((*tx.To()).Hex(), common.AuthenticationContractAddressString) {
-		fmt.Println("Contract address doesn't match")
+		log.Debug("contract address doesn't match")
 		return false
 	}
 

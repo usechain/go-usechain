@@ -1733,7 +1733,7 @@ func (s *PublicBlockChainAPI) QueryAddr(ctx context.Context, addr common.Address
 		return 0
 	}
 
-	if stateDb.CheckAddrAuthenticateStat(addr) == 0 {
+	if authentication.CheckAddrAuthenticateStat(stateDb, addr) == 0 {
 		return 0
 	}
 	return 1

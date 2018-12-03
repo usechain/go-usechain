@@ -69,6 +69,4 @@ func (NoopStateDB) AddLog(*types.Log)                                           
 func (NoopStateDB) AddPreimage(common.Hash, []byte)                                    {}
 func (NoopStateDB) ForEachStorage(common.Address, func(common.Hash, common.Hash) bool) {}
 
-func (NoopStateDB) CheckMultiAccountSig(*types.Transaction, int, common.Address) error {return nil}
-
 

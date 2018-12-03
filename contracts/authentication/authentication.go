@@ -21,26 +21,22 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/usechain/go-usechain/common"
-	"github.com/usechain/go-usechain/common/hexutil"
+	"math/big"
+	"math/rand"
+	"strings"
+	"time"
+	"crypto/ecdsa"
 
 	"github.com/usechain/go-usechain/accounts/keystore"
+	"github.com/usechain/go-usechain/accounts/abi"
+	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/core/state"
+	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/crypto/sha3"
 	"github.com/usechain/go-usechain/log"
-	"math/big"
-	"math/rand"
-	"reflect"
-	"strings"
-	"time"
-	"unsafe"
 )
-
-const (
-	HashLength = 32
-)
-
 
 // storjFlag defined the type of query data
 type StorjFlag struct {
@@ -143,17 +139,7 @@ var (
 	}
 )
 
-//// main entrance of query data from contract statedb, you can see details from our wiki
-//func QueryDataFromStateDb(self *state.StateDB, ContractAddr common.Address, method StorjFlag, key string,pos int64) ([]byte, error) {
-//	// generate a query index
-//	keyIndex, err := authentication.ExpandToIndex(method, key, pos)
-//	// get data from the contract statedb
-//	res := self.GetState(ContractAddr, common.HexToHash(keyIndex))[:]
-//	return res[:], nil
-//}
-
-
-
+//get unconfirmed address
 func GetUnconfirmedAddrInterface(self *state.StateDB, contractAddr common.Address, addrLen int64) ([]byte, error) {
 	// generate a query index
 	keyIndex4, _ := ExpandToIndex(OneTimeAddrConfirmedLenIndex, "", 0)
@@ -163,6 +149,7 @@ func GetUnconfirmedAddrInterface(self *state.StateDB, contractAddr common.Addres
 	return resultOneTimeAddrLen[:], nil
 }
 
+//get unconfirmed main account info
 func GetUnConfirmedMainInfoInterface(self *state.StateDB, contractAddr common.Address, PubKeyLen int64,pos int64) (string, error) {
 	// generate key
 	//pos = 1 ringsig
@@ -231,6 +218,7 @@ func GetUnConfirmedMainInfoInterface(self *state.StateDB, contractAddr common.Ad
 }
 
 type cachedRandomNumber map[int64]bool
+//get one time account pubkey set randomly
 func GetOneTimePubSetInterface(self *state.StateDB, contractAddr common.Address, PubKeyLen int64) (string, error)  {
 	// check if the value of Pubkeylen is 0
 	if PubKeyLen == 0 {
@@ -242,7 +230,7 @@ func GetOneTimePubSetInterface(self *state.StateDB, contractAddr common.Address,
 	// get data from the contract statedb
 	resultOneTimeAddrLen := self.GetState(contractAddr, common.HexToHash(keyIndex1))
 
-	log.Info("Query result: ", "resultOneTimeAddrLen: ", resultOneTimeAddrLen[:])
+	log.Debug("Query result: ", "resultOneTimeAddrLen: ", resultOneTimeAddrLen[:])
 
 	// get one time address length from string
 	oneTimeAddrLen := GetLen(resultOneTimeAddrLen[:])
@@ -258,7 +246,7 @@ func GetOneTimePubSetInterface(self *state.StateDB, contractAddr common.Address,
 		for ; randomExist[randomNumber] == true ;  {
 			randomNumber = GenerateRandomNumber(oneTimeAddrLen)
 		}
-		log.Info("Ringsig publickey random number: ", "number", randomNumber)
+		log.Debug("Ringsig publickey random number: ", "number", randomNumber)
 
 		// get data string from stateDb
 		// generate a query index
@@ -266,7 +254,7 @@ func GetOneTimePubSetInterface(self *state.StateDB, contractAddr common.Address,
 		// get data from the contract statedb
 		confirmedOneTimeAddr := self.GetState(contractAddr, common.HexToHash(keyIndex2))
 
-		log.Info("confirmedOneTimeAddr: ","address: ", hex.EncodeToString(confirmedOneTimeAddr[:]))
+		log.Debug("confirmedOneTimeAddr: ","address: ", hex.EncodeToString(confirmedOneTimeAddr[:]))
 
 		// generate a query index
 		keyIndex3, _ := ExpandToIndex(OneTimeAddr, hex.EncodeToString(confirmedOneTimeAddr[:]), 3)
@@ -299,6 +287,7 @@ func GetOneTimePubSetInterface(self *state.StateDB, contractAddr common.Address,
 	return res[:len(res)-1], nil
 }
 
+//get confirmed main account info
 func GetConfirmedMainInfoInterface(self *state.StateDB, contractAddr common.Address, keyLen int64, pos int64) (string, error) {
 	// generate key
 	//pos = 1 ringsig
@@ -353,6 +342,7 @@ func GetConfirmedMainInfoInterface(self *state.StateDB, contractAddr common.Addr
 	return res[:len(res)-1], nil
 }
 
+//get the confirmed main account A1 & S1 pubkey
 func GetConfirmedMainASInterface(self *state.StateDB, contractAddr common.Address, keyLen int64,pos int64) (string,error) {
 	// generate key
 	//pos = 1 ringsig
@@ -467,7 +457,7 @@ func GenSubRingSignData(msg, privateKey, addr string, statedb *state.StateDB) (s
 	return ringsig, keyImage, nil
 }
 
-
+//Read unconfirmed address with certID
 func ReadUnconfirmedAddressInterface(managedState *state.ManagedState, index int64, contractAddr common.Address, checkCertID int64) (string, string, string, int64){
 	// generate i's keyindex to check unconfirmed address index
 	keyIndex, _ := ExpandToIndex(UnConfirmedAddress, "", index)
@@ -574,6 +564,136 @@ func ExpandToIndex(methods StorjFlag, key string, pos int64) (string, error) {
 	return "", errors.New("no method matched")
 }
 
+//Get key index of One Time Address
+func ReadOneTimeAddressDetail(key string) string {
+	key = formatData64bytes(key);
+	paramIndex := "000000000000000000000000000000000000000000000000000000000000000c";
+	web3key := key + paramIndex;
+
+	hash := sha3.NewKeccak256()
+
+	var keyIndex []byte
+	hash.Write(decodeHex(web3key))
+	keyIndex = hash.Sum(keyIndex)
+
+	return hex.EncodeToString(keyIndex)
+}
+
+//Get key index of certificateAddr
+func ReadCertificateAddr(key string) string {
+	key = formatData64bytes(key);
+	paramIndex := "000000000000000000000000000000000000000000000000000000000000000e";
+	web3key := key + paramIndex;
+
+	hash := sha3.NewKeccak256()
+
+	var keyIndex []byte
+	hash.Write(decodeHex(web3key))
+	keyIndex = hash.Sum(keyIndex)
+
+	return hex.EncodeToString(keyIndex)
+}
+
+//Check the address whether is one time address
+func IsOTAConfirmed(db *state.StateDB, _addr common.Address) bool {
+	key := ReadOneTimeAddressDetail(_addr.Hex()[2:])
+	//log.Info("isOTAConfirmed", "key", contract.ReadOneTimeAddressDetail(_addr.Hex()[2:]))
+
+	res := db.GetState(common.HexToAddress(common.AuthenticationContractAddressString), common.HexToHash(key))
+	//log.Info("The db get result:", "key", res.Hex())
+
+	return res.Hex() != state.StatDbEmpty
+}
+
+//Check the address whether is verified AB account
+func IsMultiAccountConfirmed(db *state.StateDB, _addr common.Address) bool {
+	key := ReadCertificateAddr(_addr.Hex()[2:])
+	res := db.GetState(common.HexToAddress(common.AuthenticationContractAddressString), common.HexToHash(key))
+
+	return res.Hex() != state.StatDbEmpty
+}
+
+//Check the address authentication state
+func CheckAddrAuthenticateStat(db *state.StateDB, _addr common.Address) int {
+	if IsMultiAccountConfirmed(db, _addr) || IsOTAConfirmed(db, _addr) {
+		return 1
+	}
+	return 0
+}
+
+//Check the AB account's parent address whether valid
+func CheckRingSigPubKey(db *state.StateDB, addType int, pubKeys []*ecdsa.PublicKey) bool {
+	for i := range pubKeys {
+		address := crypto.PubkeyToAddress(*pubKeys[i])
+
+		if addType == common.MainAddress {
+			if !IsOTAConfirmed(db, address) {
+				return false
+			}
+		}else {
+			if !IsMultiAccountConfirmed(db, address) && !IsOTAConfirmed(db, address) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+//Check AB account authentication transaction whether get valid ringsig
+func CheckMultiAccountSig(db *state.StateDB, tx *types.Transaction, _addType int, _from common.Address) error {
+	usechainABI, err := abi.JSON(strings.NewReader(common.UsechainABI))
+	if err != nil {
+		log.Error("usechainABI error")
+	}
+
+	method, exist := usechainABI.Methods["storeMainUserCert"]
+	if !exist {
+		log.Error("method storeMainUserCert not found")
+	}
+
+	InputDataInterface,err :=method.Inputs.UnpackABI(tx.Data()[4:])
+	if err !=nil {
+		log.Error("method.Inputs: ", "err", err)
+		return err
+	}
+
+	var inputData []string
+	for _, param := range InputDataInterface {
+		inputData = append(inputData, param.(string))
+	}
+
+	ringsign := inputData[0]
+	pubMirror := inputData[2]
+	msg:=hexutil.Encode(_from[:])
+	ringRes:=crypto.VerifyRingSign(msg, ringsign)
+	if ringRes == false {
+		return errors.New("verify ring signature error")
+	}
+
+	err, pubKeys, pubMirrorKey, _, _ := crypto.DecodeRingSignOut(ringsign)
+	if err != nil {
+		log.Error("The  ringSig decode failed")
+		return err
+	}
+
+	log.Debug("tx validate","pubkey", pubKeys)
+	log.Debug("tx validate","pubMirrorKey", crypto.FromECDSAPub(pubMirrorKey))
+	log.Debug("tx validate","pubMirror", pubMirror)
+
+	if  common.ToHex((crypto.FromECDSAPub(pubMirrorKey))) != pubMirror {
+		log.Error("The pubMirror doesn't match with ringSig")
+		return errors.New("the pubMirror doesn't match with ringSig")
+	}
+
+	if !CheckRingSigPubKey(db, _addType, pubKeys) {
+		log.Error("The ringSig pubkey is illegal!")
+		return errors.New("the ringSig pubkey is illegal")
+	}
+
+	return nil
+}
+
+
 // extend the len of key
 func ExtendPrefix(key string, num int) string {
 	preZero := ""
@@ -641,9 +761,25 @@ func GetLen(lenByte []byte) int64 {
 	return b.Int64()
 }
 
+// decode hex string to []byte
+func decodeHex(s string) []byte {
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
 
-func BytesToString(byteData []byte) string {
-	bh := (*reflect.SliceHeader)(unsafe.Pointer(&byteData))
-	sh := reflect.StringHeader{bh.Data, bh.Len}
-	return *(*string)(unsafe.Pointer(&sh))
+//expand hex string to 64 with '0' prefix
+func formatData64bytes(_data string) string{
+	dataRawlength := len(_data);
+
+	if dataRawlength > 64 {
+		fmt.Println("the string is explicit the length")
+		return _data;
+	}
+	for index := 0; index < 64 - dataRawlength; index++ {
+		_data = "0" + _data;
+	}
+	return _data
 }

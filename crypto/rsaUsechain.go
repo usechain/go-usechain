@@ -33,19 +33,11 @@ import (
 
 	"crypto/ecdsa"
 	"crypto/x509/pkix"
-	"encoding/json"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/log"
 	"math/big"
 	"time"
 )
-
-type committee struct {
-	Committee int
-	ID        int
-	Address   string
-	PrivShare string
-}
 
 // GenerateRSAKeypair generate RSA format public key and private key
 func GenerateRSAKeypair() error {
@@ -387,12 +379,6 @@ func ReadUserCert() string {
 		log.Error("ReadFile err:", "err", err)
 	}
 
-	//Block, _:= pem.Decode(f)
-	//if Block == nil {
-	//	fmt.Println("ecaFile error")
-	//}
-	//
-	//userCert:=pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: Block.Bytes})
 	userCertString := hex.EncodeToString(f)
 	return userCertString
 }
@@ -418,24 +404,6 @@ func parseRcaRsa() (*x509.Certificate, error) {
 		return nil, err
 	}
 	return Cert, nil
-}
-
-func ParseCommitteeID() (int, int, string, error) {
-	BaseDir := DefaultDataDir()
-	committeeFile, err := ioutil.ReadFile(BaseDir + "/committee.cfg")
-	if err != nil {
-		log.Info("Running normal node without committee config")
-		return 0, -1, "", err
-	}
-
-	config := &committee{}
-	err = json.Unmarshal(committeeFile, &config)
-	if err != nil {
-		log.Error("ReadFile err:", "err", err)
-		return 0, -1, "", err
-	}
-
-	return config.Committee, config.ID, config.PrivShare, nil
 }
 
 // CheckUserCert verify user certificate

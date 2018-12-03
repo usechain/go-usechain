@@ -496,8 +496,8 @@ type RingSignedData struct {
 }
 
 var (
-	ErrInvalidPrivateKey = errors.New("Invalid private key")
-	ErrInvalidPunlicKeySet = errors.New("Invalid public key set")
+	ErrInvalidPrivateKey = errors.New("invalid private key")
+	ErrInvalidPunlicKeySet = errors.New("invalid public key set")
 )
 
 // GenRingSignData generate ring sign data
@@ -530,7 +530,6 @@ func GenRingSignData(hashMsg string, privateKey string, publickeyset string) (st
 	if len(publickeys) == 0 || len(publickeys)>6{
 		return "","", ErrInvalidPunlicKeySet
 	}
-
 
 	return genRingSignData(hmsg, privKey, &ecdsaPrivateKey.PublicKey, publickeys)
 }

@@ -190,6 +190,7 @@ func (b *Big) String() string {
 // Uint64 marshals/unmarshals as a JSON string with 0x prefix.
 // The zero value marshals as "0x0".
 type Uint64 uint64
+type Uint8  uint8
 
 // MarshalText implements encoding.TextMarshaler.
 func (b Uint64) MarshalText() ([]byte, error) {

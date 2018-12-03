@@ -124,6 +124,10 @@ var (
 	queuedRateLimitCounter = metrics.NewRegisteredCounter("txpool/queued/ratelimit", nil) // Dropped due to rate limiting
 	queuedNofundsCounter   = metrics.NewRegisteredCounter("txpool/queued/nofunds", nil)   // Dropped due to out-of-funds
 
+	// Metrics for the pbft pool
+	pbftDiscardCounter   = metrics.NewRegisteredCounter("txpool/pbft/discard", nil)
+	pbftReplaceCounter   = metrics.NewRegisteredCounter("txpool/pbft/replace", nil)
+
 	// General tx metrics
 	invalidTxCounter     = metrics.NewRegisteredCounter("txpool/invalid", nil)
 	underpricedTxCounter = metrics.NewRegisteredCounter("txpool/underpriced", nil)
@@ -245,6 +249,7 @@ type TxPool struct {
 
 	pending map[common.Address]*txList         // All currently processable transactions
 	queue   map[common.Address]*txList         // Queued but non-processable transactions
+	pbft    map[common.Address]*txList         // All pbft transactions
 	beats   map[common.Address]time.Time       // Last heartbeat from each known account
 	all     map[common.Hash]*types.Transaction // All transactions to allow lookups
 	priced  *txPricedList                      // All transactions sorted by price
@@ -269,6 +274,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		signer:         types.NewEIP155Signer(chainconfig.ChainId),
 		pending:        make(map[common.Address]*txList),
 		queue:          make(map[common.Address]*txList),
+		pbft:           make(map[common.Address]*txList),
 		beats:          make(map[common.Address]time.Time),
 		all:            make(map[common.Hash]*types.Transaction),
 		chainHeadCh:    make(chan ChainHeadEvent, chainHeadChanSize),
@@ -307,7 +313,7 @@ func (pool *TxPool) loop() {
 	defer pool.wg.Done()
 
 	// Start the stats reporting and transaction eviction tickers
-	var prevPending, prevQueued, prevStales int
+	var prevPending, prevQueued, prevPbft, prevStales int
 
 	report := time.NewTicker(statsReportInterval)
 	defer report.Stop()
@@ -343,13 +349,13 @@ func (pool *TxPool) loop() {
 		// Handle stats reporting ticks
 		case <-report.C:
 			pool.mu.RLock()
-			pending, queued := pool.stats()
+			pending, queued, pbft := pool.stats()
 			stales := pool.priced.stales
 			pool.mu.RUnlock()
 
-			if pending != prevPending || queued != prevQueued || stales != prevStales {
-				log.Debug("Transaction pool status report", "executable", pending, "queued", queued, "stales", stales)
-				prevPending, prevQueued, prevStales = pending, queued, stales
+			if pending != prevPending || queued != prevQueued || pbft != prevPbft || stales != prevStales {
+				log.Debug("Transaction pool status report", "executable", pending, "queued", queued, "pbft", pbft, "stales", stales)
+				prevPending, prevQueued, prevPbft, prevStales = pending, queued, pbft, stales
 			}
 
 		// Handle inactive account transaction eviction
@@ -532,8 +538,8 @@ func (pool *TxPool) StateDB() *state.StateDB {
 }
 
 // Stats retrieves the current pool stats, namely the number of pending and the
-// number of queued (non-executable) transactions.
-func (pool *TxPool) Stats() (int, int) {
+// number of queued (non-executable) and the number of pbft transactions.
+func (pool *TxPool) Stats() (int, int, int) {
 	pool.mu.RLock()
 	defer pool.mu.RUnlock()
 
@@ -541,8 +547,8 @@ func (pool *TxPool) Stats() (int, int) {
 }
 
 // stats retrieves the current pool stats, namely the number of pending and the
-// number of queued (non-executable) transactions.
-func (pool *TxPool) stats() (int, int) {
+// number of queued (non-executable) and the number of pbft transactions.
+func (pool *TxPool) stats() (int, int, int) {
 	pending := 0
 	for _, list := range pool.pending {
 		pending += list.Len()
@@ -551,12 +557,16 @@ func (pool *TxPool) stats() (int, int) {
 	for _, list := range pool.queue {
 		queued += list.Len()
 	}
-	return pending, queued
+	pbft := 0
+	for _, list := range pool.pending {
+		pbft += list.Len()
+	}
+	return pending, queued, pbft
 }
 
 // Content retrieves the data content of the transaction pool, returning all the
-// pending as well as queued transactions, grouped by account and sorted by nonce.
-func (pool *TxPool) Content() (map[common.Address]types.Transactions, map[common.Address]types.Transactions) {
+// pending as well as queued as well as pbft transactions, grouped by account and sorted by nonce.
+func (pool *TxPool) Content() (map[common.Address]types.Transactions, map[common.Address]types.Transactions, map[common.Address]types.Transactions) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
@@ -568,7 +578,11 @@ func (pool *TxPool) Content() (map[common.Address]types.Transactions, map[common
 	for addr, list := range pool.queue {
 		queued[addr] = list.Flatten()
 	}
-	return pending, queued
+	pbft := make(map[common.Address]types.Transactions)
+	for addr, list := range pool.pbft {
+		pbft[addr] = list.Flatten()
+	}
+	return pending, queued, pbft
 }
 
 // Pending retrieves all currently processable transactions, groupped by origin
@@ -596,6 +610,9 @@ func (pool *TxPool) local() map[common.Address]types.Transactions {
 		}
 		if queued := pool.queue[addr]; queued != nil {
 			txs[addr] = append(txs[addr], queued.Flatten()...)
+		}
+		if pbft := pool.pbft[addr]; pbft != nil {
+			txs[addr] = append(txs[addr], pbft.Flatten()...)
 		}
 	}
 	return txs
@@ -730,6 +747,10 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		//if err != nil {
 		//	return ErrIllegalAddress
 		//}
+	}
+
+	if tx.Flag() == 1 {
+		return nil;
 	}
 
 	// Drop non-local transactions under our own minimal accepted gas price
@@ -918,10 +939,41 @@ func (pool *TxPool) journalTx(from common.Address, tx *types.Transaction) {
 	}
 }
 
-// promoteTx adds a transaction to the pending (processable) list of transactions.
+// promoteTx adds a transaction to the pbft/pending (processable) list of transactions.
 //
 // Note, this method assumes the pool lock is held!
 func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.Transaction) {
+	if tx.Flag() == 1 {
+		// Try to insert the transaction into the pbft queue
+		if pool.pbft[addr] == nil {
+			pool.pbft[addr] = newTxList(true)
+		}
+		list := pool.pbft[addr]
+
+		inserted, old := list.Add(tx, pool.config.PriceBump)
+		if !inserted {
+			// An older transaction was better, discard this
+			delete(pool.all, hash)
+			pool.priced.Removed()
+			pbftDiscardCounter.Inc(1)
+			return
+		}
+		// Otherwise discard any previous transaction and mark this
+		if old != nil {
+			delete(pool.all, old.Hash())
+			pool.priced.Removed()
+			pbftReplaceCounter.Inc(1)
+		}
+		// Failsafe to work around direct pbft inserts (tests)
+		if pool.all[hash] == nil {
+			pool.all[hash] = tx
+			pool.priced.Put(tx)
+		}
+		pool.beats[addr] = time.Now()
+		go pool.txFeed.Send(TxPreEvent{tx})
+		return
+	}
+
 	// Try to insert the transaction into the pending queue
 	if pool.pending[addr] == nil {
 		pool.pending[addr] = newTxList(true)
@@ -1128,6 +1180,9 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 		}
 		// Drop all transactions that are deemed too old (low nonce)
 		for _, tx := range list.Forward(pool.currentState.GetNonce(addr)) {
+			if tx.Flag() == 1 {
+				continue
+			}
 			hash := tx.Hash()
 			log.Trace("Removed old queued transaction", "hash", hash)
 			delete(pool.all, hash)
@@ -1136,16 +1191,28 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 		// Drop all transactions that are too costly (low balance or out of gas)
 		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas)
 		for _, tx := range drops {
+			if tx.Flag() == 1 {
+				continue
+			}
 			hash := tx.Hash()
 			log.Trace("Removed unpayable queued transaction", "hash", hash)
 			delete(pool.all, hash)
 			pool.priced.Removed()
 			queuedNofundsCounter.Inc(1)
 		}
-		// Gather all executable transactions and promote them
-		for _, tx := range list.Ready(pool.pendingState.GetNonce(addr)) {
+		// Gather all executable transactions and promote them into pending queue
+		for _, tx := range list.Ready(0, pool.pendingState.GetNonce(addr)) {
 			hash := tx.Hash()
 			log.Trace("Promoting queued transaction", "hash", hash)
+			pool.promoteTx(addr, hash, tx)
+		}
+		// Gather all executable transactions and promote them into pbft queue
+		for _, tx := range list.Ready(1, 0) {
+			if tx.Flag() == 0 {
+				continue
+			}
+			hash := tx.Hash()
+			log.Info("Promoting queued pbft transaction", "hash", hash)
 			pool.promoteTx(addr, hash, tx)
 		}
 		// Drop all transactions over the allowed limit

@@ -123,8 +123,9 @@ func (s *PublicTxPoolAPI) Content() map[string]map[string]map[string]*RPCTransac
 	content := map[string]map[string]map[string]*RPCTransaction{
 		"pending": make(map[string]map[string]*RPCTransaction),
 		"queued":  make(map[string]map[string]*RPCTransaction),
+		"pbft": make(map[string]map[string]*RPCTransaction),
 	}
-	pending, queue := s.b.TxPoolContent()
+	pending, queue, pbft := s.b.TxPoolContent()
 
 	// Flatten the pending transactions
 	for account, txs := range pending {
@@ -142,15 +143,24 @@ func (s *PublicTxPoolAPI) Content() map[string]map[string]map[string]*RPCTransac
 		}
 		content["queued"][account.Hex()] = dump
 	}
+	// Flatten the pbft transactions
+	for account, txs := range pbft {
+		dump := make(map[string]*RPCTransaction)
+		for _, tx := range txs {
+			dump[fmt.Sprintf("%d", tx.Nonce())] = newRPCPendingTransaction(tx)
+		}
+		content["pbft"][account.Hex()] = dump
+	}
 	return content
 }
 
 // Status returns the number of pending and queued transaction in the pool.
 func (s *PublicTxPoolAPI) Status() map[string]hexutil.Uint {
-	pending, queue := s.b.Stats()
+	pending, queue, pbft := s.b.Stats()
 	return map[string]hexutil.Uint{
 		"pending": hexutil.Uint(pending),
 		"queued":  hexutil.Uint(queue),
+		"pbft": hexutil.Uint(pbft),
 	}
 }
 
@@ -160,8 +170,9 @@ func (s *PublicTxPoolAPI) Inspect() map[string]map[string]map[string]string {
 	content := map[string]map[string]map[string]string{
 		"pending": make(map[string]map[string]string),
 		"queued":  make(map[string]map[string]string),
+		"pbft": make(map[string]map[string]string),
 	}
-	pending, queue := s.b.TxPoolContent()
+	pending, queue, pbft := s.b.TxPoolContent()
 
 	// Define a formatter to flatten a transaction into a string
 	var format = func(tx *types.Transaction) string {
@@ -185,6 +196,14 @@ func (s *PublicTxPoolAPI) Inspect() map[string]map[string]map[string]string {
 			dump[fmt.Sprintf("%d", tx.Nonce())] = format(tx)
 		}
 		content["queued"][account.Hex()] = dump
+	}
+	// Flatten the pbft transactions
+	for account, txs := range pbft {
+		dump := make(map[string]string)
+		for _, tx := range txs {
+			dump[fmt.Sprintf("%d", tx.Nonce())] = format(tx)
+		}
+		content["pbft"][account.Hex()] = dump
 	}
 	return content
 }
@@ -915,6 +934,7 @@ type RPCTransaction struct {
 	V                *hexutil.Big    `json:"v"`
 	R                *hexutil.Big    `json:"r"`
 	S                *hexutil.Big    `json:"s"`
+	Flag             hexutil.Uint8   `json:"flag"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
@@ -939,6 +959,7 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		V:        (*hexutil.Big)(v),
 		R:        (*hexutil.Big)(r),
 		S:        (*hexutil.Big)(s),
+		Flag:     hexutil.Uint8(tx.Flag()),
 	}
 	if blockHash != (common.Hash{}) {
 		result.BlockHash = blockHash
@@ -1226,7 +1247,9 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 	if err := b.SendTx(ctx, tx); err != nil {
 		return common.Hash{}, err
 	}
-	if tx.To() == nil {
+	if tx.Flag() == 1 {
+		log.Info("Submitted pbft transaction", "fullhash", tx.Hash().Hex())
+	} else if tx.To() == nil {
 		signer := types.MakeSigner(b.ChainConfig(), b.CurrentBlock().Number())
 		from, err := types.Sender(signer, tx)
 		if err != nil {

@@ -175,14 +175,17 @@ func (m *txSortedMap) Remove(nonce uint64) bool {
 // Note, all transactions with nonces lower than start will also be returned to
 // prevent getting into and invalid state. This is not something that should ever
 // happen but better to be self correcting than failing!
-func (m *txSortedMap) Ready(start uint64) types.Transactions {
+func (m *txSortedMap) Ready(flag uint8, start uint64) types.Transactions {
 	// Short circuit if no transactions are available
-	if m.index.Len() == 0 || (*m.index)[0] > start {
+	if m.index.Len() == 0 || (flag == 0 && (*m.index)[0] > start) {
 		return nil
 	}
 	// Otherwise start accumulating incremental transactions
 	var ready types.Transactions
 	for next := (*m.index)[0]; m.index.Len() > 0 && (*m.index)[0] == next; next++ {
+		if m.items[next].Flag() != flag {
+			continue
+		}
 		ready = append(ready, m.items[next])
 		delete(m.items, next)
 		heap.Pop(m.index)
@@ -342,8 +345,8 @@ func (l *txList) Remove(tx *types.Transaction) (bool, types.Transactions) {
 // Note, all transactions with nonces lower than start will also be returned to
 // prevent getting into and invalid state. This is not something that should ever
 // happen but better to be self correcting than failing!
-func (l *txList) Ready(start uint64) types.Transactions {
-	return l.txs.Ready(start)
+func (l *txList) Ready(flag uint8, start uint64) types.Transactions {
+	return l.txs.Ready(flag, start)
 }
 
 // Len returns the length of the transaction list.

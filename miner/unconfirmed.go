@@ -18,6 +18,7 @@ package miner
 
 import (
 	"container/ring"
+	"fmt"
 	"sync"
 
 	"github.com/usechain/go-usechain/common"
@@ -58,6 +59,8 @@ func newUnconfirmedBlocks(chain headerRetriever, depth uint) *unconfirmedBlocks 
 	}
 }
 
+var potential_block int
+
 // Insert adds a new block to the set of unconfirmed ones.
 func (set *unconfirmedBlocks) Insert(index uint64, hash common.Hash) {
 	// If a new block was mined locally, shift out any old enough blocks
@@ -80,6 +83,9 @@ func (set *unconfirmedBlocks) Insert(index uint64, hash common.Hash) {
 	}
 	// Display a log for the user to notify of a new mined block unconfirmed
 	log.Info("🔨 mined potential block", "number", index, "hash", hash)
+
+	potential_block++
+	fmt.Println("potential_block: ", potential_block)
 }
 
 // Shift drops all unconfirmed blocks from the set which exceed the unconfirmed sets depth

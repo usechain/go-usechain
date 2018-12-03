@@ -30,7 +30,6 @@ import (
 
 const (
 	MinerListContract = "0xfffffffffffffffffffffffffffffffff0000002"
-	//MinerListContract = "0xe07723EadAc4Af9F198488acc3638F4F853D8f07"
 )
 
 func decodeHex(s string) []byte {

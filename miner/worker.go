@@ -53,7 +53,6 @@ const (
 
 	chainRpowChanSize = 10
 
-	genesisTag = "8287dbe2b47bcc884dce4b9ea1a0dc76"
 	genesisQrSignature = "8287dbe2b47bcc884dce4b9ea1a0dc76"
 
 	slot = 10
@@ -256,13 +255,15 @@ func (self *worker) update() {
 	defer self.txSub.Unsubscribe()
 	defer self.chainHeadSub.Unsubscribe()
 	defer self.chainSideSub.Unsubscribe()
+	defer self.chainRpowSub.Unsubscribe()
 
 	for {
 		// A real event arrived, process interesting content
 		select {
 		// Handle ChainHeadEvent
 		case <-self.chainHeadCh:
-			self.commitNewWork()
+			self.chainRpowCh <- 1
+			//self.commitNewWork()
 
 			// Handle ChainSideEvent
 		case ev := <-self.chainSideCh:
@@ -415,9 +416,9 @@ func (self *worker) commitNewWork() {
 	parent := self.chain.CurrentBlock()
 
 	tstamp := tstart.Unix()
-	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
-		tstamp = parent.Time().Int64() + 1
-	}
+	//if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
+	//	tstamp = parent.Time().Int64() + 1
+	//}
 	// this will ensure we're not going off too far in the future
 	if now := time.Now().Unix(); tstamp > now+1 {
 		wait := time.Duration(tstamp-now) * time.Second
@@ -425,10 +426,37 @@ func (self *worker) commitNewWork() {
 		time.Sleep(wait)
 	}
 
-	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp - 5)) >= 0 {
+	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp - 5)) > 0 {
 		log.Debug("Block time slot should be more than five seconds")
-		time.Sleep(5*time.Second)
-		tstamp = tstamp + 5
+		//time.Sleep(time.Duration(parent.Time().Int64() + int64(5) - tstamp) * time.Second)
+		//tstamp = parent.Time().Int64() + 5
+
+		/*DONE2:
+			for{
+				select {
+				case <-self.chainRpowCh:
+				default:
+					break DONE2
+				}
+			}
+		self.chainRpowCh <- 1
+		return*/
+
+		/*select {
+		case <-self.chainRpowCh:
+			break
+		case <-time.After(time.Duration(parent.Time().Int64() + int64(5) - tstamp) * time.Second):
+			tstamp = parent.Time().Int64() + 5
+			break DONE2
+		}*/
+		select {
+		case <-self.chainHeadCh:
+			self.chainRpowCh <- 1
+			return
+		case <-time.After(time.Duration(parent.Time().Int64() + int64(5) - tstamp) * time.Second):
+			tstamp = parent.Time().Int64() + 5
+			break
+		}
 	}
 
 	num := parent.Number()
@@ -466,11 +494,8 @@ func (self *worker) commitNewWork() {
 		}
 
 		var preSignatureQr []byte
-		if header.Number.Cmp(common.Big1) == 0 {
-			preSignatureQr = []byte(genesisQrSignature)
-		}else{
-			preSignatureQr = parent.MinerQrSignature()
-		}
+
+		preSignatureQr = parent.MinerQrSignature()
 
 		preCoinbase := parent.Coinbase()
 		blockNumber := header.Number
@@ -510,6 +535,7 @@ func (self *worker) commitNewWork() {
 						break DONE
 					}
 				}
+			//time.Sleep(time.Duration(tstampSub % slot + 1) * time.Second)
 			self.chainRpowCh <- 1
 			return
 		}
@@ -526,6 +552,7 @@ func (self *worker) commitNewWork() {
 							break DONE1
 						}
 					}
+				//time.Sleep(time.Duration(tstampSub % slot + 1) * time.Second)
 				self.chainRpowCh <- 1
 				return
 			}

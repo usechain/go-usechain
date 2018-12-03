@@ -261,7 +261,6 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	}
 
 	// Verify block miner
-
 	preCoinbase := parent.Coinbase
 	blockNumber := header.Number
 	preSignatureQr := parent.MinerQrSignature
@@ -269,7 +268,7 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 
 	qr := minerlist.CalQr(preCoinbase.Bytes(), blockNumber, preSignatureQr)
 	idTarget := new(big.Int).Rem(qr.Big(), totalMinerNum)
-	n := new(big.Int).Div(tstampSub, big.NewInt(10))
+	n := new(big.Int).Div(tstampSub, solt)
 
 	if n.Cmp(common.Big0) == 0 && !minerlist.IsValidMiner(state, header.Coinbase, idTarget, header.DifficultyLevel){
 		return fmt.Errorf("invalid miner")
@@ -360,6 +359,7 @@ var (
 	big20		  = big.NewInt(20)
 	bigMinus99    = big.NewInt(-99)
 	big2999999    = big.NewInt(2999999)
+	solt          = big.NewInt(10)
 )
 
 // VerifySeal implements consensus.Engine, checking whether the given block satisfies

@@ -160,7 +160,7 @@ func (s *PublicTxPoolAPI) Status() map[string]hexutil.Uint {
 	return map[string]hexutil.Uint{
 		"pending": hexutil.Uint(pending),
 		"queued":  hexutil.Uint(queue),
-		"pbft": hexutil.Uint(pbft),
+		"pbft":    hexutil.Uint(pbft),
 	}
 }
 

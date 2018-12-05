@@ -558,7 +558,7 @@ func (pool *TxPool) stats() (int, int, int) {
 		queued += list.Len()
 	}
 	pbft := 0
-	for _, list := range pool.pending {
+	for _, list := range pool.pbft {
 		pbft += list.Len()
 	}
 	return pending, queued, pbft

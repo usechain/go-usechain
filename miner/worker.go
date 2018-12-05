@@ -110,6 +110,9 @@ type worker struct {
 	chainSideSub event.Subscription
 	chainRpowCh  chan core.ChainRpowEvent
 	chainRpowSub event.Subscription
+	//test
+	chainWaitCh  chan core.ChainRpowEvent
+
 	wg           sync.WaitGroup
 
 	agents map[Agent]struct{}
@@ -146,6 +149,7 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		chainHeadCh:    make(chan core.ChainHeadEvent, chainHeadChanSize),
 		chainSideCh:    make(chan core.ChainSideEvent, chainSideChanSize),
 		chainRpowCh:    make(chan core.ChainRpowEvent, chainRpowChanSize),
+		chainWaitCh:	make(chan core.ChainRpowEvent, chainRpowChanSize),
 		chainDb:        eth.ChainDb(),
 		recv:           make(chan *Result, resultQueueSize),
 		chain:          eth.BlockChain(),
@@ -310,6 +314,7 @@ func (self *worker) wait() {
 		mustCommitNewWork := true
 		for result := range self.recv {
 			atomic.AddInt32(&self.atWork, -1)
+			self.chainWaitCh <- 1
 
 			if result == nil {
 				continue
@@ -452,6 +457,8 @@ func (self *worker) commitNewWork() {
 		select {
 		case <-self.chainHeadCh:
 			self.chainRpowCh <- 1
+			return
+		case <-self.chainWaitCh:
 			return
 		case <-time.After(time.Duration(parent.Time().Int64() + int64(5) - tstamp) * time.Second):
 			tstamp = parent.Time().Int64() + 5

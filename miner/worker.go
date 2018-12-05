@@ -168,7 +168,7 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 	go worker.update()
 
 	go worker.wait()
-	worker.commitNewWork()
+	worker.commitNewWork(waitInput)
 
 	return worker
 }
@@ -276,7 +276,7 @@ func (self *worker) update() {
 			self.uncleMu.Unlock()
 
 		case <-self.chainRpowCh:
-			self.commitNewWork()
+			self.commitNewWork(updateInput)
 
 			// Handle TxPreEvent
 		case ev := <-self.txCh:
@@ -292,7 +292,7 @@ func (self *worker) update() {
 			} else {
 				// If we're mining, but nothing is being processed, wake on new transactions
 				if self.config.Clique != nil && self.config.Clique.Period == 0 {
-					self.commitNewWork()
+					self.commitNewWork(updateInput)
 				}
 			}
 
@@ -358,7 +358,7 @@ func (self *worker) wait() {
 			self.unconfirmed.Insert(block.NumberU64(), block.Hash())
 
 			if mustCommitNewWork {
-				self.commitNewWork()
+				self.commitNewWork(waitInput)
 			}
 		}
 	}
@@ -409,7 +409,12 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 	return nil
 }
 
-func (self *worker) commitNewWork() {
+const (
+	waitInput = 0
+	updateInput = 1
+)
+
+func (self *worker) commitNewWork(input int) {
 	self.mu.Lock()
 	defer self.mu.Unlock()
 	self.uncleMu.Lock()
@@ -454,16 +459,28 @@ func (self *worker) commitNewWork() {
 			tstamp = parent.Time().Int64() + 5
 			break DONE2
 		}*/
-		select {
-		case <-self.chainHeadCh:
-			self.chainRpowCh <- 1
-			return
-		case <-self.chainWaitCh:
-			return
-		case <-time.After(time.Duration(parent.Time().Int64() + int64(5) - tstamp) * time.Second):
-			tstamp = parent.Time().Int64() + 5
-			break
+		if input == waitInput {
+			select {
+			case <-self.chainHeadCh:
+				self.chainRpowCh <- 1
+				return
+			case <-time.After(time.Duration(parent.Time().Int64() + int64(5) - tstamp) * time.Second):
+				tstamp = parent.Time().Int64() + 5
+				break
+			}
+		} else {
+			select {
+			case <-self.chainHeadCh:
+				self.chainRpowCh <- 1
+				return
+			case <-self.chainWaitCh:
+				return
+			case <-time.After(time.Duration(parent.Time().Int64() + int64(5) - tstamp) * time.Second):
+				tstamp = parent.Time().Int64() + 5
+				break
+			}
 		}
+
 	}
 
 	num := parent.Number()

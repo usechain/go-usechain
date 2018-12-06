@@ -104,6 +104,24 @@ var (
 	// than some meaningful limit a user might use. This is not a consensus error
 	// making the transaction invalid, rather a DOS protection.
 	ErrOversizedData = errors.New("oversized data")
+
+	// ErrPbftTo is returned if to is not nil in a pbft transaction
+	ErrPbftTo = errors.New("invalid receiver in pbft transaction")
+
+	// ErrPbftAmount is returned if amount is not zero in a pbft transaction
+	ErrPbftAmount = errors.New("invalid amount in pbft transaction")
+
+	// ErrPbftGas is returned if gas is not zero in a pbft transaction
+	ErrPbftGas = errors.New("invalid gas in pbft transaction")
+
+	// ErrPbftPrice is returned if price is not zero in a pbft transaction
+	ErrPbftPrice = errors.New("invalid price in pbft transaction")
+
+	// ErrPbftPayloadLen is returned if length of payload is invalid in a pbft transaction
+	ErrPbftPayloadLen = errors.New("invalid length of payload in a pbft transaction")
+
+	// ErrPbftPayload is returned if payload is invalid in a pbft transaction
+	ErrPbftPayload = errors.New("invalid payload in a pbft transaction")
 )
 
 var (
@@ -141,6 +159,7 @@ const (
 	TxStatusQueued
 	TxStatusPending
 	TxStatusIncluded
+	TxStatusPbft
 )
 
 const (
@@ -464,11 +483,17 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
 	pool.addTxsLocked(reinject, false)
 
+	var txs types.Transactions
+	txs = pool.chain.CurrentBlock().Transactions()
+	if len(txs) > 0 && txs[0].Flag() == 1 {
+		pool.demoteUnexecutables(1)
+		pool.promoteExecutables(nil)
+	}
 	// validate the pool of pending transactions, this will remove
 	// any transactions that have been included in the block or
 	// have been invalidated because of another transaction (e.g.
 	// higher gas price)
-	pool.demoteUnexecutables()
+	pool.demoteUnexecutables(0)
 
 	// Update all accounts to the latest known pending nonce
 	for addr, list := range pool.pending {
@@ -714,6 +739,37 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if tx.Size() > 32*1024 {
 		return ErrOversizedData
 	}
+
+	if tx.Flag() == 1 {
+		if tx.To() != nil {
+			return ErrPbftTo
+		}
+
+		if tx.Value().Int64() != 0 {
+			return ErrPbftAmount
+		}
+
+		if tx.Gas() != 0 {
+			return ErrPbftGas
+		}
+
+		if tx.GasPrice().Int64() != 0 {
+			return ErrPbftPrice
+		}
+
+		payload := tx.Data()
+		len := len(payload)
+		if len < 33 {
+			return ErrPbftPayloadLen
+		}
+		blockHash := payload[:common.HashLength]
+		number := payload[common.HashLength:len]
+
+		if pool.chain.GetBlock(common.BytesToHash(blockHash), new(big.Int).SetBytes(number).Uint64()) == nil {
+			return ErrPbftPayload
+		}
+	}
+
 	// Transactions can't be negative. This may never happen using RLP decoded
 	// transactions but may occur if you create a transaction using the RPC.
 	if tx.Value().Sign() < 0 {
@@ -816,7 +872,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 	// If the transaction pool is full, discard underpriced transactions
 	if uint64(len(pool.all)) >= pool.config.GlobalSlots+pool.config.GlobalQueue {
 		// If the new transaction is underpriced, don't accept it
-		if pool.priced.Underpriced(tx, pool.locals) {
+		if tx.Flag() == 0 && pool.priced.Underpriced(tx, pool.locals) {
 			log.Trace("Discarding underpriced transaction", "hash", hash, "price", tx.GasPrice())
 			underpricedTxCounter.Inc(1)
 			return false, ErrUnderpriced
@@ -829,31 +885,58 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 			pool.removeTx(tx.Hash())
 		}
 	}
-	// If the transaction is replacing an already pending one, do directly
+
 	from, _ := types.Sender(pool.signer, tx) // already validated
-	if list := pool.pending[from]; list != nil && list.Overlaps(tx) {
-		// Nonce already pending, check if required price bump is met
-		inserted, old := list.Add(tx, pool.config.PriceBump)
-		if !inserted {
-			pendingDiscardCounter.Inc(1)
-			return false, ErrReplaceUnderpriced
+	if tx.Flag() == 1 { // If the transaction is replacing an already pbft one, do directly
+		if list := pool.pbft[from]; list != nil && list.Overlaps(tx) {
+			// Nonce already pbft, check if required price bump is met
+			inserted, old := list.Add(tx, pool.config.PriceBump)
+			if !inserted {
+				pbftDiscardCounter.Inc(1)
+				return false, ErrReplaceUnderpriced
+			}
+			// New transaction is better, replace old one
+			if old != nil {
+				delete(pool.all, old.Hash())
+				pool.priced.Removed()
+				pbftReplaceCounter.Inc(1)
+			}
+			pool.all[tx.Hash()] = tx
+			pool.priced.Put(tx)
+			pool.journalTx(from, tx)
+
+			log.Trace("Pooled new executable transaction", "hash", hash, "from", from, "to", tx.To())
+
+			// We've directly injected a replacement transaction, notify subsystems
+			go pool.txFeed.Send(TxPreEvent{tx})
+
+			return old != nil, nil
 		}
-		// New transaction is better, replace old one
-		if old != nil {
-			delete(pool.all, old.Hash())
-			pool.priced.Removed()
-			pendingReplaceCounter.Inc(1)
+	} else { // If the transaction is replacing an already pending one, do directly
+		if list := pool.pending[from]; list != nil && list.Overlaps(tx) {
+			// Nonce already pending, check if required price bump is met
+			inserted, old := list.Add(tx, pool.config.PriceBump)
+			if !inserted {
+				pendingDiscardCounter.Inc(1)
+				return false, ErrReplaceUnderpriced
+			}
+			// New transaction is better, replace old one
+			if old != nil {
+				delete(pool.all, old.Hash())
+				pool.priced.Removed()
+				pendingReplaceCounter.Inc(1)
+			}
+			pool.all[tx.Hash()] = tx
+			pool.priced.Put(tx)
+			pool.journalTx(from, tx)
+
+			log.Trace("Pooled new executable transaction", "hash", hash, "from", from, "to", tx.To())
+
+			// We've directly injected a replacement transaction, notify subsystems
+			go pool.txFeed.Send(TxPreEvent{tx})
+
+			return old != nil, nil
 		}
-		pool.all[tx.Hash()] = tx
-		pool.priced.Put(tx)
-		pool.journalTx(from, tx)
-
-		log.Trace("Pooled new executable transaction", "hash", hash, "from", from, "to", tx.To())
-
-		// We've directly injected a replacement transaction, notify subsystems
-		go pool.txFeed.Send(TxPreEvent{tx})
-
-		return old != nil, nil
 	}
 	// committee transaction check
 	store := pool.accountManager.Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
@@ -983,7 +1066,6 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 			pool.all[hash] = tx
 			pool.priced.Put(tx)
 		}
-		pool.beats[addr] = time.Now()
 		go pool.txFeed.Send(TxPreEvent{tx})
 		return
 	}
@@ -1103,7 +1185,7 @@ func (pool *TxPool) addTxsLocked(txs []*types.Transaction, local bool) []error {
 	return errs
 }
 
-// Status returns the status (unknown/pending/queued) of a batch of transactions
+// Status returns the status (unknown/pending/queued/pbft) of a batch of transactions
 // identified by their hashes.
 func (pool *TxPool) Status(hashes []common.Hash) []TxStatus {
 	pool.mu.RLock()
@@ -1113,6 +1195,21 @@ func (pool *TxPool) Status(hashes []common.Hash) []TxStatus {
 	for i, hash := range hashes {
 		if tx := pool.all[hash]; tx != nil {
 			from, _ := types.Sender(pool.signer, tx) // already validated
+
+			// check pbft tx list
+			if pbft := pool.pbft[from]; pbft != nil {
+				var exist bool = false
+				for _, pbftTx := range pool.pbft[from].Flatten() {
+					if pbftTx.Hash() == tx.Hash() {
+						status[i] = TxStatusPbft
+						exist = true
+						break
+					}
+				}
+				if exist {
+					continue
+				}
+			}
 			if pool.pending[from] != nil && pool.pending[from].txs.items[tx.Nonce()] != nil {
 				status[i] = TxStatusPending
 			} else {
@@ -1171,6 +1268,13 @@ func (pool *TxPool) removeTx(hash common.Hash) {
 		future.Remove(tx)
 		if future.Empty() {
 			delete(pool.queue, addr)
+		}
+	}
+	// Transaction is in the pbft queue
+	if future := pool.pbft[addr]; future != nil {
+		future.Remove(tx)
+		if future.Empty() {
+			delete(pool.pbft, addr)
 		}
 	}
 }
@@ -1360,9 +1464,52 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 // demoteUnexecutables removes invalid and processed transactions from the pools
 // executable/pending queue and any subsequent transactions that become unexecutable
 // are moved back into the future queue.
-func (pool *TxPool) demoteUnexecutables() {
+func (pool *TxPool) demoteUnexecutables(flag uint8) {
 	// Iterate over all accounts and demote any non-executable transactions
-	for addr, list := range pool.pending {
+	if flag == 1 {
+
+		for addr, list := range pool.pbft {
+			nonce := pool.currentState.GetNonce(addr)
+
+			// Drop all transactions that are deemed too old (low nonce)
+			for _, tx := range list.Forward(nonce) {
+				hash := tx.Hash()
+				log.Trace("Removed old pbft transaction", "hash", hash)
+				delete(pool.all, hash)
+				pool.priced.Removed()
+			}
+			// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
+			drops, invalids := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas)
+			for _, tx := range drops {
+				hash := tx.Hash()
+				log.Trace("Removed unpayable pbft transaction", "hash", hash)
+				delete(pool.all, hash)
+				pool.priced.Removed()
+			}
+			for _, tx := range invalids {
+				hash := tx.Hash()
+				log.Trace("Demoting pbft transaction", "hash", hash)
+				pool.enqueueTx(hash, tx)
+			}
+			// If there's a gap in front, warn (should never happen) and postpone all transactions
+			if list.Len() > 0 && list.txs.Get(nonce) == nil {
+				for _, tx := range list.Cap(0) {
+					hash := tx.Hash()
+					log.Error("Demoting invalidated transaction", "hash", hash)
+					pool.enqueueTx(hash, tx)
+				}
+			}
+			// Delete the entire queue entry if it became empty.
+			if list.Empty() {
+				delete(pool.pbft, addr)
+				delete(pool.beats, addr)
+			}
+		}
+		return
+	}
+
+	// Iterate over all accounts and demote any non-executable transactions
+	for addr, list := range pool.pbft {
 		nonce := pool.currentState.GetNonce(addr)
 
 		// Drop all transactions that are deemed too old (low nonce)

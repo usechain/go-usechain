@@ -110,9 +110,6 @@ type worker struct {
 	chainSideSub event.Subscription
 	chainRpowCh  chan core.ChainRpowEvent
 	chainRpowSub event.Subscription
-	//test
-	chainWaitCh  chan core.ChainRpowEvent
-
 	wg           sync.WaitGroup
 
 	agents map[Agent]struct{}
@@ -149,7 +146,6 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		chainHeadCh:    make(chan core.ChainHeadEvent, chainHeadChanSize),
 		chainSideCh:    make(chan core.ChainSideEvent, chainSideChanSize),
 		chainRpowCh:    make(chan core.ChainRpowEvent, chainRpowChanSize),
-		chainWaitCh:	make(chan core.ChainRpowEvent, chainRpowChanSize),
 		chainDb:        eth.ChainDb(),
 		recv:           make(chan *Result, resultQueueSize),
 		chain:          eth.BlockChain(),
@@ -168,7 +164,7 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 	go worker.update()
 
 	go worker.wait()
-	worker.commitNewWork(waitInput)
+	worker.commitNewWork()
 
 	return worker
 }
@@ -266,8 +262,7 @@ func (self *worker) update() {
 		select {
 		// Handle ChainHeadEvent
 		case <-self.chainHeadCh:
-			self.chainRpowCh <- 1
-			//self.commitNewWork()
+			self.commitNewWork()
 
 			// Handle ChainSideEvent
 		case ev := <-self.chainSideCh:
@@ -276,7 +271,7 @@ func (self *worker) update() {
 			self.uncleMu.Unlock()
 
 		case <-self.chainRpowCh:
-			self.commitNewWork(updateInput)
+			self.commitNewWork()
 
 			// Handle TxPreEvent
 		case ev := <-self.txCh:
@@ -292,7 +287,7 @@ func (self *worker) update() {
 			} else {
 				// If we're mining, but nothing is being processed, wake on new transactions
 				if self.config.Clique != nil && self.config.Clique.Period == 0 {
-					self.commitNewWork(updateInput)
+					self.commitNewWork()
 				}
 			}
 
@@ -314,7 +309,6 @@ func (self *worker) wait() {
 		mustCommitNewWork := true
 		for result := range self.recv {
 			atomic.AddInt32(&self.atWork, -1)
-			self.chainWaitCh <- 1
 
 			if result == nil {
 				continue
@@ -358,7 +352,7 @@ func (self *worker) wait() {
 			self.unconfirmed.Insert(block.NumberU64(), block.Hash())
 
 			if mustCommitNewWork {
-				self.commitNewWork(waitInput)
+				self.commitNewWork()
 			}
 		}
 	}
@@ -409,12 +403,7 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 	return nil
 }
 
-const (
-	waitInput = 0
-	updateInput = 1
-)
-
-func (self *worker) commitNewWork(input int) {
+func (self *worker) commitNewWork() {
 	self.mu.Lock()
 	defer self.mu.Unlock()
 	self.uncleMu.Lock()
@@ -440,8 +429,7 @@ func (self *worker) commitNewWork(input int) {
 		log.Debug("Block time slot should be more than five seconds")
 		//time.Sleep(time.Duration(parent.Time().Int64() + int64(5) - tstamp) * time.Second)
 		//tstamp = parent.Time().Int64() + 5
-
-		/*DONE2:
+		DONE2:
 			for{
 				select {
 				case <-self.chainRpowCh:
@@ -449,38 +437,9 @@ func (self *worker) commitNewWork(input int) {
 					break DONE2
 				}
 			}
-		self.chainRpowCh <- 1
-		return*/
-
-		/*select {
-		case <-self.chainRpowCh:
-			break
-		case <-time.After(time.Duration(parent.Time().Int64() + int64(5) - tstamp) * time.Second):
-			tstamp = parent.Time().Int64() + 5
-			break DONE2
-		}*/
-		if input == waitInput {
-			select {
-			case <-self.chainHeadCh:
-				self.chainRpowCh <- 1
-				return
-			case <-time.After(time.Duration(parent.Time().Int64() + int64(5) - tstamp) * time.Second):
-				tstamp = parent.Time().Int64() + 5
-				break
-			}
-		} else {
-			select {
-			case <-self.chainHeadCh:
-				self.chainRpowCh <- 1
-				return
-			case <-self.chainWaitCh:
-				return
-			case <-time.After(time.Duration(parent.Time().Int64() + int64(5) - tstamp) * time.Second):
-				tstamp = parent.Time().Int64() + 5
-				break
-			}
-		}
-
+			time.Sleep(10 * time.Millisecond)
+			self.chainRpowCh <- 1
+			return
 	}
 
 	num := parent.Number()
@@ -517,73 +476,47 @@ func (self *worker) commitNewWork(input int) {
 			return
 		}
 
-		var preSignatureQr []byte
-
-		preSignatureQr = parent.MinerQrSignature()
+		preSignatureQr := parent.MinerQrSignature()
 
 		preCoinbase := parent.Coinbase()
 		blockNumber := header.Number
 		qr := minerlist.CalQr(preCoinbase.Bytes(), blockNumber, preSignatureQr)
-		idTarget := new(big.Int).Rem(qr.Big(), totalMinerNum)
+		//idTarget := new(big.Int).Rem(qr.Big(), totalMinerNum)
 
 		tstampParent := parent.Time()
 		tstampSub := header.Time.Int64() - tstampParent.Int64()
 		n := big.NewInt(tstampSub / slot)
 
 		//signature, err := wallet.SignHash(account, minerHash.Bytes())
-		preDifficultyLevel := parent.DifficultyLevel()
+		//preDifficultyLevel := parent.DifficultyLevel()
 
 		if header.Number.Cmp(common.Big1) == 0 {
 			header.MinerQrSignature = []byte(genesisQrSignature)
-			header.DifficultyLevel = common.Big1
+			//header.DifficultyLevel = common.Big1
 		} else {
 			//header.MinerTag = signature[:20]
 			minerQrSignature, _ := wallet.SignHash(account, qr.Bytes())
 			header.MinerQrSignature = minerQrSignature[:20]
-			if n.Cmp(common.Big0) == 0 {
-				header.DifficultyLevel = common.Big1
-			}else{
-				header.DifficultyLevel = new(big.Int).Add(preDifficultyLevel, n)
-				if header.DifficultyLevel.Cmp(common.Big3) > 0 {
-					header.DifficultyLevel = common.Big3
-				}
-			}
 		}
 
-		if n.Cmp(common.Big0) == 0 && !minerlist.IsValidMiner(self.current.state, self.coinbase, idTarget, header.DifficultyLevel ) {
-			DONE:
-				for{
-					select {
-					case <-self.chainRpowCh:
-					case <-time.After(time.Duration(tstampSub % slot) * time.Second):
-						break DONE
-					//default:
-						//break DONE
-					}
+		IsValidMiner := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n)
+
+		if !IsValidMiner {
+		DONE:
+			for{
+				select {
+				case <-self.chainRpowCh:
+				default:
+					break DONE
 				}
+			}
 			//time.Sleep(time.Duration(tstampSub % slot + 1) * time.Second)
+			time.Sleep(10 * time.Millisecond)
 			self.chainRpowCh <- 1
 			return
 		}
 
-		if n.Cmp(common.Big0) > 0 {
-			idn := minerlist.CalQr(idTarget.Bytes(), n, preSignatureQr)
-			id := new(big.Int).Rem(idn.Big(), totalMinerNum)
-			if !minerlist.IsValidMiner(self.current.state, self.coinbase, id, header.DifficultyLevel) {
-				DONE1:
-					for{
-						select {
-						case <-self.chainRpowCh:
-						case <-time.After(time.Duration(tstampSub % slot) * time.Second):
-							break DONE1
-						}
-					}
-				//time.Sleep(time.Duration(tstampSub % slot + 1) * time.Second)
-				self.chainRpowCh <- 1
-				return
-			}
-		}
-
+		//header.DifficultyLevel = big.NewInt(level)
 		header.Coinbase = self.coinbase
 
 		if err := self.engine.Prepare(self.chain, header, self.current.state); err != nil {

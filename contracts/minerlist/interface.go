@@ -19,12 +19,12 @@ package minerlist
 import (
 	"bytes"
 	"encoding/hex"
+	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/crypto/sha3"
 	"math/big"
-	"strconv"
 	"strings"
 )
 
@@ -70,10 +70,10 @@ func IsMiner(statedb *state.StateDB, miner common.Address) bool {
 	return false
 }
 
-func IsValidMiner(state *state.StateDB, miner common.Address, n *big.Int, difficultyLevel *big.Int) bool {
+/*func IsValidMiner(state *state.StateDB, miner common.Address, index *big.Int, difficultyLevel *big.Int) bool {
 	totalNum, _ := strconv.ParseFloat(ReadMinerNum(state).String(), 64)
 	level, _ := strconv.ParseFloat(difficultyLevel.String(),64)
-	id, _ := strconv.ParseFloat(n.String(), 64)
+	id, _ := strconv.ParseFloat(index.String(), 64)
 
 	if id >= totalNum / level && totalNum > 1{
 		return false
@@ -90,8 +90,37 @@ func IsValidMiner(state *state.StateDB, miner common.Address, n *big.Int, diffic
 		return true
 	}
 	return false
-}
+}*/
 
 func CalQr(base []byte, number *big.Int, preQrSignature []byte) (common.Hash) {
 	return crypto.Keccak256Hash(bytes.Join([][]byte{base, number.Bytes(), preQrSignature}, []byte("")))
+}
+
+func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common.Address, preSignatureQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, n *big.Int) (bool) {
+	//preLevel, _ :=strconv.ParseFloat(difficultyLevel.String(),64)
+	qr := CalQr(preCoinbase.Bytes(), blockNumber, preSignatureQr)
+	idTarget := new(big.Int).Rem(qr.Big(), totalMinerNum)
+	paramIndex := "0000000000000000000000000000000000000000000000000000000000000000"
+	hash := sha3.NewKeccak256()
+	hash.Write(decodeHex(paramIndex))
+	var keyIndex []byte
+	keyIndex = hash.Sum(keyIndex)
+	for i := int64(0); i <= n.Int64(); i++ {
+		if (i == 0) {
+			res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, idTarget.Int64())))
+			if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
+				log.Debug("i==0 id: ", "idtarget", idTarget)
+				return true
+			}
+		} else {
+			idn := CalQr(idTarget.Bytes(), big.NewInt(i), preSignatureQr)
+			id := new(big.Int).Rem(idn.Big(), totalMinerNum)
+			res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, id.Int64())))
+			if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
+				log.Debug(" id: ", "id", id)
+				return true
+			}
+		}
+	}
+	return false
 }

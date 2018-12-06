@@ -264,34 +264,13 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	preCoinbase := parent.Coinbase
 	blockNumber := header.Number
 	preSignatureQr := parent.MinerQrSignature
-	preDifficultyLevel := parent.DifficultyLevel
 
-	qr := minerlist.CalQr(preCoinbase.Bytes(), blockNumber, preSignatureQr)
-	idTarget := new(big.Int).Rem(qr.Big(), totalMinerNum)
-	n := new(big.Int).Div(tstampSub, solt)
+	n := new(big.Int).Div(tstampSub, slot)
 
-	if n.Cmp(common.Big0) == 0 && !minerlist.IsValidMiner(state, header.Coinbase, idTarget, header.DifficultyLevel){
+	IsValidMiner :=minerlist.IsValidMiner(state, header.Coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n)
+
+	if !IsValidMiner{
 		return fmt.Errorf("invalid miner")
-	}
-
-	if n.Cmp(common.Big0) > 0 {
-		var expectedLevel = new(big.Int)
-		if header.Number.Cmp(common.Big1) == 0 {
-			expectedLevel = common.Big1
-		} else {
-			expectedLevel = new(big.Int).Add(preDifficultyLevel, n)
-			if expectedLevel.Cmp(common.Big3) > 0 {
-				expectedLevel = common.Big3
-			}
-		}
-		if expectedLevel.Cmp(header.DifficultyLevel) != 0 {
-			return fmt.Errorf("invalid difficultylevel: have %v, want %v", header.DifficultyLevel, expectedLevel)
-		}
-		idn := minerlist.CalQr(idTarget.Bytes(), n, preSignatureQr)
-		id := new(big.Int).Rem(idn.Big(), totalMinerNum)
-		if !minerlist.IsValidMiner(state, header.Coinbase, id, header.DifficultyLevel) {
-			return fmt.Errorf("invalid miner")
-		}
 	}
 
 	// Verify the block's difficulty based in it's timestamp and parent's difficulty
@@ -359,7 +338,7 @@ var (
 	big20		  = big.NewInt(20)
 	bigMinus99    = big.NewInt(-99)
 	big2999999    = big.NewInt(2999999)
-	solt          = big.NewInt(10)
+	slot          = big.NewInt(10)
 )
 
 // VerifySeal implements consensus.Engine, checking whether the given block satisfies

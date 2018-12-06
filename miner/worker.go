@@ -531,8 +531,10 @@ func (self *worker) commitNewWork() {
 				for{
 					select {
 					case <-self.chainRpowCh:
-					default:
+					case <-time.After(time.Duration(tstampSub % slot) * time.Second):
 						break DONE
+					//default:
+						//break DONE
 					}
 				}
 			//time.Sleep(time.Duration(tstampSub % slot + 1) * time.Second)
@@ -548,7 +550,7 @@ func (self *worker) commitNewWork() {
 					for{
 						select {
 						case <-self.chainRpowCh:
-						default:
+						case <-time.After(time.Duration(tstampSub % slot) * time.Second):
 							break DONE1
 						}
 					}

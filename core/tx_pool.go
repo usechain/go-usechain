@@ -1366,7 +1366,7 @@ func (pool *TxPool) demoteUnexecutables(flag uint8) {
 	}
 
 	// Iterate over all accounts and demote any non-executable transactions
-	for addr, list := range pool.pbft {
+	for addr, list := range pool.pending {
 		nonce := pool.currentState.GetNonce(addr)
 
 		// Drop all transactions that are deemed too old (low nonce)

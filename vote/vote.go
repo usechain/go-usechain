@@ -44,6 +44,7 @@ type Backend interface {
 	AccountManager() *accounts.Manager
 	BlockChain() *core.BlockChain
 	TxPool() *core.TxPool
+	ChainID() *big.Int
 }
 
 //The struct of voter
@@ -51,6 +52,7 @@ type Voter struct {
 	chainHeadCh  chan core.ChainHeadEvent
 	chainHeadSub event.Subscription
 
+	chainID 	 *big.Int
 	blockchain   *core.BlockChain
 	txpool		 *core.TxPool
 	manager		 *accounts.Manager
@@ -65,6 +67,7 @@ type Voter struct {
 func NewVoter(eth Backend, coinbase common.Address) *Voter{
 	voter := &Voter{
 		chainHeadCh: 	make(chan core.ChainHeadEvent, chainHeadChanSize),
+		chainID:		eth.ChainID(),
 		blockchain:		eth.BlockChain(),
 		votebase:		coinbase,
 		txpool:			eth.TxPool(),
@@ -107,7 +110,7 @@ func (self *Voter) VoteLoop() {
 				header := self.blockchain.CurrentHeader()
 				log.Debug("CurrentHeader", "height", header.Number)
 
-				if big.NewInt(0).Mod(header.Number, big10).Int64() == 0 {
+				if big.NewInt(0).Mod(header.Number, big10).Int64() == big10.Int64() - 1 {
 					self.voteChain()
 				}
 		}
@@ -142,6 +145,7 @@ func (self *Voter) voteChain() {
 	//new a transaction
 	nonce := self.txpool.State().GetNonce(self.votebase)
 	tx := types.NewPbftMessage(nonce, self.writeVoteInfo())
+	tx.GasPrice()
 	signedTx, err := wallet.SignTx(account, tx, nil)
 	if err != nil {
 		log.Error("Sign the committee Msg failed, Please unlock the verifier account", "err", err)

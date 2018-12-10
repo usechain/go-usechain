@@ -426,7 +426,7 @@ func (self *worker) commitNewWork() {
 	}
 
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp - 5)) > 0 {
-		log.Debug("Block time slot should be more than five seconds")
+		log.Trace("Block time slot should be more than five seconds")
 		//time.Sleep(time.Duration(parent.Time().Int64() + int64(5) - tstamp) * time.Second)
 		//tstamp = parent.Time().Int64() + 5
 		DONE:
@@ -456,7 +456,13 @@ func (self *worker) commitNewWork() {
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&self.mining) == 1 {
 		totalMinerNum := minerlist.ReadMinerNum(self.current.state)
-		if !minerlist.IsMiner(self.current.state, self.coinbase) && totalMinerNum.Int64() > 1  {
+
+		if totalMinerNum.Int64() == 0 {
+			log.Error("no miner, please check the genesis.json file")
+			return
+		}
+
+		if !minerlist.IsMiner(self.current.state, self.coinbase) {
 			log.Error("Coinbase should be legal miner address, please register for mining")
 			return
 		}

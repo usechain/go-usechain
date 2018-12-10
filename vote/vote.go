@@ -31,7 +31,9 @@ import (
 
 var (
 	big0 	= big.NewInt(0)
+	big9	= big.NewInt(9)
 	big10 	= big.NewInt(10)
+
 
 	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
 	chainHeadChanSize = 10
@@ -95,7 +97,7 @@ func (self *Voter) Voting() bool {
 //Voting loop
 func (self *Voter) VoteLoop() {
 	header := self.blockchain.CurrentHeader()
-	if big.NewInt(0).Mod(header.Number, big10) == big0 {
+	if big.NewInt(0).Mod(header.Number, big10) == big9 {
 		self.voteChain()
 	}
 
@@ -103,8 +105,9 @@ func (self *Voter) VoteLoop() {
 		select {
 			case <-self.chainHeadCh:
 				header := self.blockchain.CurrentHeader()
+				log.Debug("CurrentHeader", "height", header.Number)
 
-				if big.NewInt(0).Mod(header.Number, big10) == big0 {
+				if big.NewInt(0).Mod(header.Number, big10).Int64() == 0 {
 					self.voteChain()
 				}
 		}
@@ -144,7 +147,7 @@ func (self *Voter) voteChain() {
 		log.Error("Sign the committee Msg failed, Please unlock the verifier account", "err", err)
 	}
 
-	log.Info("Checkpoint vote is sent")
+	log.Info("Checkpoint vote is sent", "hash", tx.Hash())
 	//add tx to the txpool
 	self.txpool.AddLocal(signedTx)
 }

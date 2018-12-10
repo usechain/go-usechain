@@ -24,6 +24,7 @@ var Modules = map[string]string{
 	"debug":      Debug_JS,
 	"eth":        Eth_JS,
 	"miner":      Miner_JS,
+	"voter":	  Voter_JS,
 	"net":        Net_JS,
 	"personal":   Personal_JS,
 	"rpc":        RPC_JS,
@@ -497,6 +498,38 @@ web3._extend({
 		new web3._extend.Method({
 			name: 'getHashrate',
 			call: 'miner_getHashrate'
+		}),
+	],
+	properties: []
+});
+`
+
+const Voter_JS = `
+web3._extend({
+	property: 'voter',
+	methods: [
+		new web3._extend.Method({
+			name: 'start',
+			call: 'voter_start'
+
+		}),
+		new web3._extend.Method({
+			name: 'stop',
+			call: 'voter_stop'
+		}),
+		new web3._extend.Method({
+			name: 'setVotebase',
+			call: 'voter_setVotebase',
+			params: 1,
+			inputFormatter: [web3._extend.formatters.inputAddressFormatter]
+		}),
+		new web3._extend.Method({
+			name: 'voting',
+			call: 'voter_voting'
+		}),
+		new web3._extend.Method({
+			name: 'votebase',
+			call: 'voter_votebase'
 		}),
 	],
 	properties: []

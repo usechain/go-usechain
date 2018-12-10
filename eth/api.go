@@ -198,6 +198,48 @@ func (api *PrivateMinerAPI) GetHashrate() uint64 {
 	return uint64(api.e.miner.HashRate())
 }
 
+// PrivateVoterAPI provides private RPC methods to control the voter.
+// These methods can be abused by external users and must be considered insecure for use by untrusted users.
+type PrivateVoterAPI struct {
+	e *Ethereum
+}
+
+// NewPrivateVoterAPI create a new RPC service which controls the voter of this node.
+func NewPrivateVoterAPI(e *Ethereum) *PrivateVoterAPI {
+	return &PrivateVoterAPI{e: e}
+}
+
+// Start the voter. If voting is already running, do nothing
+func (api *PrivateVoterAPI) Start() error {
+	// Start the miner and return
+	if !api.e.IsVoting() {
+		return api.e.StartVoting()
+	}
+	return nil
+}
+
+// Stop the voter
+func (api *PrivateVoterAPI) Stop() bool {
+	api.e.StopVoting()
+	return true
+}
+
+// SetVotebase sets the votebase of the voter
+func (api *PrivateVoterAPI) SetVotebase(votebase common.Address) bool {
+	api.e.SetVotebase(votebase)
+	return true
+}
+
+// Votebase is the voting address
+func (api *PrivateVoterAPI) Votebase() (common.Address, error) {
+	return api.e.Votebase()
+}
+
+// Voting returns an indication if this node is currently voting.
+func (api *PrivateVoterAPI) Voting() bool {
+	return api.e.IsVoting()
+}
+
 // PrivateAdminAPI is the collection of Ethereum full node-related APIs
 // exposed over the private admin endpoint.
 type PrivateAdminAPI struct {

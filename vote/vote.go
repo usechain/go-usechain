@@ -23,7 +23,10 @@ import (
 	"github.com/usechain/go-usechain/core"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/event"
 	"github.com/usechain/go-usechain/log"
+	"sync/atomic"
+	"sync"
 )
 
 var (
@@ -36,41 +39,94 @@ var (
 	chainHeadChanSize = 10
 )
 
+// Backend wraps all methods required for voting.
+type Backend interface {
+	AccountManager() *accounts.Manager
+	BlockChain() *core.BlockChain
+	TxPool() *core.TxPool
+}
+
 //The struct of voter
-type voter struct {
+type Voter struct {
 	chainHeadCh  chan core.ChainHeadEvent
+	chainHeadSub event.Subscription
+
 	blockchain   *core.BlockChain
 	txpool		 *core.TxPool
 	manager		 *accounts.Manager
 
+	mu sync.Mutex
+
+	voting   	 int32
 	votebase	 common.Address
 }
 
 // NewVoter creates a new voter
-func NewVoter(bc *core.BlockChain, txpool *core.TxPool, manager *accounts.Manager, coinbase common.Address) *voter{
-	voter := &voter{
+func NewVoter(eth Backend, coinbase common.Address) *Voter{
+	voter := &Voter{
 		chainHeadCh: 	make(chan core.ChainHeadEvent, chainHeadChanSize),
-		blockchain:		bc,
+		blockchain:		eth.BlockChain(),
 		votebase:		coinbase,
-		txpool:			txpool,
-		manager:		manager,
+		txpool:			eth.TxPool(),
+		manager:		eth.AccountManager(),
 	}
+	// Subscribe events for blockchain
+	voter.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(voter.chainHeadCh)
 	return voter
 }
 
-//Voting loop
-func (self *voter) VoteLoop() {
-	for active {
-		header := self.blockchain.CurrentHeader()
+//Start voting
+func (self *Voter) Start(coinbase common.Address) {
+	self.SetVotebase(coinbase)
+	atomic.StoreInt32(&self.voting, 1)
 
-		if big.NewInt(0).Mod(header.Number, big20) == big0 {
-			self.voteChain()
+	log.Info("Starting voting operation")
+	go self.VoteLoop()
+}
+
+//Stop voting
+func (self *Voter) Stop() {
+	atomic.StoreInt32(&self.voting, 0)
+}
+
+//Check the voting state
+func (self *Voter) Voting() bool {
+	return atomic.LoadInt32(&self.voting) > 0
+}
+
+//Voting loop
+func (self *Voter) VoteLoop() {
+	header := self.blockchain.CurrentHeader()
+	if big.NewInt(0).Mod(header.Number, big20) == big0 {
+		self.voteChain()
+	}
+
+	for self.Voting() {
+		select {
+			case <-self.chainHeadCh:
+				header := self.blockchain.CurrentHeader()
+
+				if big.NewInt(0).Mod(header.Number, big20) == big0 {
+					self.voteChain()
+				}
 		}
 	}
 }
 
+//Set the address for voting
+func (self *Voter) SetVotebase(addr common.Address) {
+	self.mu.Lock()
+	defer self.mu.Unlock()
+	self.votebase = addr
+}
+
+//get the votebase
+func (self *Voter) Votebase() common.Address {
+	return self.votebase
+}
+
 //Sign the vote, and broadcast it
-func (self *voter) voteChain() {
+func (self *Voter) voteChain() {
 	//check the votebase
 	///TODO: check the vote whether a committee, read from contract
 
@@ -90,12 +146,13 @@ func (self *voter) voteChain() {
 		log.Error("Sign the committee Msg failed, Please unlock the verifier account", "err", err)
 	}
 
+	log.Info("Checkpoint vote is sent")
 	//add tx to the txpool
 	self.txpool.AddLocal(signedTx)
 }
 
 //Fill the vote info
-func (self *voter) writeVoteInfo() []byte{
+func (self *Voter) writeVoteInfo() []byte{
 	header := self.blockchain.CurrentHeader()
 	return append(header.Hash().Bytes(), header.Number.Bytes()...)
 }

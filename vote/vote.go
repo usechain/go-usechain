@@ -147,7 +147,7 @@ func (self *Voter) voteChain() {
 		log.Error("Sign the committee Msg failed, Please unlock the verifier account", "err", err)
 	}
 
-	log.Info("Checkpoint vote is sent", "hash", tx.Hash())
+	log.Info("Checkpoint vote is sent", "hash", tx.Hash().String())
 	//add tx to the txpool
 	self.txpool.AddLocal(signedTx)
 }

@@ -25,6 +25,7 @@ import (
 	"github.com/usechain/go-usechain/core/vm"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/params"
+	"errors"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -67,6 +68,14 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	}
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
+		if header.Number.Int64() % 10 == 0 && tx.Flag() == 0{
+			err := errors.New("checkpoint block can't package common transactions")
+			return nil, nil, 0, err
+		}
+		if header.Number.Int64() % 10 != 0 && tx.Flag() == 1{
+			err := errors.New("common block can't package checkpoint transactions")
+			return nil, nil, 0, err
+		}
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
 		receipt, _, err := ApplyTransaction(p.config, p.bc, nil, gp, statedb, header, tx, usedGas, cfg)
 		if err != nil {

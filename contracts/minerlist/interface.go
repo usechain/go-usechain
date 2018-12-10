@@ -19,7 +19,6 @@ package minerlist
 import (
 	"bytes"
 	"encoding/hex"
-	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/crypto"
@@ -70,28 +69,6 @@ func IsMiner(statedb *state.StateDB, miner common.Address) bool {
 	return false
 }
 
-/*func IsValidMiner(state *state.StateDB, miner common.Address, index *big.Int, difficultyLevel *big.Int) bool {
-	totalNum, _ := strconv.ParseFloat(ReadMinerNum(state).String(), 64)
-	level, _ := strconv.ParseFloat(difficultyLevel.String(),64)
-	id, _ := strconv.ParseFloat(index.String(), 64)
-
-	if id >= totalNum / level && totalNum > 1{
-		return false
-	}
-
-	paramIndex := "0000000000000000000000000000000000000000000000000000000000000000"
-	hash := sha3.NewKeccak256()
-	hash.Write(decodeHex(paramIndex))
-	var keyIndex []byte
-	keyIndex = hash.Sum(keyIndex)
-	// get data from the contract statedb
-	res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex,n.Int64())))
-	if strings.EqualFold(res.String()[26:], miner.String()[2:]){
-		return true
-	}
-	return false
-}*/
-
 func CalQr(base []byte, number *big.Int, preQrSignature []byte) (common.Hash) {
 	return crypto.Keccak256Hash(bytes.Join([][]byte{base, number.Bytes(), preQrSignature}, []byte("")))
 }
@@ -105,11 +82,12 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 	hash.Write(decodeHex(paramIndex))
 	var keyIndex []byte
 	keyIndex = hash.Sum(keyIndex)
+	var oldNode []int64
+	oldNode = append(oldNode, idTarget.Int64())
 	for i := int64(0); i <= n.Int64(); i++ {
 		if (i == 0) {
 			res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, idTarget.Int64())))
 			if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
-				log.Debug("i==0 id: ", "idtarget", idTarget)
 				return true
 			}
 		} else {
@@ -117,7 +95,6 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 			id := new(big.Int).Rem(idn.Big(), totalMinerNum)
 			res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, id.Int64())))
 			if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
-				log.Debug(" id: ", "id", id)
 				return true
 			}
 		}

@@ -429,12 +429,12 @@ func (self *worker) commitNewWork() {
 		log.Debug("Block time slot should be more than five seconds")
 		//time.Sleep(time.Duration(parent.Time().Int64() + int64(5) - tstamp) * time.Second)
 		//tstamp = parent.Time().Int64() + 5
-		DONE2:
+		DONE:
 			for{
 				select {
 				case <-self.chainRpowCh:
 				default:
-					break DONE2
+					break DONE
 				}
 			}
 			time.Sleep(10 * time.Millisecond)
@@ -451,10 +451,10 @@ func (self *worker) commitNewWork() {
 		Extra:      self.extra,
 		Time:       big.NewInt(tstamp),
 	}
+	blockNumber := header.Number
 
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&self.mining) == 1 {
-		///TODO: add miner filter, and when there is only one miner, doesn't needs registration
 		totalMinerNum := minerlist.ReadMinerNum(self.current.state)
 		if !minerlist.IsMiner(self.current.state, self.coinbase) && totalMinerNum.Int64() > 1  {
 			log.Error("Coinbase should be legal miner address, please register for mining")
@@ -479,12 +479,10 @@ func (self *worker) commitNewWork() {
 		preSignatureQr := parent.MinerQrSignature()
 
 		preCoinbase := parent.Coinbase()
-		blockNumber := header.Number
 		qr := minerlist.CalQr(preCoinbase.Bytes(), blockNumber, preSignatureQr)
 		//idTarget := new(big.Int).Rem(qr.Big(), totalMinerNum)
 
-		tstampParent := parent.Time()
-		tstampSub := header.Time.Int64() - tstampParent.Int64()
+		tstampSub := header.Time.Int64() - parent.Time().Int64()
 		n := big.NewInt(tstampSub / slot)
 
 		//signature, err := wallet.SignHash(account, minerHash.Bytes())
@@ -494,7 +492,6 @@ func (self *worker) commitNewWork() {
 			header.MinerQrSignature = []byte(genesisQrSignature)
 			//header.DifficultyLevel = common.Big1
 		} else {
-			//header.MinerTag = signature[:20]
 			minerQrSignature, _ := wallet.SignHash(account, qr.Bytes())
 			header.MinerQrSignature = minerQrSignature[:20]
 		}
@@ -502,12 +499,12 @@ func (self *worker) commitNewWork() {
 		IsValidMiner := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n)
 
 		if !IsValidMiner {
-		DONE:
+		DONE1:
 			for{
 				select {
 				case <-self.chainRpowCh:
 				default:
-					break DONE
+					break DONE1
 				}
 			}
 			//time.Sleep(time.Duration(tstampSub % slot + 1) * time.Second)
@@ -537,8 +534,15 @@ func (self *worker) commitNewWork() {
 		return
 	}
 	// Create the current work task and check any fork transitions needed
+	IsCheckPoint := blockNumber.Int64() % 10
+
 	work := self.current
-	pending, err := self.eth.TxPool().Pending()
+	var pending map[common.Address]types.Transactions
+	if IsCheckPoint != 0 {
+		pending, err = self.eth.TxPool().Pending()
+	}else{
+		pending, err = self.eth.TxPool().Pbft()
+	}
 
 	if err != nil {
 		log.Error("Failed to fetch pending transactions", "err", err)

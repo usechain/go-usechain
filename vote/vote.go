@@ -30,10 +30,8 @@ import (
 )
 
 var (
-	active 	= true
-
 	big0 	= big.NewInt(0)
-	big20 	= big.NewInt(20)
+	big10 	= big.NewInt(10)
 
 	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
 	chainHeadChanSize = 10
@@ -97,7 +95,7 @@ func (self *Voter) Voting() bool {
 //Voting loop
 func (self *Voter) VoteLoop() {
 	header := self.blockchain.CurrentHeader()
-	if big.NewInt(0).Mod(header.Number, big20) == big0 {
+	if big.NewInt(0).Mod(header.Number, big10) == big0 {
 		self.voteChain()
 	}
 
@@ -106,7 +104,7 @@ func (self *Voter) VoteLoop() {
 			case <-self.chainHeadCh:
 				header := self.blockchain.CurrentHeader()
 
-				if big.NewInt(0).Mod(header.Number, big20) == big0 {
+				if big.NewInt(0).Mod(header.Number, big10) == big0 {
 					self.voteChain()
 				}
 		}

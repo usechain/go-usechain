@@ -93,6 +93,27 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 		} else {
 			idn := CalQr(idTarget.Bytes(), big.NewInt(i), preSignatureQr)
 			id := new(big.Int).Rem(idn.Big(), totalMinerNum)
+			DONE:
+				for {
+					for index, value := range oldNode {
+						if id.Int64() == value{
+							id.Add(id, common.Big1)
+							id.Rem(id, totalMinerNum)
+							break
+						}
+						if int64(cap(oldNode)) == int64(index + 1) {
+							break DONE
+						}
+					}
+					for index, value := range oldNode {
+						if id.Int64() == value{
+							break
+						}
+						if int64(cap(oldNode)) == int64(index + 1) {
+							break DONE
+						}
+					}
+				}
 			res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, id.Int64())))
 			if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
 				return true

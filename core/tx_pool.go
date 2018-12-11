@@ -583,7 +583,9 @@ func (pool *TxPool) Pending() (map[common.Address]types.Transactions, error) {
 				tempPendingTxs = append(tempPendingTxs, tempAll[addr][i])
 			}
 		}
-		pending[addr] = tempPendingTxs
+		if tempPendingTxs.Len() > 0 {
+			pending[addr] = tempPendingTxs
+		}
 	}
 	return pending, nil
 }
@@ -605,7 +607,9 @@ func (pool *TxPool) Pbft() (map[common.Address]types.Transactions, error) {
 				tempPbftTxs = append(tempPbftTxs, tempAll[addr][i])
 			}
 		}
-		pbft[addr] = tempPbftTxs
+		if tempPbftTxs.Len() > 0 {
+			pbft[addr] = tempPbftTxs
+		}
 	}
 	return pbft, nil
 }

@@ -450,9 +450,13 @@ func (self *worker) commitNewWork() {
 		GasLimit:	210000000,
 		Extra:      self.extra,
 		Time:       big.NewInt(tstamp),
-		IsCheckPoint: new(big.Int).Rem(num, big.NewInt(10)),
 	}
 	blockNumber := header.Number
+	if int64(new(big.Int).Rem(num, big.NewInt(10)).Cmp(common.Big0)) == 0{
+		header.IsCheckPoint = common.Big1
+	}else{
+		header.IsCheckPoint = common.Big0
+	}
 
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&self.mining) == 1 {
@@ -543,10 +547,10 @@ func (self *worker) commitNewWork() {
 	// Create the current work task and check any fork transitions needed
 	work := self.current
 	var pending map[common.Address]types.Transactions
-	if header.IsCheckPoint.Cmp(common.Big0) == 0 {
-		pending, err = self.eth.TxPool().Pending()
-	}else{
+	if header.IsCheckPoint.Cmp(common.Big1) == 0 {
 		pending, err = self.eth.TxPool().Pbft()
+	}else{
+		pending, err = self.eth.TxPool().Pending()
 	}
 
 	if err != nil {

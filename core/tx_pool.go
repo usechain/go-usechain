@@ -113,6 +113,9 @@ var (
 
 	// ErrPbftPayload is returned if payload is invalid in a pbft transaction
 	ErrPbftPayload = errors.New("invalid payload in a pbft transaction")
+
+	// ErrPbftHeight is returned if vote height is less than current chain height
+	ErrPbftHeight = errors.New("invalid vote height in a pbft transaction")
 )
 
 var (
@@ -685,6 +688,10 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		}
 		blockHash := payload[:common.HashLength]
 		number := payload[common.HashLength:len]
+
+		if new(big.Int).SetBytes(number).Uint64() < pool.chain.CurrentBlock().Number().Uint64() {
+			return ErrPbftHeight
+		}
 
 		if pool.chain.GetBlock(common.BytesToHash(blockHash), new(big.Int).SetBytes(number).Uint64()) == nil {
 			return ErrPbftPayload

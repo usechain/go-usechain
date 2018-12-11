@@ -348,6 +348,16 @@ func (bc *BlockChain) CurrentBlock() *types.Block {
 	return x.(*types.Block)
 }
 
+// VmConfig retrieves the canonical chain evm config.
+func (bc *BlockChain) VmConfig() vm.Config {
+	return bc.vmConfig
+}
+
+// ChainConfig retrieves the canonical chain config.
+func (bc *BlockChain) ChainConfig() *params.ChainConfig {
+	return bc.chainConfig
+}
+
 // CurrentFastBlock retrieves the current fast-sync head block of the canonical
 // chain. The block is retrieved from the blockchain's internal cache.
 func (bc *BlockChain) CurrentFastBlock() *types.Block {

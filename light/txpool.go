@@ -488,7 +488,7 @@ func (self *TxPool) GetTransactions() (txs types.Transactions, err error) {
 
 // Content retrieves the data content of the transaction pool, returning all the
 // pending as well as queued transactions, grouped by account and nonce.
-func (self *TxPool) Content() (map[common.Address]types.Transactions, map[common.Address]types.Transactions, map[common.Address]types.Transactions) {
+func (self *TxPool) Content() (map[common.Address]types.Transactions, map[common.Address]types.Transactions) {
 	self.mu.RLock()
 	defer self.mu.RUnlock()
 
@@ -500,9 +500,7 @@ func (self *TxPool) Content() (map[common.Address]types.Transactions, map[common
 	}
 	// There are no queued transactions in a light pool, just return an empty map
 	queued := make(map[common.Address]types.Transactions)
-	// There are no pbft transactions in a light pool, just return an empty map
-	pbft := make(map[common.Address]types.Transactions)
-	return pending, queued, pbft
+	return pending, queued
 }
 
 // RemoveTransactions removes all given transactions from the pool.

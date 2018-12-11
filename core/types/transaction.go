@@ -599,6 +599,7 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 	}
 }
 
+func (m Message) Flag() uint8          { return m.flag }
 func (m Message) From() common.Address { return m.from }
 func (m Message) To() *common.Address  { return m.to }
 func (m Message) GasPrice() *big.Int   { return m.gasPrice }

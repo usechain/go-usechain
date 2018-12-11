@@ -648,7 +648,7 @@ func (s *Service) reportPending(conn *websocket.Conn) error {
 	// Retrieve the pending count from the local blockchain
 	var pending int
 	if s.eth != nil {
-		pending, _, _ = s.eth.TxPool().Stats()
+		pending, _ = s.eth.TxPool().Stats()
 	} else {
 		pending = s.les.TxPool().Stats()
 	}

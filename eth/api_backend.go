@@ -172,11 +172,11 @@ func (b *EthApiBackend) GetPoolNonce(ctx context.Context, addr common.Address) (
 	return b.eth.txPool.State().GetNonce(addr), nil
 }
 
-func (b *EthApiBackend) Stats() (pending int, queued int, pbft int) {
+func (b *EthApiBackend) Stats() (pending int, queued int) {
 	return b.eth.txPool.Stats()
 }
 
-func (b *EthApiBackend) TxPoolContent() (map[common.Address]types.Transactions, map[common.Address]types.Transactions, map[common.Address]types.Transactions) {
+func (b *EthApiBackend) TxPoolContent() (map[common.Address]types.Transactions, map[common.Address]types.Transactions) {
 	return b.eth.TxPool().Content()
 }
 

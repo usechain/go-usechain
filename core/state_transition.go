@@ -66,6 +66,8 @@ type StateTransition struct {
 
 // Message represents a message sent to a contract.
 type Message interface {
+	Flag() uint8
+
 	From() common.Address
 	//FromFrontier() (common.Address, error)
 	To() *common.Address
@@ -267,8 +269,10 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	if err != nil {
 		return nil, 0, false, err
 	}
-	if err = st.useGas(gas); err != nil {
-		return nil, 0, false, err
+	if msg.Flag() == 0 {
+		if err = st.useGas(gas); err != nil {
+			return nil, 0, false, err
+		}
 	}
 
 	var (

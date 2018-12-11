@@ -23,12 +23,12 @@ import (
 	"github.com/usechain/go-usechain/core"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/common"
-	"github.com/usechain/go-usechain/contracts/manager"
+	//"github.com/usechain/go-usechain/contracts/manager"
 	"github.com/usechain/go-usechain/event"
 	"github.com/usechain/go-usechain/log"
 	"sync/atomic"
 	"sync"
-	"fmt"
+	//"fmt"
 )
 
 var (
@@ -143,13 +143,13 @@ func (self *Voter) voteChain() {
 
 	//check the votebase whether a committee
 	nonce := self.txpool.State().GetNonce(self.votebase)
-	managerContract, err := manager.NewManagerContract(self.blockchain)
-	if err != nil {
-		log.Error("manager contract re-construct failed")
-		return
-	}
-	res, _ := managerContract.CallContract(self.votebase, nonce, "MAX_COMMITTEEMAN_COUNT")
-	fmt.Printf("The manager contract call %x \n", res)
+	//managerContract, err := manager.NewManagerContract(self.blockchain)
+	//if err != nil {
+	//	log.Error("manager contract re-construct failed")
+	//	return
+	//}
+	//res, _ := managerContract.CallContract(self.votebase, nonce, "MAX_COMMITTEEMAN_COUNT")
+	//fmt.Printf("The manager contract call %x \n", res)
 
 	//new a transaction
 	tx := types.NewPbftMessage(nonce, self.writeVoteInfo())
@@ -158,7 +158,7 @@ func (self *Voter) voteChain() {
 		log.Error("Sign the committee Msg failed, Please unlock the verifier account", "err", err)
 	}
 
-	log.Info("Checkpoint vote is sent", "hash", tx.Hash().String())
+	log.Info("Checkpoint vote is sent", "hash", signedTx.Hash().String())
 	//add tx to the txpool
 	self.txpool.AddLocal(signedTx)
 }

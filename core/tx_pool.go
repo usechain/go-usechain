@@ -302,7 +302,7 @@ func (pool *TxPool) loop() {
 	defer pool.wg.Done()
 
 	// Start the stats reporting and transaction eviction tickers
-	var prevPending, prevQueued, prevStales int
+	var prevPending, prevQueued, prevPbft, prevStales int
 
 	report := time.NewTicker(statsReportInterval)
 	defer report.Stop()
@@ -338,13 +338,13 @@ func (pool *TxPool) loop() {
 		// Handle stats reporting ticks
 		case <-report.C:
 			pool.mu.RLock()
-			pending, queued := pool.stats()
+			pending, queued, pbft := pool.stats()
 			stales := pool.priced.stales
 			pool.mu.RUnlock()
 
-			if pending != prevPending || queued != prevQueued || stales != prevStales {
-				log.Debug("Transaction pool status report", "executable", pending, "queued", queued, "stales", stales)
-				prevPending, prevQueued, prevStales = pending, queued, stales
+			if pending != prevPending || queued != prevQueued || pbft != prevPbft || stales != prevStales {
+				log.Debug("Transaction pool status report", "executable", pending, "queued", queued, "pbft", pbft, "stales", stales)
+				prevPending, prevQueued, prevPbft, prevStales = pending, queued, pbft, stales
 			}
 
 		// Handle inactive account transaction eviction
@@ -527,8 +527,8 @@ func (pool *TxPool) StateDB() *state.StateDB {
 }
 
 // Stats retrieves the current pool stats, namely the number of pending and the
-// number of queued (non-executable) transactions.
-func (pool *TxPool) Stats() (int, int) {
+// number of queued (non-executable) and the number of pbft transactions.
+func (pool *TxPool) Stats() (int, int, int) {
 	pool.mu.RLock()
 	defer pool.mu.RUnlock()
 
@@ -536,34 +536,59 @@ func (pool *TxPool) Stats() (int, int) {
 }
 
 // stats retrieves the current pool stats, namely the number of pending and the
-// number of queued (non-executable) transactions.
-func (pool *TxPool) stats() (int, int) {
+// number of queued (non-executable) and the number of pbft transactions.
+func (pool *TxPool) stats() (int, int, int) {
 	pending := 0
+	pbft := 0
 	for _, list := range pool.pending {
-		pending += list.Len()
+		txs := list.Flatten()
+		for i := 0; i < len(txs); i++ {
+			if txs[i].Flag() != 0 {
+				pbft++
+			} else {
+				pending++
+			}
+		}
 	}
 	queued := 0
 	for _, list := range pool.queue {
 		queued += list.Len()
 	}
-	return pending, queued
+	return pending, queued, pbft
 }
 
 // Content retrieves the data content of the transaction pool, returning all the
-// pending as well as queued transactions, grouped by account and sorted by nonce.
-func (pool *TxPool) Content() (map[common.Address]types.Transactions, map[common.Address]types.Transactions) {
+// pending as well as queued and pbft transactions, grouped by account and sorted by nonce.
+func (pool *TxPool) Content() (map[common.Address]types.Transactions, map[common.Address]types.Transactions, map[common.Address]types.Transactions) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
 	pending := make(map[common.Address]types.Transactions)
+	pbft := make(map[common.Address]types.Transactions)
 	for addr, list := range pool.pending {
-		pending[addr] = list.Flatten()
+		txs := list.Flatten()
+		tempPendingTxs := make(types.Transactions, 0, txs.Len())
+		tempPbftTxs := make(types.Transactions, 0, txs.Len())
+		for i := 0; i < txs.Len(); i++ {
+			if txs[i].Flag() == 1 {
+				tempPbftTxs = append(tempPbftTxs, txs[i])
+			} else {
+				tempPendingTxs = append(tempPendingTxs, txs[i])
+			}
+		}
+		if tempPendingTxs.Len() > 0 {
+			pending[addr] = tempPendingTxs
+		}
+
+		if tempPbftTxs.Len() > 0 {
+			pbft[addr] = tempPbftTxs
+		}
 	}
 	queued := make(map[common.Address]types.Transactions)
 	for addr, list := range pool.queue {
 		queued[addr] = list.Flatten()
 	}
-	return pending, queued
+	return pending, queued, pbft
 }
 
 // Pending retrieves all currently processable transactions, groupped by origin
@@ -574,13 +599,12 @@ func (pool *TxPool) Pending() (map[common.Address]types.Transactions, error) {
 	defer pool.mu.Unlock()
 
 	pending := make(map[common.Address]types.Transactions)
-	tempAll := make(map[common.Address]types.Transactions)
 	for addr, list := range pool.pending {
-		tempAll[addr] = list.Flatten()
-		tempPendingTxs := make(types.Transactions, 0, len(tempAll[addr]))
-		for i := 0; i < len(tempAll[addr]); i++ {
-			if tempAll[addr][i].Flag() == 0 {
-				tempPendingTxs = append(tempPendingTxs, tempAll[addr][i])
+		txs := list.Flatten()
+		tempPendingTxs := make(types.Transactions, 0, txs.Len())
+		for i := 0; i < txs.Len(); i++ {
+			if txs[i].Flag() == 0 {
+				tempPendingTxs = append(tempPendingTxs, txs[i])
 			}
 		}
 		if tempPendingTxs.Len() > 0 {
@@ -598,13 +622,12 @@ func (pool *TxPool) Pbft() (map[common.Address]types.Transactions, error) {
 	defer pool.mu.Unlock()
 
 	pbft := make(map[common.Address]types.Transactions)
-	tempAll := make(map[common.Address]types.Transactions)
 	for addr, list := range pool.pending {
-		tempAll[addr] = list.Flatten()
-		tempPbftTxs := make(types.Transactions, 0, len(tempAll[addr]))
-		for i := 0; i < len(tempAll[addr]); i++ {
-			if tempAll[addr][i].Flag() == 1 {
-				tempPbftTxs = append(tempPbftTxs, tempAll[addr][i])
+		txs := list.Flatten()
+		tempPbftTxs := make(types.Transactions, 0, txs.Len())
+		for i := 0; i < txs.Len(); i++ {
+			if txs[i].Flag() == 1 {
+				tempPbftTxs = append(tempPbftTxs, txs[i])
 			}
 		}
 		if tempPbftTxs.Len() > 0 {

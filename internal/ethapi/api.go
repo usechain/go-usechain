@@ -128,7 +128,7 @@ func (s *PublicTxPoolAPI) Content() map[string]map[string]map[string]*RPCTransac
 		"queued":  make(map[string]map[string]*RPCTransaction),
 		"pbft": make(map[string]map[string]*RPCTransaction),
 	}
-	pending, queue := s.b.TxPoolContent()
+	pending, queue, pbft := s.b.TxPoolContent()
 
 	// Flatten the pending transactions
 	for account, txs := range pending {
@@ -146,16 +146,24 @@ func (s *PublicTxPoolAPI) Content() map[string]map[string]map[string]*RPCTransac
 		}
 		content["queued"][account.Hex()] = dump
 	}
+	// Flatten the pbft transactions
+	for account, txs := range pbft {
+		dump := make(map[string]*RPCTransaction)
+		for _, tx := range txs {
+			dump[fmt.Sprintf("%d", tx.Nonce())] = newRPCPendingTransaction(tx)
+		}
+		content["pbft"][account.Hex()] = dump
+	}
 	return content
 }
 
 // Status returns the number of pending and queued transaction in the pool.
 func (s *PublicTxPoolAPI) Status() map[string]hexutil.Uint {
-	pending, queue := s.b.Stats()
+	pending, queue, pbft := s.b.Stats()
 	return map[string]hexutil.Uint{
 		"pending": hexutil.Uint(pending),
 		"queued":  hexutil.Uint(queue),
-		"pbft":    hexutil.Uint(0),
+		"pbft":    hexutil.Uint(pbft),
 	}
 }
 
@@ -167,10 +175,16 @@ func (s *PublicTxPoolAPI) Inspect() map[string]map[string]map[string]string {
 		"queued":  make(map[string]map[string]string),
 		"pbft": make(map[string]map[string]string),
 	}
-	pending, queue := s.b.TxPoolContent()
+	pending, queue, pbft := s.b.TxPoolContent()
 
 	// Define a formatter to flatten a transaction into a string
 	var format = func(tx *types.Transaction) string {
+		if tx.Flag() == 1 {
+			payload := tx.Data()
+			blockHash := payload[:common.HashLength]
+			number := payload[common.HashLength:len(payload)]
+			return fmt.Sprintf("pbft vote: block %v, height %v", common.BytesToHash(blockHash).String(), new(big.Int).SetBytes(number).Uint64())
+		}
 		if to := tx.To(); to != nil {
 			return fmt.Sprintf("%s: %v hui + %v gas × %v hui", tx.To().Hex(), tx.Value(), tx.Gas(), tx.GasPrice())
 		}
@@ -191,6 +205,14 @@ func (s *PublicTxPoolAPI) Inspect() map[string]map[string]map[string]string {
 			dump[fmt.Sprintf("%d", tx.Nonce())] = format(tx)
 		}
 		content["queued"][account.Hex()] = dump
+	}
+	// Flatten the pbft transactions
+	for account, txs := range pbft {
+		dump := make(map[string]string)
+		for _, tx := range txs {
+			dump[fmt.Sprintf("%d", tx.Nonce())] = format(tx)
+		}
+		content["pbft"][account.Hex()] = dump
 	}
 	return content
 }

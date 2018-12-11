@@ -893,6 +893,7 @@ func (s *PublicBlockChainAPI) rpcOutputBlock(b *types.Block, inclTx bool, fullTx
 		"logsBloom":        head.Bloom,
 		"stateRoot":        head.Root,
 		"miner":            head.Coinbase,
+		"isCheckPoint":	    head.IsCheckPoint,
 		"minerQrSignature": head.MinerQrSignature,
 		"difficultyLevel":	head.DifficultyLevel,
 		"difficulty":       (*hexutil.Big)(head.Difficulty),

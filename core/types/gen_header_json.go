@@ -18,6 +18,7 @@ func (h Header) MarshalJSON() ([]byte, error) {
 		ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
 		UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
 		Coinbase    common.Address `json:"miner"            gencodec:"required"`
+		IsCheckPoint    *hexutil.Big   `json:"isCheckPoint"         gencodec:"required"`
 		MinerQrSignature     hexutil.Bytes  `json:"minerQrSignature"          gencodec:"required"`
 		DifficultyLevel    *hexutil.Big   `json:"difficultyLevel"         gencodec:"required"`
 		Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
@@ -38,6 +39,7 @@ func (h Header) MarshalJSON() ([]byte, error) {
 	enc.ParentHash = h.ParentHash
 	enc.UncleHash = h.UncleHash
 	enc.Coinbase = h.Coinbase
+	enc.IsCheckPoint = (*hexutil.Big)(h.IsCheckPoint)
 	enc.MinerQrSignature = h.MinerQrSignature
 	enc.DifficultyLevel = (*hexutil.Big)(h.DifficultyLevel)
 	enc.Root = h.Root
@@ -61,6 +63,7 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		ParentHash  *common.Hash    `json:"parentHash"       gencodec:"required"`
 		UncleHash   *common.Hash    `json:"sha3Uncles"       gencodec:"required"`
 		Coinbase    *common.Address `json:"miner"            gencodec:"required"`
+		IsCheckPoint	*hexutil.Big    `json:"isCheckPoint"         gencodec:"required"`
 		MinerQrSignature     *hexutil.Bytes  `json:"minerQrSignature"          gencodec:"required"`
 		DifficultyLevel	*hexutil.Big    `json:"difficultyLevel"         gencodec:"required"`
 		Root        *common.Hash    `json:"stateRoot"        gencodec:"required"`
@@ -92,6 +95,10 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		return errors.New("missing required field 'miner' for Header")
 	}
 	h.Coinbase = *dec.Coinbase
+	if dec.IsCheckPoint == nil {
+		return errors.New("missing required field 'isCheckPoint' for Header")
+	}
+	h.IsCheckPoint = (*big.Int)(dec.IsCheckPoint)
 	if dec.MinerQrSignature == nil {
 		return errors.New("missing required field 'minerQrSignature' for Header")
 	}

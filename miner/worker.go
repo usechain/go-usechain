@@ -450,6 +450,7 @@ func (self *worker) commitNewWork() {
 		GasLimit:	210000000,
 		Extra:      self.extra,
 		Time:       big.NewInt(tstamp),
+		IsCheckPoint: new(big.Int).Rem(num, big.NewInt(10)),
 	}
 	blockNumber := header.Number
 
@@ -540,11 +541,9 @@ func (self *worker) commitNewWork() {
 		return
 	}
 	// Create the current work task and check any fork transitions needed
-	IsCheckPoint := blockNumber.Int64() % 10
-
 	work := self.current
 	var pending map[common.Address]types.Transactions
-	if IsCheckPoint != 0 {
+	if header.IsCheckPoint.Cmp(common.Big0) == 0 {
 		pending, err = self.eth.TxPool().Pending()
 	}else{
 		pending, err = self.eth.TxPool().Pbft()

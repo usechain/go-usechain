@@ -85,7 +85,7 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 	var oldNode []int64
 	oldNode = append(oldNode, idTarget.Int64())
 	for i := int64(0); i <= n.Int64(); i++ {
-		if (i == 0) {
+		if i == 0 {
 			res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, idTarget.Int64())))
 			if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
 				return true

@@ -106,6 +106,7 @@ func (h *Header) String() string {
 func (h *Header) GetParentHash() *Hash   { return &Hash{h.header.ParentHash} }
 func (h *Header) GetUncleHash() *Hash    { return &Hash{h.header.UncleHash} }
 func (h *Header) GetCoinbase() *Address  { return &Address{h.header.Coinbase} }
+func (h *Header) GetIsCheckPoint() *BigInt   { return &BigInt{h.header.IsCheckPoint} }
 func (h *Header) GetMinerQrSignature() []byte    { return h.header.MinerQrSignature }
 func (h *Header) GetDifficultyLevel() *BigInt   { return &BigInt{h.header.DifficultyLevel} }
 func (h *Header) GetRoot() *Hash         { return &Hash{h.header.Root} }

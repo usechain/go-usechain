@@ -473,6 +473,7 @@ type blockStats struct {
 	ParentHash common.Hash    `json:"parentHash"`
 	Timestamp  *big.Int       `json:"timestamp"`
 	Miner      common.Address `json:"miner"`
+	IsCheckPoint   *big.Int		  `json:"isCheckPoint"`
 	MinerQrSignature string   `json:"minerQrSignature"`
 	DifficultyLevel   *big.Int		  `json:"difficultyLevel"`
 	GasUsed    uint64         `json:"gasUsed"`
@@ -561,6 +562,7 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 		ParentHash: header.ParentHash,
 		Timestamp:  header.Time,
 		Miner:      author,
+		IsCheckPoint:	header.IsCheckPoint,
 		MinerQrSignature: string((header.MinerQrSignature)),
 		DifficultyLevel:	header.DifficultyLevel,
 		GasUsed:    header.GasUsed,

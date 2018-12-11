@@ -234,6 +234,7 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 				Number:     new(big.Int).Add(parent.Number(), common.Big1),
 				Time:       time,
 				Coinbase:   parent.Coinbase(),
+				IsCheckPoint:	parent.IsCheckPoint(),
 				MinerQrSignature:	parent.MinerQrSignature(),
 				DifficultyLevel:	parent.DifficultyLevel(),
 			},

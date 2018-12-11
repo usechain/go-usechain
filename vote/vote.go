@@ -23,12 +23,12 @@ import (
 	"github.com/usechain/go-usechain/core"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/common"
-	//"github.com/usechain/go-usechain/contracts/manager"
+	"github.com/usechain/go-usechain/contracts/manager"
 	"github.com/usechain/go-usechain/event"
 	"github.com/usechain/go-usechain/log"
 	"sync/atomic"
 	"sync"
-	//"fmt"
+	"fmt"
 )
 
 var (
@@ -112,9 +112,9 @@ func (self *Voter) VoteLoop() {
 				header := self.blockchain.CurrentHeader()
 				log.Debug("CurrentHeader", "height", header.Number)
 
-				//if big.NewInt(0).Mod(header.Number, big10).Int64() == big10.Int64() - 1 {
+				if big.NewInt(0).Mod(header.Number, big10).Int64() == big10.Int64() - 1 {
 					self.voteChain()
-				//}
+				}
 		}
 	}
 }
@@ -143,13 +143,13 @@ func (self *Voter) voteChain() {
 
 	//check the votebase whether a committee
 	nonce := self.txpool.State().GetNonce(self.votebase)
-	//managerContract, err := manager.NewManagerContract(self.blockchain)
-	//if err != nil {
-	//	log.Error("manager contract re-construct failed")
-	//	return
-	//}
-	//res, _ := managerContract.CallContract(self.votebase, nonce, "MAX_COMMITTEEMAN_COUNT")
-	//fmt.Printf("The manager contract call %x \n", res)
+	managerContract, err := manager.NewManagerContract(self.blockchain)
+	if err != nil {
+		log.Error("manager contract re-construct failed")
+		return
+	}
+	res, _ := managerContract.CallContract(self.votebase, nonce, "MAX_COMMITTEEMAN_COUNT")
+	fmt.Printf("The manager contract call %x \n", res)
 
 	//new a transaction
 	tx := types.NewPbftMessage(nonce, self.writeVoteInfo())

@@ -265,7 +265,7 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	blockNumber := header.Number
 	preSignatureQr := parent.MinerQrSignature
 
-	n := new(big.Int).Div(tstampSub, slot)
+	n := new(big.Int).Div(tstampSub, common.Slot)
 
 	IsValidMiner := minerlist.IsValidMiner(state, header.Coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n)
 
@@ -338,7 +338,6 @@ var (
 	big20		  = big.NewInt(20)
 	bigMinus99    = big.NewInt(-99)
 	big2999999    = big.NewInt(2999999)
-	slot          = big.NewInt(10)
 )
 
 // VerifySeal implements consensus.Engine, checking whether the given block satisfies

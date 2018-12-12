@@ -68,11 +68,11 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	}
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
-		if header.Number.Int64() % 10 == 0 && tx.Flag() == 0{
+		if header.Number.Cmp(common.Slot) == 0 && tx.Flag() == 0{
 			err := errors.New("checkpoint block can't package common transactions")
 			return nil, nil, 0, err
 		}
-		if header.Number.Int64() % 10 != 0 && tx.Flag() == 1{
+		if header.Number.Cmp(common.Slot) != 0 && tx.Flag() == 1{
 			err := errors.New("common block can't package checkpoint transactions")
 			return nil, nil, 0, err
 		}

@@ -54,8 +54,6 @@ const (
 	chainRpowChanSize = 10
 
 	genesisQrSignature = "8287dbe2b47bcc884dce4b9ea1a0dc76"
-
-	slot = 10
 )
 
 // Agent can register themself with the worker
@@ -452,7 +450,7 @@ func (self *worker) commitNewWork() {
 		Time:       big.NewInt(tstamp),
 	}
 	blockNumber := header.Number
-	if int64(new(big.Int).Rem(num, big.NewInt(10)).Cmp(common.Big0)) == 0{
+	if int64(new(big.Int).Rem(num, common.Slot).Cmp(common.Big0)) == 0{
 		header.IsCheckPoint = common.Big1
 	}else{
 		header.IsCheckPoint = common.Big0
@@ -494,7 +492,7 @@ func (self *worker) commitNewWork() {
 		//idTarget := new(big.Int).Rem(qr.Big(), totalMinerNum)
 
 		tstampSub := header.Time.Int64() - parent.Time().Int64()
-		n := big.NewInt(tstampSub / slot)
+		n := big.NewInt(tstampSub / common.Slot.Int64())
 
 		//signature, err := wallet.SignHash(account, minerHash.Bytes())
 		//preDifficultyLevel := parent.DifficultyLevel()

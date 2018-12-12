@@ -17,16 +17,15 @@
 package core
 
 import (
+	"errors"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/consensus"
 	"github.com/usechain/go-usechain/consensus/misc"
-	"github.com/usechain/go-usechain/contracts/minerlist"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/core/vm"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/params"
-	"errors"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -67,8 +66,9 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
+
 	// Iterate over and process the individual transactions
-	if header.IsCheckPoint.Int64() == 1 && int64(block.Transactions().Len()) < minerlist.ReadMinerNum(statedb).Int64()*2 / 3{
+	if header.IsCheckPoint.Int64() == 1 && block.Transactions().Len() < common.MaxCommitteemanCount*2 / 3{
 		err := errors.New("checkpoint block should contain more than three-seconds voter")
 		return nil, nil, 0, err
 	}

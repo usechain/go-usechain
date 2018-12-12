@@ -459,7 +459,6 @@ func (self *worker) commitNewWork() {
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&self.mining) == 1 {
 		totalMinerNum := minerlist.ReadMinerNum(self.current.state)
-
 		if totalMinerNum.Int64() == 0 {
 			log.Error("no miner, please check the genesis.json file")
 			return
@@ -547,6 +546,20 @@ func (self *worker) commitNewWork() {
 	var pending map[common.Address]types.Transactions
 	if header.IsCheckPoint.Cmp(common.Big1) == 0 {
 		pending, err = self.eth.TxPool().Pbft()
+		if len(pending) < common.MaxCommitteemanCount*2 / 3{
+			DONE2:
+				for{
+					select {
+					case <-self.chainRpowCh:
+					default:
+						break DONE2
+					}
+				}
+				//time.Sleep(time.Duration(tstampSub % slot + 1) * time.Second)
+				time.Sleep(10 * time.Millisecond)
+				self.chainRpowCh <- 1
+				return
+		}
 	}else{
 		pending, err = self.eth.TxPool().Pending()
 	}

@@ -686,16 +686,16 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		if len < 33 {
 			return ErrPbftPayloadLen
 		}
-		blockHash := payload[:common.HashLength]
+		//blockHash := payload[:common.HashLength]
 		number := payload[common.HashLength:len]
 
 		if new(big.Int).SetBytes(number).Uint64() < pool.chain.CurrentBlock().Number().Uint64() {
 			return ErrPbftHeight
 		}
 
-		if pool.chain.GetBlock(common.BytesToHash(blockHash), new(big.Int).SetBytes(number).Uint64()) == nil {
-			return ErrPbftPayload
-		}
+		//if pool.chain.GetBlock(common.BytesToHash(blockHash), new(big.Int).SetBytes(number).Uint64()) == nil {
+		//	return ErrPbftPayload
+		//}
 	}
 
 	// Transactions can't be negative. This may never happen using RLP decoded

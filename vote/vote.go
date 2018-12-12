@@ -112,9 +112,9 @@ func (self *Voter) VoteLoop() {
 				header := self.blockchain.CurrentHeader()
 				log.Debug("CurrentHeader", "height", header.Number)
 
-				//if big.NewInt(0).Mod(header.Number, big10).Int64() == big10.Int64() - 1 {
+				if big.NewInt(0).Mod(header.Number, big10).Int64() == big10.Int64() - 1 {
 					self.voteChain()
-				//}
+				}
 		}
 	}
 }

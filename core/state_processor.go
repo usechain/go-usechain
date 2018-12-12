@@ -20,6 +20,7 @@ import (
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/consensus"
 	"github.com/usechain/go-usechain/consensus/misc"
+	"github.com/usechain/go-usechain/contracts/minerlist"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/core/vm"
@@ -67,12 +68,17 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		misc.ApplyDAOHardFork(statedb)
 	}
 	// Iterate over and process the individual transactions
+	if header.IsCheckPoint.Int64() == 1 && int64(block.Transactions().Len()) < minerlist.ReadMinerNum(statedb).Int64()*2 / 3{
+		err := errors.New("checkpoint block should contain more than three-seconds voter")
+		return nil, nil, 0, err
+	}
+
 	for i, tx := range block.Transactions() {
-		if header.Number.Cmp(common.Slot) == 0 && tx.Flag() == 0{
+		if header.IsCheckPoint.Int64() == 1 && tx.Flag() == 0{
 			err := errors.New("checkpoint block can't package common transactions")
 			return nil, nil, 0, err
 		}
-		if header.Number.Cmp(common.Slot) != 0 && tx.Flag() == 1{
+		if header.IsCheckPoint.Int64() == 0 && tx.Flag() == 1{
 			err := errors.New("common block can't package checkpoint transactions")
 			return nil, nil, 0, err
 		}

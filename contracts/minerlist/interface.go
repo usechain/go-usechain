@@ -19,6 +19,7 @@ package minerlist
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/crypto"
@@ -88,6 +89,7 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 		if i == 0 {
 			res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, idTarget.Int64())))
 			if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
+				fmt.Println("idTarget: ", idTarget)
 				return true
 			}
 		} else {
@@ -116,6 +118,8 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 				}
 			res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, id.Int64())))
 			if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
+				fmt.Println("idTarget: ", idTarget)
+				fmt.Println("id: ", id)
 				return true
 			}
 		}

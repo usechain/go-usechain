@@ -37,7 +37,7 @@ var (
 )
 
 const (
-	maxKnownTxs      = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
+	maxKnownTxs      = 32768 * 8 // Maximum transactions hashes to keep in the known list (prevent DOS)
 	maxKnownBlocks   = 1024  // Maximum block hashes to keep in the known list (prevent DOS)
 	handshakeTimeout = 5 * time.Second
 )

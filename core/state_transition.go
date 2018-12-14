@@ -269,7 +269,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	if err != nil {
 		return nil, 0, false, err
 	}
-	if msg.Flag() == 0 {
+	if msg.Flag() != 1 {
 		if err = st.useGas(gas); err != nil {
 			return nil, 0, false, err
 		}
@@ -283,9 +283,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		vmerr error
 	)
 	if contractCreation {
-		if msg.Flag() != 1 {
-			ret, _, st.gas, vmerr = evm.Create(sender, st.data, st.gas, st.value)
-		}
+		ret, _, st.gas, vmerr = evm.Create(sender, st.data, st.gas, st.value)
 	} else {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(sender.Address(), st.state.GetNonce(sender.Address())+1)

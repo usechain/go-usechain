@@ -546,7 +546,7 @@ func (pool *TxPool) stats() (int, int, int) {
 	for _, list := range pool.pending {
 		txs := list.Flatten()
 		for i := 0; i < len(txs); i++ {
-			if txs[i].Flag() != 0 {
+			if txs[i].Flag() == 1 {
 				pbft++
 			} else {
 				pending++
@@ -665,7 +665,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 
 	if tx.Flag() == 1 {
-		if tx.To() != nil {
+		if *tx.To() != common.HexToAddress("0x0000000000000000000000000000000000000000") {
 			return ErrPbftTo
 		}
 

@@ -97,7 +97,8 @@ func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPric
 }
 
 func NewPbftMessage(nonce uint64, data []byte) *Transaction {
-	return newTransaction(1, nonce, nil, nil, 0, nil, data)
+	addr := common.HexToAddress("0x0000000000000000000000000000000000000000")
+	return newTransaction(1, nonce, &addr, nil, 0, nil, data)
 }
 
 func newTransaction(flag uint8, nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {

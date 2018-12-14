@@ -106,16 +106,23 @@ func (self *Voter) VoteLoop() {
 		self.voteChain()
 	}
 
-	for self.Voting() {
-		select {
+	for  {
+		if self.Voting() {
+			select {
 			case <-self.chainHeadCh:
 				header := self.blockchain.CurrentHeader()
-				log.Debug("CurrentHeader", "height", header.Number)
+				log.Trace("Voting CurrentHeader", "height", header.Number)
 
 				if big.NewInt(0).Mod(header.Number, big10).Int64() == big10.Int64() - 1 {
 					self.voteChain()
 				}
+			}
+		} else {
+			select {
+			case <-self.chainHeadCh:
+			}
 		}
+
 	}
 }
 

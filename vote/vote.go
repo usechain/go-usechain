@@ -29,6 +29,7 @@ import (
 	"github.com/usechain/go-usechain/contracts/manager"
 	"github.com/usechain/go-usechain/event"
 	"github.com/usechain/go-usechain/log"
+	"time"
 )
 
 var (
@@ -58,6 +59,7 @@ type Voter struct {
 	blockchain   *core.BlockChain
 	txpool		 *core.TxPool
 	manager		 *accounts.Manager
+	t            *time.Timer
 
 	mu sync.Mutex
 
@@ -77,6 +79,7 @@ func NewVoter(eth Backend, coinbase common.Address) *Voter{
 	}
 	// Subscribe events for blockchain
 	voter.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(voter.chainHeadCh)
+	voter.t = time.NewTimer(time.Hour * 24)
 	return voter
 }
 
@@ -107,22 +110,14 @@ func (self *Voter) VoteLoop() {
 	}
 
 	for  {
-		if self.Voting() {
-			select {
-			case <-self.chainHeadCh:
-				header := self.blockchain.CurrentHeader()
-				log.Trace("Voting CurrentHeader", "height", header.Number)
-
-				if big.NewInt(0).Mod(header.Number, big10).Int64() == big10.Int64() - 1 {
-					self.voteChain()
-				}
-			}
-		} else {
-			select {
-			case <-self.chainHeadCh:
-			}
+		select {
+		//get new block head event
+		case <-self.chainHeadCh:
+			self.vote()
+		//expire & re-send
+		case <-self.t.C:
+			self.vote()
 		}
-
 	}
 }
 
@@ -138,7 +133,24 @@ func (self *Voter) Votebase() common.Address {
 	return self.votebase
 }
 
-var nym = 0
+//vote
+func (self *Voter) vote() {
+	if self.Voting() {
+		header := self.blockchain.CurrentHeader()
+		mod := big.NewInt(0).Mod(header.Number, big10).Int64()
+		log.Trace("Voting CurrentHeader", "height", header.Number)
+
+		//meet the checkpoint, vote
+		if mod == big10.Int64() - 1 {
+			self.voteChain()
+			self.t.Reset(time.Second * 60)
+		} else if mod == big10.Int64() {
+			self.t.Stop()
+		}
+	}
+	return
+}
+
 //Sign the vote, and broadcast it
 func (self *Voter) voteChain() {
 	//get the account
@@ -151,7 +163,8 @@ func (self *Voter) voteChain() {
 
 	///TODO:must be a committee
 	//check the votebase whether a committee
-	nonce := self.txpool.State().GetNonce(self.votebase)
+	//get the nonce from current header to ensure the tx be packed in the next block
+	nonce := self.txpool.StateDB().GetNonce(self.votebase)
 	managerContract, err := manager.NewManagerContract(self.blockchain, true)
 	if err != nil {
 		log.Error("manager contract re-construct failed")
@@ -170,8 +183,7 @@ func (self *Voter) voteChain() {
 		log.Error("Sign the committee Msg failed, Please unlock the verifier account", "err", err)
 	}
 
-	nym++
-	log.Info("Checkpoint vote is sent", "hash", signedTx.Hash().String(), "count", nym)
+	log.Info("Checkpoint vote is sent", "hash", signedTx.Hash().String())
 	//add tx to the txpool
 	self.txpool.AddLocal(signedTx)
 }

@@ -17,7 +17,6 @@
 package miner
 
 import (
-	"fmt"
 	"sync"
 
 	"sync/atomic"
@@ -107,9 +106,7 @@ func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 		log.Info("Successfully sealed new block", "number", result.Number(), "hash", result.Hash())
 
 		totalMined++
-		fmt.Print("totalMined : ")
-		fmt.Print(totalMined)
-		fmt.Print("\n")
+		log.Info("totalMined : ", "totalMined",totalMined)
 
 		self.returnCh <- &Result{work, result}
 	} else {

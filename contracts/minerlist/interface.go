@@ -19,12 +19,13 @@ package minerlist
 import (
 	"bytes"
 	"encoding/hex"
-	"math/big"
-	"strings"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/crypto/sha3"
+	"github.com/usechain/go-usechain/log"
+	"math/big"
+	"strings"
 )
 
 const (
@@ -88,7 +89,7 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 		if i == 0 {
 			res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, idTarget.Int64())))
 			if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
-				//log.Info("mined by successor first in order ", "id", idTarget)
+				log.Info("mined by successor first in order ", "id ", idTarget, "address ", miner.String()[2:])
 				return true
 			}
 		} else {
@@ -117,8 +118,8 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 				}
 			res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, id.Int64())))
 			if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
-				//log.Info("mined by other successor", "id", id)
-				//log.Info("the successor first in order ", "id", idTarget)
+				log.Info("mined by other successor ", "id ", id, "address 0x", miner.String()[2:])
+				log.Info("the successor first in order ", "id", idTarget)
 				return true
 			}
 		}

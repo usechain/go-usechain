@@ -17,6 +17,7 @@
 package miner
 
 import (
+	"fmt"
 	"sync"
 
 	"sync/atomic"
@@ -107,6 +108,7 @@ func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 
 		totalMined++
 		log.Info("totalMined : ", "totalMined",totalMined)
+		fmt.Println("totalMined : ", "totalMined",totalMined)
 
 		self.returnCh <- &Result{work, result}
 	} else {

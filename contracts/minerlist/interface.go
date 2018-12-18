@@ -19,6 +19,7 @@ package minerlist
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/crypto"
@@ -90,6 +91,7 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 			res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, idTarget.Int64())))
 			if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
 				log.Info("mined by successor first in order ", "id ", idTarget, "address ", miner.String()[2:])
+				fmt.Println("mined by successor first in order ", "id ", idTarget, "address ", miner.String()[2:])
 				return true
 			}
 		} else {
@@ -120,6 +122,8 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 			if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
 				log.Info("mined by other successor ", "id ", id, "address 0x", miner.String()[2:])
 				log.Info("the successor first in order ", "id", idTarget)
+				fmt.Println("mined by other successor ", "id ", id, "address 0x", miner.String()[2:])
+				fmt.Println("the successor first in order ", "id", idTarget)
 				return true
 			}
 		}

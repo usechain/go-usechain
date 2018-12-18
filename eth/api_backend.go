@@ -55,6 +55,11 @@ func (b *EthApiBackend) SetHead(number uint64) {
 	b.eth.blockchain.SetHead(number)
 }
 
+func (b *EthApiBackend) SetHeadForVote(number uint64) {
+	b.eth.protocolManager.downloader.Cancel()
+	b.eth.blockchain.SetHeadForVote(number)
+}
+
 func (b *EthApiBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error) {
 	// Pending block is only known by the miner
 	if blockNr == rpc.PendingBlockNumber {

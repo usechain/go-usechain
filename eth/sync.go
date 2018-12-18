@@ -152,7 +152,19 @@ func (pm *ProtocolManager) syncer() {
 
 		case <-forceSync.C:
 			// Force a sync even if not enough peers are present
-			go pm.synchronise(pm.peers.BestPeer())
+			targetHash := pm.blockchain.GetTargetBlock()
+			if (targetHash != common.Hash{}) {
+				for _, p := range pm.peers.peers {
+					if p.head != targetHash {
+						continue
+					}
+					go pm.synchronise(p)
+					pm.blockchain.SetTargetBlock(common.Hash{})
+					break
+				}
+			} else {
+				go pm.synchronise(pm.peers.BestPeer())
+			}
 
 		case <-pm.noMorePeers:
 			return
@@ -171,8 +183,8 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	td := pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 
 	pHead, pTd := peer.Head()
-	if pTd.Cmp(td) <= 0 {
-		if pTd.Cmp(td) == 0 && atomic.LoadUint32(&pm.acceptTxs) == 0 {
+	if td == nil || pTd.Cmp(td) <= 0 {
+		if (td == nil || pTd.Cmp(td) == 0) && atomic.LoadUint32(&pm.acceptTxs) == 0 {
 			atomic.StoreUint32(&pm.acceptTxs, 1) // Mark initial sync done
 		}
 		return

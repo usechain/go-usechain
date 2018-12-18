@@ -55,6 +55,10 @@ func (b *LesApiBackend) SetHead(number uint64) {
 	b.eth.blockchain.SetHead(number)
 }
 
+func (b *LesApiBackend) SetHeadForVote(number uint64) {
+	b.SetHead(number)
+}
+
 func (b *LesApiBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error) {
 	if blockNr == rpc.LatestBlockNumber || blockNr == rpc.PendingBlockNumber {
 		return b.eth.blockchain.CurrentHeader(), nil

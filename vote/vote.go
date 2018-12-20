@@ -105,7 +105,8 @@ func (self *Voter) Voting() bool {
 //Voting loop
 func (self *Voter) VoteLoop() {
 	header := self.blockchain.CurrentHeader()
-	if big.NewInt(0).Mod(header.Number, big10) == big9 {
+	mod := big.NewInt(0).Mod(header.Number, big10).Int64()
+	if mod == big10.Int64() - 1 {
 		self.voteChain()
 	}
 

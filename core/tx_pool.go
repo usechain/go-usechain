@@ -664,40 +664,6 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return ErrOversizedData
 	}
 
-	if tx.Flag() == 1 {
-		if *tx.To() != common.HexToAddress("0x0000000000000000000000000000000000000000") {
-			return ErrPbftTo
-		}
-
-		if tx.Value().Int64() != 0 {
-			return ErrPbftAmount
-		}
-
-		if tx.Gas() != 0 {
-			return ErrPbftGas
-		}
-
-		if tx.GasPrice().Int64() != 0 {
-			return ErrPbftPrice
-		}
-
-		payload := tx.Data()
-		len := len(payload)
-		if len < 33 {
-			return ErrPbftPayloadLen
-		}
-		//blockHash := payload[:common.HashLength]
-		number := payload[common.HashLength:len]
-
-		if new(big.Int).SetBytes(number).Uint64() < pool.chain.CurrentBlock().Number().Uint64() {
-			return ErrPbftHeight
-		}
-
-		//if pool.chain.GetBlock(common.BytesToHash(blockHash), new(big.Int).SetBytes(number).Uint64()) == nil {
-		//	return ErrPbftPayload
-		//}
-	}
-
 	// Transactions can't be negative. This may never happen using RLP decoded
 	// transactions but may occur if you create a transaction using the RPC.
 	if tx.Value().Sign() < 0 {
@@ -713,6 +679,33 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	from, err := types.Sender(pool.signer, tx)
 	if err != nil {
 		return ErrInvalidSender
+	}
+
+	// If it's vote transaction
+	if tx.Flag() == 1 {
+		if *tx.To() != common.HexToAddress("0x0000000000000000000000000000000000000000") {
+			return ErrPbftTo
+		}
+		if tx.Value().Int64() != 0 {
+			return ErrPbftAmount
+		}
+		if tx.Gas() != 0 {
+			return ErrPbftGas
+		}
+		if tx.GasPrice().Int64() != 0 {
+			return ErrPbftPrice
+		}
+
+		payload := tx.Data()
+		len := len(payload)
+		if len < 33 {
+			return ErrPbftPayloadLen
+		}
+		number := payload[common.HashLength:len]
+
+		if new(big.Int).SetBytes(number).Uint64() < pool.chain.CurrentBlock().Number().Uint64() {
+			return ErrPbftHeight
+		}
 	}
 
 	//If the transaction is authentication, check txCert Signature
@@ -735,20 +728,11 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		if err != nil {
 			return ErrInvalidAuthenticationsig
 		}
-	} else {
-		///TODO: Remove address legality check in moonet testnet
-		//if common.ToHex(from[:]) != "0x6102d428c9aee1ae53d1ba77c83e78be4da1b95a" {
-		//	fmt.Println("common.ToHex(from[:]) != 0x490a8abf72eb8bed2a6cfeff7826c3158591bac0")
-		//	err = checkAddrLegality(pool.currentState, tx, from)
-		//}
-		//
-		//if err != nil {
-		//	return ErrIllegalAddress
-		//}
 	}
 
+	//If it's vote transaction, pass the left checking process
 	if tx.Flag() == 1 {
-		return nil;
+		return nil
 	}
 
 	// Drop non-local transactions under our own minimal accepted gas price

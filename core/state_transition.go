@@ -210,7 +210,6 @@ func (st *StateTransition) preCheck() error {
 	return st.buyGas()
 }
 
-
 // TransitionDb will transition the state by applying the current message and
 // returning the result including the the used gas. It returns an error if it
 // failed. An error indicates a consensus issue.
@@ -229,15 +228,8 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		os.Exit(1)
 	}
 
-	switch contractCreation {
-	case true:
-		//if common.ToHex(addr[:]) != "0x6102d428c9aee1ae53d1ba77c83e78be4da1b95a" {
-		//	if st.state.CheckAddrAuthenticateStat(msg.From()) == 0 {
-		//		return nil, 0, false, vm.ErrIllegalAddress
-		//	}
-		//}
-
-	case false:
+	// If it's transaction about authentication
+	if !contractCreation {
 		transactionFormat := msgToTransaction(msg)
 
 		if transactionFormat.IsAuthentication() {
@@ -255,12 +247,6 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 			if err != nil {
 				return nil, 0, false, vm.ErrInvalidAuthenticationsig
 			}
-		} else {
-			//if common.ToHex(addr[:]) != "0x6102d428c9aee1ae53d1ba77c83e78be4da1b95a" {
-			//	if st.state.CheckAddrAuthenticateStat(msg.From()) == 0 {
-			//		return nil, 0, false, vm.ErrIllegalAddress
-			//	}
-			//}
 		}
 	}
 
@@ -269,6 +255,8 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	if err != nil {
 		return nil, 0, false, err
 	}
+
+	// If it's vote transaction
 	if msg.Flag() != 1 {
 		if err = st.useGas(gas); err != nil {
 			return nil, 0, false, err

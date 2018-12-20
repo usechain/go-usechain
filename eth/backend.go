@@ -402,11 +402,6 @@ func (s *Ethereum) Votebase() (eb common.Address, err error) {
 	if wallets := s.AccountManager().Wallets(); len(wallets) > 0 {
 		if accounts := wallets[0].Accounts(); len(accounts) > 0 {
 			votebase := accounts[0].Address
-
-			s.lock.Lock()
-			s.usebase = votebase
-			s.lock.Unlock()
-			
 			return votebase, nil
 		}
 	}

@@ -182,6 +182,7 @@ func (self *Voter) voteChain() {
 	signedTx, err := wallet.SignTx(account, tx, nil)
 	if err != nil {
 		log.Error("Sign the committee Msg failed, Please unlock the verifier account", "err", err)
+		return
 	}
 
 	log.Info("Checkpoint vote is sent", "hash", signedTx.Hash().String())

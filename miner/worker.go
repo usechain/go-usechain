@@ -547,7 +547,8 @@ func (self *worker) commitNewWork() {
 	var pending map[common.Address]types.Transactions
 	if header.IsCheckPoint.Cmp(common.Big1) == 0 {
 		pending, err = self.eth.TxPool().Pbft()
-		if len(pending) < common.MaxCommitteemanCount*2 / 3{
+		gen, hash, _ := CanGenBlockInCheckPoint(pending)
+		if !gen {
 			DONE2:
 				for{
 					select {
@@ -560,6 +561,16 @@ func (self *worker) commitNewWork() {
 				time.Sleep(10 * time.Millisecond)
 				self.chainRpowCh <- 1
 				return
+		} else {
+			if parent.Hash() != hash {
+				self.eth.BlockChain().SwitchBlockChain(hash, parent.NumberU64())
+				for {
+					if self.chain.CurrentBlock().Hash() == hash {
+						break
+					}
+					time.Sleep(100 * time.Millisecond)
+				}
+			}
 		}
 	}else{
 		pending, err = self.eth.TxPool().Pending()
@@ -583,6 +594,41 @@ func (self *worker) commitNewWork() {
 		self.unconfirmed.Shift(work.Block.NumberU64() - 1)
 	}
 	self.push(work)
+}
+
+func CanGenBlockInCheckPoint(txs map[common.Address]types.Transactions) (bool, common.Hash, uint32) {
+	if len(txs) < common.MaxCommitteemanCount*2 / 3 {
+		return false, common.Hash{}, 0
+	}
+
+	hashCount := make(map[common.Hash]uint32)
+	for _, list := range txs {
+		for i := 0; i < list.Len(); i++ {
+			payload := list[i].Data()
+			hash := common.BytesToHash(payload[:common.HashLength])
+			if _, ok := hashCount[hash]; ok {
+				hashCount[hash]++
+			} else {
+				hashCount[hash] = 1
+			}
+		}
+	}
+
+	var maxCount uint32 = 0
+	var maxHash common.Hash
+	for hash, count := range hashCount {
+		if count <= maxCount {
+			continue
+		}
+		maxCount = count
+		maxHash = hash
+	}
+
+	if maxCount < uint32(common.MaxCommitteemanCount * 2 / 3) {
+		return false, maxHash, maxCount
+	}
+
+	return true, maxHash, maxCount
 }
 
 func (self *worker) commitUncle(work *Work, uncle *types.Header) error {

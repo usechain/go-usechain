@@ -154,14 +154,13 @@ func (pm *ProtocolManager) syncer() {
 			// Force a sync even if not enough peers are present
 			targetHash := pm.blockchain.GetTargetBlock()
 			if (targetHash != common.Hash{}) {
-				for _, p := range pm.peers.peers {
-					if p.head != targetHash {
-						continue
-					}
+				p := pm.peers.FindPeer(targetHash)
+				if p != nil {
 					go pm.synchronise(p)
-					pm.blockchain.SetTargetBlock(common.Hash{})
-					break
+				} else {
+					go pm.synchronise(pm.peers.BestPeer())
 				}
+				pm.blockchain.SetTargetBlock(common.Hash{})
 			} else {
 				go pm.synchronise(pm.peers.BestPeer())
 			}

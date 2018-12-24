@@ -404,6 +404,18 @@ func (ps *peerSet) BestPeer() *peer {
 	return bestPeer
 }
 
+func (ps *peerSet) FindPeer(hash common.Hash) *peer {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+
+	for _, p := range ps.peers {
+		if p.head == hash {
+			return p
+		}
+	}
+	return nil
+}
+
 // Close disconnects all peers.
 // No new peers can be registered after Close has returned.
 func (ps *peerSet) Close() {

@@ -701,9 +701,10 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		if len < 33 {
 			return ErrPbftPayloadLen
 		}
-		number := payload[common.HashLength:len]
+		number := new(big.Int).SetBytes(payload[common.HashLength:len]).Uint64()
 
-		if new(big.Int).SetBytes(number).Uint64() < pool.chain.CurrentBlock().Number().Uint64() {
+		if number % common.Slot.Uint64() != 9 ||
+			number != pool.chain.CurrentBlock().Number().Uint64() {
 			return ErrPbftHeight
 		}
 	}
@@ -1291,6 +1292,32 @@ func (pool *TxPool) demoteUnexecutables() {
 		if list.Empty() {
 			delete(pool.pending, addr)
 			delete(pool.beats, addr)
+		}
+	}
+
+	// Drop all pbft transactions that different from current height(such as: 9, 19, ..., 109, etc)
+	height := pool.chain.CurrentBlock().NumberU64()
+	if height % common.Slot.Uint64() == 9 {
+		for _, list := range pool.pending {
+			txs := list.Flatten()
+			for i := 0; i < txs.Len(); i++ {
+				tx := txs[i]
+				if tx.Flag() != 1 {
+					continue
+				}
+
+				payload := tx.Data()
+				vote_h := new(big.Int).SetBytes(payload[common.HashLength:len(payload)]).Uint64()
+				if vote_h == height {
+					continue
+				}
+
+				delete(list.txs.items, tx.Nonce())
+				hash := tx.Hash()
+				log.Trace("Removed invalid pbft transaction", "hash", hash)
+				delete(pool.all, hash)
+				pool.priced.Removed()
+			}
 		}
 	}
 }

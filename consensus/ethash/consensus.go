@@ -265,7 +265,7 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	blockNumber := header.Number
 	preSignatureQr := parent.MinerQrSignature
 
-	n := new(big.Int).Div(tstampSub, common.Slot)
+	n := new(big.Int).Div(tstampSub, common.BlockSlot)
 
 	IsValidMiner := minerlist.IsValidMiner(state, header.Coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n)
 

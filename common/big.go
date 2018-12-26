@@ -27,6 +27,7 @@ var (
 	Big32  = big.NewInt(32)
 	Big256 = big.NewInt(256)
 	Big257 = big.NewInt(257)
-	Slot   = big.NewInt(10)
+	BlockSlot   = big.NewInt(10)
+	VoteSlot  = big.NewInt(10)
 	MaxCommitteemanCount = 4
 )

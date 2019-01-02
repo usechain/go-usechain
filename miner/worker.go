@@ -450,7 +450,7 @@ func (self *worker) commitNewWork() {
 		Time:       big.NewInt(tstamp),
 	}
 	blockNumber := header.Number
-	if int64(new(big.Int).Rem(num, common.BlockSlot).Cmp(common.Big0)) == 0{
+	if int64(new(big.Int).Rem(num, common.VoteSlot).Cmp(common.Big0)) == 0{
 		header.IsCheckPoint = common.Big1
 	}else{
 		header.IsCheckPoint = common.Big0

@@ -13739,6 +13739,24 @@ module.exports = XMLHttpRequest;
                 inputFormatter: [null,formatters.inputTransactionFormatter,formatters.inputDefaultBlockNumberFormatter]
             });
 
+
+
+            var getTradePoints = new Method({
+                name: 'getTradePoints',
+                call: 'use_getTradePoints',
+                params: 2,
+                inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
+                outputFormatter: formatters.outputBigNumberFormatter
+            });
+
+            var getCertifications = new Method({
+                name: 'getCertifications',
+                call: 'use_getCertifications',
+                params: 2,
+                inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
+                outputFormatter: formatters.outputBigNumberFormatter
+            });
+
             var sendSubTransaction = new Method({
                 name: 'sendSubTransaction',
                 call: 'use_sendSubTransaction',
@@ -13770,6 +13788,13 @@ module.exports = XMLHttpRequest;
             var sendOneTimeTransaction = new Method({
                 name: 'sendOneTimeTransaction',
                 call: 'use_sendOneTimeTransaction',
+                params: 1,
+                inputFormatter: [formatters.inputTransactionFormatter]
+            });
+
+            var sendCreditRegisterTransaction = new Method({
+                name: 'sendCreditRegisterTransaction',
+                call: 'use_sendCreditRegisterTransaction',
                 params: 1,
                 inputFormatter: [formatters.inputTransactionFormatter]
             });
@@ -13810,9 +13835,12 @@ module.exports = XMLHttpRequest;
             });
 
             return [
+                getTradePoints,
+                getCertifications,
                 sendMainTransaction,
                 sendSubTransaction,
                 sendOneTimeTransaction,
+                sendCreditRegisterTransaction,
                 getOneTimePubSet,
                 getUnConfirmedMainInfo,
 

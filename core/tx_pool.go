@@ -114,8 +114,11 @@ var (
 	// ErrPbftPayload is returned if payload is invalid in a pbft transaction
 	ErrPbftPayload = errors.New("invalid payload in a pbft transaction")
 
-	// ErrPbftHeight is returned if vote height is less than current chain height
+	// ErrPbftHeight is returned if vote height % VoteSlot != VoteSlot - 1
 	ErrPbftHeight = errors.New("invalid vote height in a pbft transaction")
+
+	// ErrOverduePbftHeight is returned if vote height is less than current chain height
+	ErrOverduePbftHeight = errors.New("overdue vote height in a pbft transaction")
 )
 
 var (
@@ -640,6 +643,39 @@ func (pool *TxPool) Pbft() (map[common.Address]types.Transactions, error) {
 	return pbft, nil
 }
 
+// GetValidPbft retrieves all suitable pbft transactions, groupped by origin
+// account. The returned transaction set is a copy and can be
+// freely modified by calling code.
+func (pool *TxPool) GetValidPbft(number uint64) (map[common.Address]types.Transactions, error) {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
+
+	pbft := make(map[common.Address]types.Transactions)
+	for addr, list := range pool.pending {
+		txs := list.Flatten()
+		tempPbftTxs := make(types.Transactions, 0, txs.Len())
+		for i := 0; i < txs.Len(); i++ {
+			tx := txs[i]
+			if tx.Flag() != 1 {
+				continue
+			}
+
+			payload := tx.Data()
+			len := len(payload)
+			vote_h := new(big.Int).SetBytes(payload[common.HashLength:len]).Uint64()
+			if vote_h != number { // filter unsuitable vote height
+				continue
+			}
+
+			tempPbftTxs = append(tempPbftTxs, txs[i])
+		}
+		if tempPbftTxs.Len() > 0 {
+			pbft[addr] = tempPbftTxs
+		}
+	}
+	return pbft, nil
+}
+
 // local retrieves all currently known local transactions, groupped by origin
 // account and sorted by nonce. The returned transaction set is a copy and can be
 // freely modified by calling code.
@@ -698,14 +734,17 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 
 		payload := tx.Data()
 		len := len(payload)
-		if len < 33 {
+		if len <= common.HashLength {
 			return ErrPbftPayloadLen
 		}
 		number := new(big.Int).SetBytes(payload[common.HashLength:len]).Uint64()
 
-		if number % common.VoteSlot.Uint64() != common.VoteSlot.Uint64()-1 ||
-			number != pool.chain.CurrentBlock().Number().Uint64() {
+		if number % common.VoteSlot.Uint64() != common.VoteSlot.Uint64()-1 {
 			return ErrPbftHeight
+		}
+
+		if number < pool.chain.CurrentBlock().Number().Uint64() {
+			return ErrOverduePbftHeight
 		}
 	}
 
@@ -1308,18 +1347,10 @@ func (pool *TxPool) demoteUnexecutables() {
 			payload := tx.Data()
 			vote_h := new(big.Int).SetBytes(payload[common.HashLength:len(payload)]).Uint64()
 
-			if height % common.VoteSlot.Uint64() != common.VoteSlot.Uint64()-1 && vote_h <= height {
+			if vote_h < height {
 				delete(list.txs.items, tx.Nonce())
 				hash := tx.Hash()
-				log.Trace("Removed invalid pbft transaction", "hash", hash)
-				delete(pool.all, hash)
-				pool.priced.Removed()
-			}
-
-			if height % common.VoteSlot.Uint64() == common.VoteSlot.Uint64()-1 && vote_h != height {
-				delete(list.txs.items, tx.Nonce())
-				hash := tx.Hash()
-				log.Trace("Removed invalid pbft transaction", "hash", hash)
+				log.Trace("Removed overdue vote transaction", "hash", hash)
 				delete(pool.all, hash)
 				pool.priced.Removed()
 			}

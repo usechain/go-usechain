@@ -20,6 +20,7 @@ import (
 	"math/big"
 	"sync/atomic"
 	"sync"
+	"time"
 	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/core"
 	"github.com/usechain/go-usechain/core/types"
@@ -29,15 +30,9 @@ import (
 	"github.com/usechain/go-usechain/contracts/manager"
 	"github.com/usechain/go-usechain/event"
 	"github.com/usechain/go-usechain/log"
-	"time"
 )
 
 var (
-	big0 	= big.NewInt(0)
-	big9	= big.NewInt(9)
-	big10 	= big.NewInt(10)
-
-
 	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
 	chainHeadChanSize = 10
 )
@@ -80,6 +75,8 @@ func NewVoter(eth Backend, coinbase common.Address) *Voter{
 	// Subscribe events for blockchain
 	voter.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(voter.chainHeadCh)
 	voter.t = time.NewTimer(time.Hour * 24)
+
+	go voter.VoteLoop()
 	return voter
 }
 
@@ -88,8 +85,12 @@ func (self *Voter) Start(coinbase common.Address) {
 	self.SetVotebase(coinbase)
 	atomic.StoreInt32(&self.voting, 1)
 
+	header := self.blockchain.CurrentHeader()
+	mod := big.NewInt(0).Mod(header.Number, common.VoteSlot).Int64()
+	if mod == common.VoteSlot.Int64() - 1 {
+		self.voteChain()
+	}
 	log.Info("Starting voting operation")
-	go self.VoteLoop()
 }
 
 //Stop voting
@@ -104,12 +105,6 @@ func (self *Voter) Voting() bool {
 
 //Voting loop
 func (self *Voter) VoteLoop() {
-	header := self.blockchain.CurrentHeader()
-	mod := big.NewInt(0).Mod(header.Number, big10).Int64()
-	if mod == big10.Int64() - 1 {
-		self.voteChain()
-	}
-
 	for  {
 		select {
 		//get new block head event
@@ -138,14 +133,14 @@ func (self *Voter) Votebase() common.Address {
 func (self *Voter) vote() {
 	if self.Voting() {
 		header := self.blockchain.CurrentHeader()
-		mod := big.NewInt(0).Mod(header.Number, big10).Int64()
+		mod := big.NewInt(0).Mod(header.Number, common.VoteSlot).Int64()
 		log.Trace("Voting CurrentHeader", "height", header.Number)
 
 		//meet the checkpoint, vote
-		if mod == big10.Int64() - 1 {
+		if mod == common.VoteSlot.Int64() - 1 {
 			self.voteChain()
 			self.t.Reset(time.Second * 60)
-		} else if mod == big10.Int64() {
+		} else if mod == common.VoteSlot.Int64() {
 			self.t.Stop()
 		}
 	}

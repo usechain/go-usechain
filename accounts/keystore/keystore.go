@@ -595,6 +595,19 @@ func (ks *KeyStore) GetPublicKey(a accounts.Account) (string, error) {
 	return pub, nil
 }
 
+// TODO: merge this function to the GetPublicKey function
+func (ks *KeyStore) GetPrivateKey(a accounts.Account) (*ecdsa.PrivateKey, error) {
+	ks.mu.RLock()
+	defer ks.mu.RUnlock()
+
+	unlockedKey, found := ks.unlocked[a.Address]
+
+	if !found {
+		return nil, ErrLocked
+	}
+	return unlockedKey.PrivateKey, nil
+}
+
 //Get account's ASkey from keystore
 func (ks *KeyStore) GetABaddr(a accounts.Account) (string, error) {
 	ks.mu.RLock()

@@ -19,10 +19,13 @@ package ethapi
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -126,7 +129,7 @@ func (s *PublicTxPoolAPI) Content() map[string]map[string]map[string]*RPCTransac
 	content := map[string]map[string]map[string]*RPCTransaction{
 		"pending": make(map[string]map[string]*RPCTransaction),
 		"queued":  make(map[string]map[string]*RPCTransaction),
-		"pbft": make(map[string]map[string]*RPCTransaction),
+		"pbft":    make(map[string]map[string]*RPCTransaction),
 	}
 	pending, queue, pbft := s.b.TxPoolContent()
 
@@ -173,7 +176,7 @@ func (s *PublicTxPoolAPI) Inspect() map[string]map[string]map[string]string {
 	content := map[string]map[string]map[string]string{
 		"pending": make(map[string]map[string]string),
 		"queued":  make(map[string]map[string]string),
-		"pbft": make(map[string]map[string]string),
+		"pbft":    make(map[string]map[string]string),
 	}
 	pending, queue, pbft := s.b.TxPoolContent()
 
@@ -596,6 +599,26 @@ func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.Add
 	return b, state.Error()
 }
 
+// GetTradePoints returns the points of the given address from global state
+func (s *PublicBlockChainAPI) GetTradePoints(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (*hexutil.Uint64, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	cr := state.GetTradePoints(address)
+	return (*hexutil.Uint64)(&cr), state.Error()
+}
+
+// GetCertifications returns the points of the given address from global state
+func (s *PublicBlockChainAPI) GetCertifications(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (*hexutil.Uint64, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	cr := state.GetCertifications(address)
+	return (*hexutil.Uint64)(&cr), state.Error()
+}
+
 // GetBlockByNumber returns the requested block. When blockNr is -1 the chain head is returned. When fullTx is true all
 // transactions in the block are returned in full detail, otherwise only the transaction hash is returned.
 func (s *PublicBlockChainAPI) GetBlockByNumber(ctx context.Context, blockNr rpc.BlockNumber, fullTx bool) (map[string]interface{}, error) {
@@ -899,9 +922,9 @@ func (s *PublicBlockChainAPI) rpcOutputBlock(b *types.Block, inclTx bool, fullTx
 		"logsBloom":        head.Bloom,
 		"stateRoot":        head.Root,
 		"miner":            head.Coinbase,
-		"isCheckPoint":	    head.IsCheckPoint,
+		"isCheckPoint":     head.IsCheckPoint,
 		"minerQrSignature": head.MinerQrSignature,
-		"difficultyLevel":	head.DifficultyLevel,
+		"difficultyLevel":  head.DifficultyLevel,
 		"difficulty":       (*hexutil.Big)(head.Difficulty),
 		"totalDifficulty":  (*hexutil.Big)(s.b.GetTd(b.Hash())),
 		"extraData":        hexutil.Bytes(head.Extra),
@@ -1598,6 +1621,130 @@ func (s *PrivateAccountAPI) GenerateRSAKeypair() error {
 	return err
 }
 
+type Identity struct {
+	Data     string `json:"data"`
+	Nation   string `json:"nation"`
+	Entity   string `json:"entity"`
+	Fpr      string `json:"fpr"`
+	Alg      string `json:"alg"`
+	CertType string `json:"certtype"`
+	Ver      string `json:"ver"`
+	Cdate    string `json:"cdate"`
+}
+
+type Issuer struct {
+	Cert   string `json:"cert"`
+	Alg    string `json:"alg"`
+	UseId  string `json:"useid"`
+	PubKey string `json:"pubkey"`
+	Cdate  string `json:"cdate"`
+	Edate  string `json:"edate"`
+}
+
+type UserData struct {
+	Id        string `json:"id"`
+	CertType  string `json:"certtype"`
+	Name      string `json:"name"`
+	EName     string `json:"ename"`
+	Nation    string `json:"nation"`
+	Address   string `json:"address"`
+	BirthDate string `json:"birthdate"`
+}
+
+func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
+
+	// Look up the wallet containing the requested signer
+	account := accounts.Account{Address: args.From}
+
+	wallet, err := s.b.AccountManager().Find(account)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	if args.Nonce == nil {
+		// Hold the addresse's mutex around signing to prevent concurrent assignment of
+		// the same nonce to multiple accounts.
+		s.nonceLock.LockAddr(args.From)
+		defer s.nonceLock.UnlockAddr(args.From)
+	}
+
+	// Set some sanity defaults and terminate on failure
+	if err := args.setDefaults(ctx, s.b); err != nil {
+		return common.Hash{}, err
+	}
+
+	d := GetUserData()
+	ud := UserData{}
+	json.Unmarshal(d, &ud)
+
+	//public key
+	ks := fetchKeystore(s.b.AccountManager())
+	pub, err := ks.GetPublicKey(account)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	priv, _ := ks.GetPrivateKey(account)
+
+	committeePub := crypto.GenerateCreditPubKey(B, priv)
+	// committeePriv := crypto.GenerateCreditPrivKey(b, crypto.ToECDSAPub(common.FromHex(pub)))
+
+	key := crypto.Keccak256Hash([]byte(ud.CertType + "-" + ud.Id)).Bytes()
+	hashKey := [32]byte{}
+	copy(hashKey[:], key)
+	identity := GetIdentityData(ud, crypto.ToECDSAPub(common.FromHex(pub)))
+	issuer := GetIssuerData(ud, args.From, pub)
+
+	bytesData := GetABIBytesData(common.CreditABI, "register", pub, hashKey, identity, issuer)
+
+	if args.Data == nil {
+		args.Data = new(hexutil.Bytes)
+	}
+
+	*args.Data = hexutil.Bytes(bytesData)[:]
+
+	// Assemble the transaction and sign with the wallet
+	tx := args.toTransaction()
+	signed, err := wallet.SignTx(account, tx, nil)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return submitTransaction(ctx, s.b, signed)
+
+}
+
+func GetIssuerData(ud UserData, useId common.Address, pubKey string) []byte {
+	cert := GetCert()
+	i := Issuer{Cert: cert, Alg: "RSA", UseId: useId.Str(), PubKey: pubKey, Cdate: "2018-12-26"}
+	data, _ := json.Marshal(i)
+	return data
+}
+
+func GetIdentityData(ud UserData, pubKey *ecdsa.PublicKey) []byte {
+	identity := Identity{}
+	data, _ := json.Marshal(ud)
+	encData, _ := EncryptUserData(data, pubKey)
+	identity.Data = string(encData)
+	identity.Alg = "ECIES"
+	identity.Fpr = crypto.Keccak256Hash([]byte(data)).Hex()
+
+	d, _ := json.Marshal(&identity)
+
+	return d
+}
+
+func GetABIBytesData(ABI string, name string, args ...interface{}) []byte {
+	creditAbi, err := abi.JSON(strings.NewReader(ABI))
+	if err != nil {
+		abierror := fmt.Sprintf("abi.JSON error: %v", err)
+		log.Warn(abierror)
+	}
+	bytesData, err := creditAbi.Pack(name, args...)
+	if err != nil {
+		log.Error("Pack ABI failed!", err)
+	}
+	return bytesData
+}
+
 // SendOneTimeTransaction creates a transaction for the given argument, sign it and submit it to authentication contract.
 func (s *PublicTransactionPoolAPI) SendOneTimeTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
 
@@ -1632,10 +1779,7 @@ func (s *PublicTransactionPoolAPI) SendOneTimeTransaction(ctx context.Context, a
 	}
 
 	//certificate
-	cert, err := getCert()
-	if err != nil {
-		return common.Hash{}, err
-	}
+	cert := GetCert()
 
 	myAbi, err := abi.JSON(strings.NewReader(common.UsechainABI))
 	if err != nil {
@@ -1664,17 +1808,49 @@ func (s *PublicTransactionPoolAPI) SendOneTimeTransaction(ctx context.Context, a
 	return submitTransaction(ctx, s.b, signed)
 }
 
-// getCert will read user.crt and return certificate string
-func getCert() (string, error) {
-	cert := node.DefaultDataDir() + "/user.crt"
-	// parse user certificate
-	certByte, err := ioutil.ReadFile(cert)
-	if err != nil {
-		log.Error("ReadFile err:", "error", err)
-		return "", err
+func EncryptUserData(userData []byte, pubKey *ecdsa.PublicKey) ([]byte, error) {
+	encrypted, err := ecies.Encrypt(rand.Reader, ecies.ImportECDSAPublic(pubKey), userData, nil, nil)
+	return encrypted, err
+}
+
+func DecryptUserData(userData []byte, privateKey *ecdsa.PrivateKey) ([]byte, error) {
+	decrypted, err := ecies.ImportECDSA(privateKey).Decrypt(rand.Reader, userData, nil, nil)
+	return decrypted, err
+}
+
+func GetUserIdFromData(jsonData []byte) string {
+	var data map[string]string
+	if err := json.Unmarshal(jsonData, &data); err != nil {
+		log.Error("Unpack data error!")
 	}
-	certAscii := hex.EncodeToString(certByte[:])
-	return certAscii, err
+	idType := data["certype"]
+	idNum := data["id"]
+
+	userId := crypto.Keccak256Hash([]byte(idType + "-" + idNum)).Hex()
+	return string(userId)
+}
+
+func GetUserData() []byte {
+	userDataPath := filepath.Join(node.DefaultDataDir(), "userData.json")
+	dataBytes, _ := readData(userDataPath)
+	return dataBytes
+}
+
+// getCert will read user.crt and return certificate string
+func GetCert() string {
+	certPath := filepath.Join(node.DefaultDataDir(), "user.crt")
+	// parse user certificate
+	certBytes, _ := readData(certPath)
+	certAscii := hex.EncodeToString(certBytes[:])
+	return certAscii
+}
+
+func readData(filename string) ([]byte, error) {
+	userData, err := ioutil.ReadFile(filename)
+	if err != nil {
+		log.Error("Can not read user data", err)
+	}
+	return userData, err
 }
 
 // Added 2018/07/16

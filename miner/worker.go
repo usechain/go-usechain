@@ -546,7 +546,7 @@ func (self *worker) commitNewWork() {
 	work := self.current
 	var pending map[common.Address]types.Transactions
 	if header.IsCheckPoint.Cmp(common.Big1) == 0 {
-		pending, err = self.eth.TxPool().Pbft()
+		pending, err = self.eth.TxPool().GetValidPbft(blockNumber.Uint64() - 1)
 		gen, hash, _ := CanGenBlockInCheckPoint(pending)
 		if !gen {
 			DONE2:

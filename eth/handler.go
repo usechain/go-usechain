@@ -702,8 +702,9 @@ func (pm *ProtocolManager) BroadcastTx(hash common.Hash, tx *types.Transaction) 
 	//FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for _, peer := range peers {
 		peer.SendTransactions(types.Transactions{tx})
+		log.Trace("send transaction@@@@@@@@@@@@@@@@@@@@", "peer", peer.id)
 	}
-	log.Trace("Broadcast transaction", "hash", hash, "recipients", len(peers))
+	log.Trace("Broadcast transaction!!!!!!!!!!!!!!!!!!!", "hash", hash, "recipients", len(peers))
 }
 
 // Mined broadcast loop

@@ -89,6 +89,7 @@ func (self *Voter) Start(coinbase common.Address) {
 	mod := big.NewInt(0).Mod(header.Number, common.VoteSlot).Int64()
 	if mod == common.VoteSlot.Int64() - 1 {
 		self.voteChain()
+		self.t.Reset(time.Second * 60)
 	}
 	log.Info("Starting voting operation")
 }

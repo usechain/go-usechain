@@ -1348,7 +1348,7 @@ func (pool *TxPool) demoteUnexecutables() {
 			vote_h := new(big.Int).SetBytes(payload[common.HashLength:len(payload)]).Uint64()
 
 			if vote_h < height {
-				delete(list.txs.items, tx.Nonce())
+				list.txs.Remove(tx.Nonce())
 				hash := tx.Hash()
 				log.Trace("Removed overdue vote transaction", "hash", hash)
 				delete(pool.all, hash)

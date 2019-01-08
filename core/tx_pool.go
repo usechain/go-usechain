@@ -1336,7 +1336,7 @@ func (pool *TxPool) demoteUnexecutables() {
 
 	// Drop all pbft transactions that different from current height(such as: 9, 19, ..., 109, etc)
 	height := pool.chain.CurrentBlock().NumberU64()
-	for _, list := range pool.pending {
+	for addr, list := range pool.pending {
 		txs := list.Flatten()
 		for i := 0; i < txs.Len(); i++ {
 			tx := txs[i]
@@ -1354,6 +1354,12 @@ func (pool *TxPool) demoteUnexecutables() {
 				delete(pool.all, hash)
 				pool.priced.Removed()
 			}
+		}
+
+		// Delete the entire queue entry if it became empty.
+		if list.Empty() {
+			delete(pool.pending, addr)
+			delete(pool.beats, addr)
 		}
 	}
 }

@@ -565,7 +565,8 @@ func (self *worker) commitNewWork() {
 			if parent.Hash() != hash {
 				self.eth.BlockChain().SwitchBlockChain(hash, parent.NumberU64())
 				for {
-					if self.chain.CurrentBlock().Hash() == hash {
+					curBlock := self.chain.CurrentBlock()
+					if curBlock.Hash() == hash || curBlock.NumberU64() >= blockNumber.Uint64() {
 						break
 					}
 					time.Sleep(100 * time.Millisecond)

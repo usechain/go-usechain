@@ -302,6 +302,30 @@ func generateA1(S *ecdsa.PublicKey, B *ecdsa.PublicKey, AprivKey *ecdsa.PrivateK
 	return *A1
 }
 
+func GenerateCreditPubKey(committeepubkey string, privkey *ecdsa.PrivateKey) *ecdsa.PublicKey {
+	ecdsaPub := ToECDSAPub(common.FromHex(committeepubkey))
+
+	A := new(ecdsa.PublicKey)
+
+	A.X, A.Y = S256().ScalarMult(ecdsaPub.X, ecdsaPub.Y, privkey.D.Bytes()) // A = [a]B
+	ABytes := Keccak256(FromECDSAPub(A))                                    // hash([a]B)
+	A.X, A.Y = S256().ScalarBaseMult(ABytes)                                // A = [hash([a]B)]G
+	A.Curve = S256()
+	return A
+}
+
+func GenerateCreditPrivKey(bigint string, pubkey *ecdsa.PublicKey) *ecdsa.PrivateKey {
+	// priv, _ := HexToECDSA(committeeprivkey)
+	A := new(ecdsa.PublicKey)
+	n := new(big.Int)
+
+	n, _ = n.SetString(bigint, 10)
+	A.X, A.Y = S256().ScalarMult(pubkey.X, pubkey.Y, n.Bytes()) // [A]b
+	ABytes := Keccak256(FromECDSAPub(A))                        // hash([A]b)
+	B, _ := ToECDSA(ABytes)
+	return B
+}
+
 // GenerteABPrivateKey generates the privatekey for an AB account using receiver's main account's privatekey
 func GenerteABPrivateKey(privateKey *ecdsa.PrivateKey, privateKey2 *ecdsa.PrivateKey, AX string, AY string, BX string, BY string) (retPub *ecdsa.PublicKey, retPriv1 *ecdsa.PrivateKey, retPriv2 *ecdsa.PrivateKey, err error) {
 	bytesAX, err := hexutil.Decode(AX)

@@ -1651,6 +1651,9 @@ type UserData struct {
 	BirthDate string `json:"birthdate"`
 }
 
+var B = "0x04334a10106c551d6bf6ee281653eab47fbe5fb68b100a9fb4c17e0193ee5285a46de19c81cc796df55d6a90fceaf47ea05a2c1591c24346b5a0554ed4bd4f31f9"
+var b = "33431506567349998020842321911135580870676597990408321508701492916562825459482"
+
 func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
 
 	// Look up the wallet containing the requested signer
@@ -1684,14 +1687,13 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 		return common.Hash{}, err
 	}
 	priv, _ := ks.GetPrivateKey(account)
-
 	committeePub := crypto.GenerateCreditPubKey(B, priv)
 	// committeePriv := crypto.GenerateCreditPrivKey(b, crypto.ToECDSAPub(common.FromHex(pub)))
 
 	key := crypto.Keccak256Hash([]byte(ud.CertType + "-" + ud.Id)).Bytes()
 	hashKey := [32]byte{}
 	copy(hashKey[:], key)
-	identity := GetIdentityData(ud, crypto.ToECDSAPub(common.FromHex(pub)))
+	identity := GetIdentityData(ud, committeePub)
 	issuer := GetIssuerData(ud, args.From, pub)
 
 	bytesData := GetABIBytesData(common.CreditABI, "register", pub, hashKey, identity, issuer)

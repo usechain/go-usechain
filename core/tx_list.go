@@ -494,7 +494,7 @@ func (l *txPricedList) Discard(count int, local *accountSet) types.Transactions 
 			continue
 		}
 		// Non stale transaction found, discard unless local
-		if local.containsTx(tx) {
+		if tx.Flag() == 1 || local.containsTx(tx) {
 			save = append(save, tx)
 		} else {
 			drop = append(drop, tx)

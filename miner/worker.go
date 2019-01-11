@@ -19,6 +19,7 @@ package miner
 import (
 	"fmt"
 	"github.com/usechain/go-usechain/crypto"
+	"math"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -613,7 +614,7 @@ func (self *worker) commitNewWork() {
 }
 
 func CanGenBlockInCheckPoint(txs map[common.Address]types.Transactions) (bool, common.Hash, uint32) {
-	if len(txs) < common.MaxCommitteemanCount*2 / 3 {
+	if float64(len(txs)) < math.Ceil(float64(common.MaxCommitteemanCount)*2 / 3) {
 		return false, common.Hash{}, 0
 	}
 
@@ -640,7 +641,7 @@ func CanGenBlockInCheckPoint(txs map[common.Address]types.Transactions) (bool, c
 		maxHash = hash
 	}
 
-	if maxCount < uint32(common.MaxCommitteemanCount * 2 / 3) {
+	if float64(maxCount) < math.Ceil(float64(common.MaxCommitteemanCount)*2 / 3) {
 		return false, maxHash, maxCount
 	}
 

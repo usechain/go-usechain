@@ -503,17 +503,18 @@ func (self *worker) commitNewWork() {
 		n := big.NewInt(tstampSub / common.BlockSlot.Int64())
 
 		//signature, err := wallet.SignHash(account, minerHash.Bytes())
-		//preDifficultyLevel := parent.DifficultyLevel()
+		preDifficultyLevel := parent.DifficultyLevel()
 
 		if header.Number.Cmp(common.Big1) == 0 {
 			header.MinerQrSignature = []byte(genesisQrSignature)
-			//header.DifficultyLevel = common.Big1
+			preDifficultyLevel = common.Big0
+			preSignatureQr = []byte(genesisQrSignature)
 		} else {
 			minerQrSignature, _ := wallet.SignHash(account, qr.Bytes())
 			header.MinerQrSignature = minerQrSignature[:20]
 		}
 
-		IsValidMiner := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n)
+		IsValidMiner, level := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n, preDifficultyLevel)
 
 		if !IsValidMiner {
 		DONE1:
@@ -530,7 +531,10 @@ func (self *worker) commitNewWork() {
 			return
 		}
 
-		//header.DifficultyLevel = big.NewInt(level)
+		header.DifficultyLevel = big.NewInt(level)
+		if header.Number.Cmp(common.Big1) == 0 {
+			header.DifficultyLevel = common.Big0
+		}
 		header.Coinbase = self.coinbase
 
 		if err := self.engine.Prepare(self.chain, header, self.current.state); err != nil {

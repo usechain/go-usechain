@@ -18,6 +18,7 @@ package minerlist
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"github.com/usechain/go-usechain/common"
@@ -26,6 +27,8 @@ import (
 	"github.com/usechain/go-usechain/crypto/sha3"
 	"github.com/usechain/go-usechain/log"
 	"math/big"
+	"math/rand"
+	"strconv"
 	"strings"
 )
 
@@ -75,8 +78,10 @@ func CalQr(base []byte, number *big.Int, preQrSignature []byte) (common.Hash) {
 	return crypto.Keccak256Hash(bytes.Join([][]byte{base, number.Bytes(), preQrSignature}, []byte("")))
 }
 
-func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common.Address, preSignatureQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, n *big.Int) (bool) {
-	//preLevel, _ :=strconv.ParseFloat(difficultyLevel.String(),64)
+func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common.Address, preSignatureQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, n *big.Int, preDifficultyLevel *big.Int) (bool, int64) {
+	preLevel, _ := strconv.ParseFloat(preDifficultyLevel.String(),64)
+	totalminernum, _ := strconv.ParseFloat(totalMinerNum.String(),64)
+	minerlist := genRandomMinerList(preSignatureQr, totalMinerNum)
 	qr := CalQr(preCoinbase.Bytes(), blockNumber, preSignatureQr)
 	idTarget := new(big.Int).Rem(qr.Big(), totalMinerNum)
 	paramIndex := "0000000000000000000000000000000000000000000000000000000000000000"
@@ -86,17 +91,33 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 	keyIndex = hash.Sum(keyIndex)
 	var oldNode []int64
 	oldNode = append(oldNode, idTarget.Int64())
+	var level float64
+	if(preLevel > 3){
+		level = 0.3
+	}else{
+		level = 0.1 * preLevel
+	}
 	for i := int64(0); i <= n.Int64(); i++ {
 		if i == 0 {
-			res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, idTarget.Int64())))
+			idTargetfloat, _ := strconv.ParseFloat(idTarget.String(),64)
+			if preDifficultyLevel.Int64() !=0 && idTargetfloat > (float64(0.618) - level) * totalminernum {
+				fmt.Println("首轮选中，但是被时间惩罚，preDifficultyLevel", preDifficultyLevel.Int64())
+				continue
+			}
+			res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, minerlist[idTarget.Int64()])))
 			if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
-				log.Info("mined by successor first in order ", "id ", idTarget, "address ", miner.String()[2:])
-				fmt.Println("mined by successor first in order ", "id ", idTarget, "address ", miner.String()[2:])
-				return true
+				log.Info("mined by successor first in order ", "id ", minerlist[idTarget.Int64()], "address ", miner.String()[2:])
+				fmt.Println("mined by successor first in order ", "id ", minerlist[idTarget.Int64()], "address ", miner.String()[2:])
+				return true, i
 			}
 		} else {
 			idn := CalQr(idTarget.Bytes(), big.NewInt(i), preSignatureQr)
 			id := new(big.Int).Rem(idn.Big(), totalMinerNum)
+			idfloat, _ := strconv.ParseFloat(id.String(),64)
+			if preDifficultyLevel.Int64() !=0 && idfloat > (float64(0.618) - level) * totalminernum {
+				fmt.Println(n, "轮选中，但是被时间惩罚，preDifficultyLevel", preDifficultyLevel.Int64())
+				continue
+			}
 			DONE:
 				for {
 					for index, value := range oldNode {
@@ -118,15 +139,31 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 						}
 					}
 				}
-			res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, id.Int64())))
+			res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, minerlist[id.Int64()])))
 			if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
-				log.Info("mined by other successor ", "id ", id, "address 0x", miner.String()[2:])
-				log.Info("the successor first in order ", "id", idTarget)
-				fmt.Println("mined by other successor ", "id ", id, "address 0x", miner.String()[2:])
-				fmt.Println("the successor first in order ", "id", idTarget)
-				return true
+				log.Info("mined by other successor ", "id ", minerlist[id.Int64()], "address 0x", miner.String()[2:])
+				log.Info("the successor first in order ", "id", minerlist[idTarget.Int64()])
+				fmt.Println("mined by other successor ", "id ", minerlist[id.Int64()], "address 0x", miner.String()[2:])
+				fmt.Println("the successor first in order ", "id", minerlist[idTarget.Int64()])
+				return true, i
 			}
 		}
 	}
-	return false
+	return false, 0
+}
+
+func genRandomMinerList(preSignatureQr []byte, totalMinerNum *big.Int)([]int64){
+	s1 := rand.NewSource(int64(binary.BigEndian.Uint64(preSignatureQr)))
+	r1 := rand.New(s1)
+	list := make([]int64, totalMinerNum.Int64())
+	for i := int64(0); i < totalMinerNum.Int64(); i++ {
+		list[i] = i
+	}
+	for i := int64(0); i < totalMinerNum.Int64(); i++ {
+		r := r1.Int63n(totalMinerNum.Int64()-i)
+		temp := list[r]
+		list[r] = list[i]
+		list[i] = temp
+	}
+	return list
 }

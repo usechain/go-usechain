@@ -29,7 +29,7 @@ import (
 	"github.com/usechain/go-usechain/eth/downloader"
 	"github.com/usechain/go-usechain/ethclient"
 	"github.com/usechain/go-usechain/ethstats"
-	"github.com/ethereum/go-usechain/internal/debug"
+	"github.com/usechain/go-usechain/internal/debug"
 	"github.com/usechain/go-usechain/les"
 	"github.com/usechain/go-usechain/node"
 	"github.com/usechain/go-usechain/p2p"

@@ -315,72 +315,29 @@ func (bc *BlockChain) SetHead(head uint64) error {
 	return bc.loadLastState()
 }
 
-// SetHeadFor rewinds the local chain to a new head. In the case of headers, everything
-// above the new head will be reserved and the new one set. In the case of blocks
-// though, the head may be further rewound if block bodies are missing (non-archive
-// nodes after a fast sync).
-func (bc *BlockChain) SetHeadForVote(head uint64) error {
-	log.Warn("Rewinding blockchain for vote", "target", head)
-
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
-
-	// Rewind the header chain, reserve all block bodies until then
-	bc.hc.SetHead(head, nil)
-	currentHeader := bc.hc.CurrentHeader()
-
-	// Rewind the block chain, ensuring we don't end up with a stateless head block
-	if currentBlock := bc.CurrentBlock(); currentBlock != nil && currentHeader.Number.Uint64() < currentBlock.NumberU64() {
-		bc.currentBlock.Store(bc.GetBlock(currentHeader.Hash(), currentHeader.Number.Uint64()))
-	}
-	if currentBlock := bc.CurrentBlock(); currentBlock != nil {
-		if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
-			// Rewound state missing, rolled back to before pivot, reset to genesis
-			bc.currentBlock.Store(bc.genesisBlock)
-		}
-	}
-	// Rewind the fast block in a simpleton way to the target head
-	if currentFastBlock := bc.CurrentFastBlock(); currentFastBlock != nil && currentHeader.Number.Uint64() < currentFastBlock.NumberU64() {
-		bc.currentFastBlock.Store(bc.GetBlock(currentHeader.Hash(), currentHeader.Number.Uint64()))
-	}
-	// If either blocks reached nil, reset to the genesis state
-	if currentBlock := bc.CurrentBlock(); currentBlock == nil {
-		bc.currentBlock.Store(bc.genesisBlock)
-	}
-	if currentFastBlock := bc.CurrentFastBlock(); currentFastBlock == nil {
-		bc.currentFastBlock.Store(bc.genesisBlock)
-	}
-	currentBlock := bc.CurrentBlock()
-	currentFastBlock := bc.CurrentFastBlock()
-	if err := WriteHeadBlockHash(bc.db, currentBlock.Hash()); err != nil {
-		log.Crit("Failed to reset head full block", "err", err)
-	}
-	if err := WriteHeadFastBlockHash(bc.db, currentFastBlock.Hash()); err != nil {
-		log.Crit("Failed to reset head fast block", "err", err)
-	}
-	return bc.loadLastState()
-}
-
 func (bc *BlockChain) GetTargetBlock() common.Hash {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 	return bc.votedHash
 }
 
-func (bc *BlockChain) SetTargetBlock(target common.Hash) {
+func (bc *BlockChain) ClearTargetBlock() {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
-	bc.votedHash = target
+	bc.votedHash = common.Hash{}
 }
 
-func (bc *BlockChain) SwitchBlockChain(target common.Hash, number uint64) error {
-	oldHash := bc.GetHeaderByNumber(number).Hash()
-	if oldHash == target {
-		return nil
-	}
+func (bc *BlockChain) SwitchBlockChain(targetHash common.Hash, number uint64) error {
+	bc.mu.Lock()
+	defer bc.mu.Unlock()
 
-	bc.SetTargetBlock(target)
-	return bc.SetHeadForVote(number - 1)
+	currentBlock := bc.CurrentBlock()
+	targetBlock := bc.GetBlockByHash(targetHash)
+	if targetBlock == nil {
+		bc.votedHash = targetHash
+		targetBlock = bc.GetBlockByNumber(number - 1)
+	}
+	return bc.reorg(currentBlock, targetBlock)
 }
 
 // FastSyncCommitHead sets the current head block to the one defined by the hash

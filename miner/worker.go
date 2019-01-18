@@ -554,7 +554,7 @@ func (self *worker) commitNewWork() {
 	var pending map[common.Address]types.Transactions
 	if header.IsCheckPoint.Cmp(common.Big1) == 0 {
 		pending, err = self.eth.TxPool().GetValidPbft(blockNumber.Uint64() - 1)
-		gen, hash, _ := CanGenBlockInCheckPoint(pending)
+		gen, targetHash, _ := CanGenBlockInCheckPoint(pending)
 		if !gen {
 			DONE2:
 				for{
@@ -569,14 +569,22 @@ func (self *worker) commitNewWork() {
 				self.chainRpowCh <- 1
 				return
 		} else {
-			if parent.Hash() != hash {
-				self.eth.BlockChain().SwitchBlockChain(hash, parent.NumberU64())
+			if parent.Hash() != targetHash {
+				log.Info("Switch block chain", "current hash", parent.Hash().Hex(), "parent height", parent.NumberU64(), "target hash", targetHash.Hex())
+				self.chain.SwitchBlockChain(targetHash, parent.NumberU64())
 				for {
 					curBlock := self.chain.CurrentBlock()
-					if curBlock.Hash() == hash || curBlock.NumberU64() >= blockNumber.Uint64() {
+					if curBlock.Hash() == targetHash {
+						self.chain.ClearTargetBlock()
+						log.Info("Switch block chain successfull, continue to mine...")
 						break
 					}
-					time.Sleep(100 * time.Millisecond)
+					if curBlock.NumberU64() >= blockNumber.Uint64() {
+						self.chain.ClearTargetBlock()
+						log.Info("Switch block chain successfull, go to next mining", "current hash", curBlock.Hash().Hex(), "current height", curBlock.NumberU64(), "target height", blockNumber.Uint64())
+						return
+					}
+					time.Sleep(500 * time.Millisecond)
 				}
 			}
 		}

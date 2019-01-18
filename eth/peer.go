@@ -404,16 +404,16 @@ func (ps *peerSet) BestPeer() *peer {
 	return bestPeer
 }
 
-func (ps *peerSet) FindPeer(hash common.Hash) *peer {
+func (ps *peerSet) SyncWithPeers(hash common.Hash) {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
 
 	for _, p := range ps.peers {
-		if p.head == hash {
-			return p
-		}
+		p.RequestHeadersByHash(hash, 1, 0, true)
+		hashes := make([]common.Hash, 0, 1)
+		hashes = append(hashes, hash)
+		p.RequestBodies(hashes)
 	}
-	return nil
 }
 
 // Close disconnects all peers.

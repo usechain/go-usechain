@@ -458,6 +458,9 @@ func (l *txPricedList) Cap(threshold *big.Int, local *accountSet) types.Transact
 // lowest priced transaction currently being tracked.
 func (l *txPricedList) Underpriced(tx *types.Transaction, local *accountSet) bool {
 	// Local transactions cannot be underpriced
+	if tx.Flag() == 1 {
+		return false
+	}
 	if local.containsTx(tx) {
 		return false
 	}

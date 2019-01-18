@@ -27,6 +27,7 @@ import (
 	"github.com/usechain/go-usechain/log"
 	"math/big"
 	"math/rand"
+	"strconv"
 	"strings"
 )
 
@@ -77,8 +78,8 @@ func CalQr(base []byte, number *big.Int, preQrSignature []byte) (common.Hash) {
 }
 
 func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common.Address, preSignatureQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, n *big.Int, preDifficultyLevel *big.Int) (bool, int64) {
-	//preLevel, _ := strconv.ParseFloat(preDifficultyLevel.String(),64)
-	//totalminernum, _ := strconv.ParseFloat(totalMinerNum.String(),64)
+	preLevel, _ := strconv.ParseFloat(preDifficultyLevel.String(),64)
+	totalminernum, _ := strconv.ParseFloat(totalMinerNum.String(),64)
 	minerlist := genRandomMinerList(preSignatureQr, totalMinerNum)
 	qr := CalQr(preCoinbase.Bytes(), blockNumber, preSignatureQr)
 	idTarget := new(big.Int).Rem(qr.Big(), totalMinerNum)
@@ -89,18 +90,18 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 	keyIndex = hash.Sum(keyIndex)
 	var oldNode []int64
 	oldNode = append(oldNode, idTarget.Int64())
-	/*var level float64
+	var level float64
 	if(preLevel > 3){
 		level = 0.3
 	}else{
 		level = 0.1 * preLevel
-	}*/
+	}
 
 	if n.Int64() == 0 {
-		/*idTargetfloat, _ := strconv.ParseFloat(idTarget.String(),64)
+		idTargetfloat, _ := strconv.ParseFloat(idTarget.String(),64)
 		if preDifficultyLevel.Int64() !=0 && idTargetfloat > (float64(0.618) - level) * totalminernum {
 			return false, 0
-		}*/
+		}
 		res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, minerlist[idTarget.Int64()])))
 		if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
 			log.Info("mined by successor first in order ", "id ", minerlist[idTarget.Int64()], "address ", miner.String()[2:])
@@ -109,10 +110,10 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 	} else {
 		idn := CalQr(idTarget.Bytes(), n, preSignatureQr)
 		id := new(big.Int).Rem(idn.Big(), totalMinerNum)
-		/*idfloat, _ := strconv.ParseFloat(id.String(),64)
+		idfloat, _ := strconv.ParseFloat(id.String(),64)
 		if preDifficultyLevel.Int64() !=0 && idfloat > (float64(0.618) - level) * totalminernum {
 			return false, n.Int64()
-		}*/
+		}
 		DONE:
 			for {
 				for index, value := range oldNode {

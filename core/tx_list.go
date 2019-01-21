@@ -476,6 +476,12 @@ func (l *txPricedList) Underpriced(tx *types.Transaction, local *accountSet) boo
 		log.Error("Pricing query for empty pool") // This cannot happen, print to catch programming errors
 		return false
 	}
+
+	// Check if the transaction is pbft message
+	if tx.Flag() == 1 {
+		return false
+	}
+
 	cheapest := []*types.Transaction(*l.items)[0]
 	return cheapest.GasPrice().Cmp(tx.GasPrice()) >= 0
 }

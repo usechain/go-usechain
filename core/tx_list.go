@@ -480,11 +480,6 @@ func (l *txPricedList) Underpriced(tx *types.Transaction, local *accountSet) boo
 		return false
 	}
 
-	// Check if the transaction is pbft message
-	if tx.Flag() == 1 {
-		return false
-	}
-
 	cheapest := []*types.Transaction(*l.items)[0]
 	return cheapest.GasPrice().Cmp(tx.GasPrice()) >= 0
 }

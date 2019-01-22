@@ -327,17 +327,15 @@ func (bc *BlockChain) ClearTargetBlock() {
 	bc.votedHash = common.Hash{}
 }
 
-func (bc *BlockChain) SwitchBlockChain(targetHash common.Hash, number uint64) error {
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
-
-	currentBlock := bc.CurrentBlock()
-	targetBlock := bc.GetBlockByHash(targetHash)
-	if targetBlock == nil {
+func (bc *BlockChain) SwitchBlockChain(targetHash common.Hash) {
+	if bc.GetBlockByHash(targetHash) == nil {
+		bc.mu.Lock()
 		bc.votedHash = targetHash
-		targetBlock = bc.GetBlockByNumber(number - 1)
+		bc.mu.Unlock()
 	}
-	return bc.reorg(currentBlock, targetBlock)
+	hashes := make([]common.Hash, 1)
+	hashes[0] = bc.CurrentHeader().Hash()
+	bc.Rollback(hashes)
 }
 
 // FastSyncCommitHead sets the current head block to the one defined by the hash

@@ -409,7 +409,7 @@ func (ps *peerSet) SyncWithPeers(hash common.Hash) {
 	defer ps.lock.RUnlock()
 
 	for _, p := range ps.peers {
-		p.RequestHeadersByHash(hash, 1, 0, true)
+		p.RequestHeadersByHash(hash, 1, 0, false)
 		hashes := make([]common.Hash, 0, 1)
 		hashes = append(hashes, hash)
 		p.RequestBodies(hashes)

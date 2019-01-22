@@ -576,13 +576,13 @@ func (self *worker) commitNewWork() {
 		} else {
 			if parent.Hash() != targetHash {
 				log.Info("Switch block chain", "current hash", parent.Hash().Hex(), "parent height", parent.NumberU64(), "target hash", targetHash.Hex())
-				self.chain.SwitchBlockChain(targetHash, parent.NumberU64())
+				self.chain.SwitchBlockChain(targetHash)
 				for {
 					curBlock := self.chain.CurrentBlock()
 					if curBlock.Hash() == targetHash {
 						self.chain.ClearTargetBlock()
 						log.Info("Switch block chain successfull, continue to mine...")
-						break
+						return
 					}
 					if curBlock.NumberU64() >= blockNumber.Uint64() {
 						self.chain.ClearTargetBlock()

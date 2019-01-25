@@ -1004,9 +1004,6 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		if block.NumberU64() % common.VoteSlot.Uint64() == common.VoteSlot.Uint64() - 1 {
 			// Split same-difficulty blocks by number, then by hash
 			reorg = block.NumberU64() < currentBlock.NumberU64() || (block.NumberU64() == currentBlock.NumberU64() && strings.Compare(block.Hash().Hex(), currentBlock.Hash().Hex()) < 0)
-			if block.NumberU64() == currentBlock.NumberU64() && strings.Compare(block.Hash().Hex(), currentBlock.Hash().Hex()) < 0 {
-				log.Info("lemengbin====>", "height", block.NumberU64(), "before", currentBlock.Hash().Hex(), "after", block.Hash().Hex());
-			}
 		} else {
 			// Split same-difficulty blocks by number, then at random
 			reorg = block.NumberU64() < currentBlock.NumberU64() || (block.NumberU64() == currentBlock.NumberU64() && mrand.Float64() < 0.5)

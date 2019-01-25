@@ -23,6 +23,7 @@ import (
 	"io"
 	"math/big"
 	mrand "math/rand"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -1000,8 +1001,16 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	reorg := externTd.Cmp(localTd) > 0
 	currentBlock = bc.CurrentBlock()
 	if !reorg && externTd.Cmp(localTd) == 0 {
-		// Split same-difficulty blocks by number, then at random
-		reorg = block.NumberU64() < currentBlock.NumberU64() || (block.NumberU64() == currentBlock.NumberU64() && mrand.Float64() < 0.5)
+		if block.NumberU64() % common.VoteSlot.Uint64() == common.VoteSlot.Uint64() - 1 {
+			// Split same-difficulty blocks by number, then by hash
+			reorg = block.NumberU64() < currentBlock.NumberU64() || (block.NumberU64() == currentBlock.NumberU64() && strings.Compare(block.Hash().Hex(), currentBlock.Hash().Hex()) < 0)
+			if block.NumberU64() == currentBlock.NumberU64() && strings.Compare(block.Hash().Hex(), currentBlock.Hash().Hex()) < 0 {
+				log.Info("lemengbin====>", "height", block.NumberU64(), "before", currentBlock.Hash().Hex(), "after", block.Hash().Hex());
+			}
+		} else {
+			// Split same-difficulty blocks by number, then at random
+			reorg = block.NumberU64() < currentBlock.NumberU64() || (block.NumberU64() == currentBlock.NumberU64() && mrand.Float64() < 0.5)
+		}
 	}
 	if reorg {
 		// Reorganise the chain if the parent is not the head block

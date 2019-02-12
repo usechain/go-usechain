@@ -16,7 +16,6 @@
 
 // Package state provides a caching layer atop the Ethereum state trie.
 
-
 package state
 
 import (
@@ -54,7 +53,7 @@ const (
 // nested states. It's the general query interface to retrieve:
 // * Contracts
 // * Accounts
-type    StateDB struct {
+type StateDB struct {
 	db   Database
 	trie Trie
 
@@ -210,6 +209,38 @@ func (self *StateDB) GetNonce(addr common.Address) uint64 {
 	return 0
 }
 
+func (self *StateDB) GetTradePoints(addr common.Address) uint64 {
+	stateObject := self.getStateObject(addr)
+	if stateObject != nil {
+		return stateObject.TradePoints()
+	}
+	return 0
+}
+
+func (self *StateDB) AddTradePoints(addr common.Address, points uint64) {
+	stateObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		currentRating := stateObject.TradePoints()
+		stateObject.SetTradePoints(currentRating + points)
+	}
+}
+
+func (self *StateDB) GetCertifications(addr common.Address) uint64 {
+	stateObject := self.getStateObject(addr)
+	if stateObject != nil {
+		return stateObject.Certifications()
+	}
+	return 0
+}
+
+func (self *StateDB) AddCertifications(addr common.Address, certifications uint64) {
+	stateObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		currentCert := stateObject.Certifications()
+		stateObject.SetCertifications(currentCert + certifications)
+	}
+}
+
 func (self *StateDB) GetCode(addr common.Address) []byte {
 	stateObject := self.getStateObject(addr)
 	if stateObject != nil {
@@ -250,7 +281,6 @@ func (self *StateDB) GetState(a common.Address, b common.Hash) common.Hash {
 	}
 	return common.Hash{}
 }
-
 
 // Database retrieves the low level database supporting the lower level trie ops.
 func (self *StateDB) Database() Database {
@@ -300,6 +330,20 @@ func (self *StateDB) SetBalance(addr common.Address, amount *big.Int) {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetBalance(amount)
+	}
+}
+
+func (self *StateDB) SetTradePoints(addr common.Address, credit uint64) {
+	stateObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		stateObject.SetTradePoints(credit)
+	}
+}
+
+func (self *StateDB) SetCertifications(addr common.Address, certification uint64) {
+	stateObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		stateObject.SetCertifications(certification)
 	}
 }
 
@@ -418,6 +462,8 @@ func (self *StateDB) createObject(addr common.Address) (newobj, prev *stateObjec
 	prev = self.getStateObject(addr)
 	newobj = newObject(self, addr, Account{}, self.MarkStateObjectDirty)
 	newobj.setNonce(0) // sets the object to dirty
+	newobj.setTradePoints(0)
+	newobj.setCertifications(0)
 	if prev == nil {
 		self.journal = append(self.journal, createObjectChange{account: &addr})
 	} else {
@@ -583,7 +629,6 @@ func (s *StateDB) DeleteSuicides() {
 		delete(s.stateObjectsDirty, addr)
 	}
 }
-
 
 func (s *StateDB) clearJournalAndRefund() {
 	s.journal = nil

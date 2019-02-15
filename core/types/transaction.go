@@ -263,6 +263,18 @@ func (tx *Transaction) IsRegisterTransaction() bool {
 	return false
 }
 
+func (tx *Transaction) IsCommitteeTransaction() bool {
+	// TODO: sender addr need to be fixed
+	if len(tx.Data()) <= 4+32 {
+		return false
+	}
+
+	if bytes.Compare(tx.Data()[:4], []byte{199, 174, 221, 31}) == 0 {
+		return true
+	}
+	return false
+}
+
 //Another authentication implementation write in state_trasanction.go
 //OTA transaction verify
 func (tx *Transaction) IsAuthentication() bool {
@@ -283,6 +295,28 @@ func (tx *Transaction) IsAuthentication() bool {
 	}
 
 	return true
+}
+
+func (tx *Transaction) GetVerifiedAddress() common.Address {
+	creditABI, _ := abi.JSON(strings.NewReader(common.CreditABI))
+
+	method, exist := creditABI.Methods["verifyHash"]
+	if !exist {
+		log.Error("method not found:", "verifyHash")
+	}
+
+	InputDataInterface, err := method.Inputs.UnpackABI(tx.Data()[4:])
+	if err != nil {
+		log.Error("method.Inputs: ", err)
+	}
+
+	var inputData []interface{}
+	for _, param := range InputDataInterface {
+		inputData = append(inputData, param)
+	}
+
+	addr := inputData[0].(common.Address)
+	return addr
 }
 
 func (tx *Transaction) CheckCertLegality(_from common.Address) error {

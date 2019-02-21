@@ -80,7 +80,7 @@ func CalQr(base []byte, number *big.Int, preQrSignature []byte) (common.Hash) {
 func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common.Address, preSignatureQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, n *big.Int, preDifficultyLevel *big.Int) (bool, int64) {
 	preLevel, _ := strconv.ParseFloat(preDifficultyLevel.String(),64)
 	totalminernum, _ := strconv.ParseFloat(totalMinerNum.String(),64)
-	minerlist := genRandomMinerList(preSignatureQr, totalMinerNum)
+	minerlist := genRandomMinerList(preSignatureQr, n, totalMinerNum)
 	qr := CalQr(preCoinbase.Bytes(), blockNumber, preSignatureQr)
 	idTarget := new(big.Int).Rem(qr.Big(), totalMinerNum)
 	paramIndex := "0000000000000000000000000000000000000000000000000000000000000000"
@@ -146,8 +146,8 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 	return false, 0
 }
 
-func genRandomMinerList(preSignatureQr []byte, totalMinerNum *big.Int)([]int64){
-	s1 := rand.NewSource(int64(binary.BigEndian.Uint64(preSignatureQr)))
+func genRandomMinerList(preSignatureQr []byte, n *big.Int, totalMinerNum *big.Int)([]int64){
+	s1 := rand.NewSource(int64(binary.BigEndian.Uint64(preSignatureQr)) + n.Int64())
 	r1 := rand.New(s1)
 	list := make([]int64, totalMinerNum.Int64())
 	for i := int64(0); i < totalMinerNum.Int64(); i++ {

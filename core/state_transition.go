@@ -227,7 +227,6 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		log.Error("vm state assert failed")
 		os.Exit(1)
 	}
-
 	// If it's transaction about authentication
 	if !contractCreation {
 		transactionFormat := msgToTransaction(msg)

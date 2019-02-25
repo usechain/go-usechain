@@ -26,6 +26,7 @@ import (
 	"github.com/usechain/go-usechain/core/vm"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/params"
+	"math"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -68,17 +69,17 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	}
 
 	// Iterate over and process the individual transactions
-	if header.IsCheckPoint.Int64() == 1 && block.Transactions().Len() < common.MaxCommitteemanCount*2 / 3{
+	if header.IsCheckPoint.Int64() == 1 && float64(block.Transactions().Len()) < math.Ceil(float64(common.MaxCommitteemanCount)*2/3) {
 		err := errors.New("checkpoint block should contain more than three-seconds voter")
 		return nil, nil, 0, err
 	}
 
 	for i, tx := range block.Transactions() {
-		if header.IsCheckPoint.Int64() == 1 && tx.Flag() == 0{
+		if header.IsCheckPoint.Int64() == 1 && tx.Flag() == 0 {
 			err := errors.New("checkpoint block can't package common transactions")
 			return nil, nil, 0, err
 		}
-		if header.IsCheckPoint.Int64() == 0 && tx.Flag() == 1{
+		if header.IsCheckPoint.Int64() == 0 && tx.Flag() == 1 {
 			err := errors.New("common block can't package checkpoint transactions")
 			return nil, nil, 0, err
 		}

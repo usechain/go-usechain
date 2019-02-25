@@ -37,16 +37,16 @@ import (
 // Ethash proof-of-work protocol constants.
 var (
 	// Block reward in hui for successfully mining a block upward from Sapphir
-	SapphireBlockReward    *big.Int = big.NewInt(0).Mul(big.NewInt(5e+18), big.NewInt(1e+5))
+	SapphireBlockReward *big.Int = big.NewInt(0).Mul(big.NewInt(5e+18), big.NewInt(1e+5))
 	// Maximum number of uncles allowed in a single block
-	maxUncles                       = 2
+	maxUncles = 2
 	// Max time from current time allowed for blocks, before they're considered future blocks
-	allowedFutureBlockTime          = 15 * time.Second
+	allowedFutureBlockTime = 15 * time.Second
 )
 
 // Genesis difficulty
 var (
-	CommonDifficulty 				= big.NewInt(1)
+	CommonDifficulty = big.NewInt(1)
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -235,12 +235,12 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	tstampHead := header.Time
 	tstampSub := new(big.Int).Sub(tstampHead, tstampParent)
 
-	if tstampSub.Int64() < 5{
+	if tstampSub.Int64() < 5 {
 		return fmt.Errorf("Block time slot should be more than five seconds")
 	}
 
 	totalMinerNum := minerlist.ReadMinerNum(state)
-	if !minerlist.IsMiner(state, header.Coinbase) && totalMinerNum.Int64() > 1  {
+	if !minerlist.IsMiner(state, header.Coinbase) && totalMinerNum.Int64() > 1 {
 		return fmt.Errorf("Coinbase should be legal miner address, invalid miner")
 	}
 	// Ensure that the header's extra-data section is of a reasonable size
@@ -276,15 +276,15 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 
 	IsValidMiner, level := minerlist.IsValidMiner(state, header.Coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n, preDifficultyLevel)
 
-	if !IsValidMiner{
+	if !IsValidMiner {
 		return fmt.Errorf("invalid miner")
 	}
 
-	if  header.Number.Cmp(common.Big1) == 0 && header.DifficultyLevel.Int64() != 0{
+	if header.Number.Cmp(common.Big1) == 0 && header.DifficultyLevel.Int64() != 0 {
 		return fmt.Errorf("invalid difficultyLevel: have %v, want 0", header.DifficultyLevel)
 	}
 
-	if  header.Number.Cmp(common.Big1) != 0 && level != header.DifficultyLevel.Int64(){
+	if header.Number.Cmp(common.Big1) != 0 && level != header.DifficultyLevel.Int64() {
 		return fmt.Errorf("invalid difficultyLevel: have %v, want %v", header.DifficultyLevel, level)
 	}
 
@@ -350,7 +350,7 @@ var (
 	big2          = big.NewInt(2)
 	big9          = big.NewInt(9)
 	big10         = big.NewInt(10)
-	big20		  = big.NewInt(20)
+	big20         = big.NewInt(20)
 	bigMinus99    = big.NewInt(-99)
 	big2999999    = big.NewInt(2999999)
 )

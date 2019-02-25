@@ -48,6 +48,7 @@ import (
 	"github.com/usechain/go-usechain/params"
 	"github.com/usechain/go-usechain/rlp"
 	"github.com/usechain/go-usechain/rpc"
+	"github.com/usechain/go-usechain/vote"
 )
 
 type LesServer interface {
@@ -87,6 +88,8 @@ type Ethereum struct {
 	miner     *miner.Miner
 	gasPrice  *big.Int
 	usebase common.Address
+
+	voter     *vote.Voter
 
 	networkId     uint64
 	netRPCService *ethapi.PublicNetAPI
@@ -130,7 +133,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		stopDbUpgrade:  stopDbUpgrade,
 		networkId:      config.NetworkId,
 		gasPrice:       config.GasPrice,
-		usebase:      config.Usebase,
+		usebase:      	config.Usebase,
 		bloomRequests:  make(chan chan *bloombits.Retrieval),
 		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks),
 	}
@@ -165,11 +168,14 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, eth.chainConfig, eth.blockchain, ctx.AccountManager)
 
-	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb); err != nil {
+	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, eth.txPool.StateDB()); err != nil {
 		return nil, err
 	}
 	eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine)
 	eth.miner.SetExtra(makeExtraData(config.ExtraData))
+
+	//add voter
+	eth.voter = vote.NewVoter(eth, eth.usebase)
 
 	eth.ApiBackend = &EthApiBackend{eth, nil}
 	gpoParams := config.GPO
@@ -224,18 +230,8 @@ func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chai
 	case config.PowMode == ethash.ModeTest:
 		log.Warn("Ethash used in test mode")
 		return ethash.NewTester()
-	case config.PowMode == ethash.ModeShared:
-		log.Warn("Ethash used in shared mode")
-		return ethash.NewShared()
 	default:
-		engine := ethash.New(ethash.Config{
-			CacheDir:       ctx.ResolvePath(config.CacheDir),
-			CachesInMem:    config.CachesInMem,
-			CachesOnDisk:   config.CachesOnDisk,
-			DatasetDir:     config.DatasetDir,
-			DatasetsInMem:  config.DatasetsInMem,
-			DatasetsOnDisk: config.DatasetsOnDisk,
-		})
+		engine := ethash.NewFaker()
 		engine.SetThreads(-1) // Disable CPU mining
 		return engine
 	}
@@ -276,7 +272,12 @@ func (s *Ethereum) APIs() []rpc.API {
 			Version:   "1.0",
 			Service:   NewPrivateMinerAPI(s),
 			Public:    false,
-		},  {
+		}, {
+			Namespace: "voter",
+			Version:   "1.0",
+			Service:   NewPrivateVoterAPI(s),
+			Public:    false,
+		}, {
 			Namespace: "use",
 			Version:   "1.0",
 			Service:   NewPublicEthereumAPI(s),
@@ -379,9 +380,46 @@ func (s *Ethereum) StartMining(local bool) error {
 	return nil
 }
 
+//Get the vote base
+func (s *Ethereum) Votebase() (eb common.Address, err error) {
+	s.lock.RLock()
+	votebase := s.voter.Votebase()
+	s.lock.RUnlock()
+
+	if votebase != (common.Address{}) {
+		return votebase, nil
+	}
+	if wallets := s.AccountManager().Wallets(); len(wallets) > 0 {
+		if accounts := wallets[0].Accounts(); len(accounts) > 0 {
+			votebase := accounts[0].Address
+			return votebase, nil
+		}
+	}
+	return common.Address{}, fmt.Errorf("votebase must be explicitly specified")
+}
+
+// set in js console via admin interface or wrapper from cli flags
+func (self *Ethereum) SetVotebase(votebase common.Address) {
+	self.voter.SetVotebase(votebase)
+}
+
+// Start Voting via admin interface or wrapper from cli flags
+func (s *Ethereum) StartVoting() error {
+	vb, err := s.Votebase()
+	if err != nil {
+		log.Error("Cannot start mining without votebase", "err", err)
+		return fmt.Errorf("votebase missing: %v", err)
+	}
+	go s.voter.Start(vb)
+	return nil
+}
+
 func (s *Ethereum) StopMining()         { s.miner.Stop() }
 func (s *Ethereum) IsMining() bool      { return s.miner.Mining() }
 func (s *Ethereum) Miner() *miner.Miner { return s.miner }
+
+func (s *Ethereum) StopVoting() 		{ s.voter.Stop() }
+func (s *Ethereum) IsVoting() bool 		{ return s.voter.Voting() }
 
 func (s *Ethereum) AccountManager() *accounts.Manager  { return s.accountManager }
 func (s *Ethereum) BlockChain() *core.BlockChain       { return s.blockchain }

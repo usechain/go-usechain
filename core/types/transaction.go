@@ -59,6 +59,7 @@ type Transaction struct {
 }
 
 type txdata struct {
+	Flag         uint8           `json:"flag"     gencodec:"required"` // 0: common tx; 1: pbft tx(payload is the last block hash in best chain)
 	AccountNonce uint64          `json:"nonce"    gencodec:"required"`
 	Price        *big.Int        `json:"gasPrice" gencodec:"required"`
 	GasLimit     uint64          `json:"gas"      gencodec:"required"`
@@ -76,6 +77,7 @@ type txdata struct {
 }
 
 type txdataMarshaling struct {
+	Flag         hexutil.Uint8
 	AccountNonce hexutil.Uint64
 	Price        *hexutil.Big
 	GasLimit     hexutil.Uint64
@@ -87,18 +89,24 @@ type txdataMarshaling struct {
 }
 
 func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data)
+	return newTransaction(0, nonce, &to, amount, gasLimit, gasPrice, data)
 }
 
 func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data)
+	return newTransaction(0, nonce, nil, amount, gasLimit, gasPrice, data)
 }
 
-func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+func NewPbftMessage(nonce uint64, data []byte) *Transaction {
+	addr := common.HexToAddress("0x0000000000000000000000000000000000000000")
+	return newTransaction(1, nonce, &addr, nil, 0, nil, data)
+}
+
+func newTransaction(flag uint8, nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
 	}
 	d := txdata{
+		Flag:         flag,
 		AccountNonce: nonce,
 		Recipient:    to,
 		Payload:      data,
@@ -182,6 +190,7 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
+func (tx *Transaction) Flag() uint8        { return tx.data.Flag }
 func (tx *Transaction) Data() []byte       { return common.CopyBytes(tx.data.Payload) }
 func (tx *Transaction) Gas() uint64        { return tx.data.GasLimit }
 func (tx *Transaction) GasPrice() *big.Int { return new(big.Int).Set(tx.data.Price) }
@@ -351,6 +360,7 @@ func (tx *Transaction) Size() common.StorageSize {
 // XXX Rename message to something less arbitrary?
 func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 	msg := Message{
+		flag:       tx.data.Flag,
 		nonce:      tx.data.AccountNonce,
 		gasLimit:   tx.data.GasLimit,
 		gasPrice:   new(big.Int).Set(tx.data.Price),
@@ -411,6 +421,7 @@ func (tx *Transaction) String() string {
 	enc, _ := rlp.EncodeToBytes(&tx.data)
 	return fmt.Sprintf(`
 	TX(%x)
+	Flag:     %v
 	Contract: %v
 	From:     %s
 	To:       %s
@@ -425,6 +436,7 @@ func (tx *Transaction) String() string {
 	Hex:      %x
 `,
 		tx.Hash(),
+		tx.data.Flag,
 		tx.data.Recipient == nil,
 		from,
 		to,
@@ -564,6 +576,7 @@ func (t *TransactionsByPriceAndNonce) Pop() {
 //
 // NOTE: In a future PR this will be removed.
 type Message struct {
+	flag       uint8
 	to         *common.Address
 	from       common.Address
 	nonce      uint64
@@ -587,6 +600,7 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 	}
 }
 
+func (m Message) Flag() uint8          { return m.flag }
 func (m Message) From() common.Address { return m.from }
 func (m Message) To() *common.Address  { return m.to }
 func (m Message) GasPrice() *big.Int   { return m.gasPrice }

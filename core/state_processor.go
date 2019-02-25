@@ -17,6 +17,7 @@
 package core
 
 import (
+	"errors"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/consensus"
 	"github.com/usechain/go-usechain/consensus/misc"
@@ -25,6 +26,7 @@ import (
 	"github.com/usechain/go-usechain/core/vm"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/params"
+	"math"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -65,8 +67,22 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
+
 	// Iterate over and process the individual transactions
+	if header.IsCheckPoint.Int64() == 1 && float64(block.Transactions().Len()) < math.Ceil(float64(common.MaxCommitteemanCount)*2/3) {
+		err := errors.New("checkpoint block should contain more than three-seconds voter")
+		return nil, nil, 0, err
+	}
+
 	for i, tx := range block.Transactions() {
+		if header.IsCheckPoint.Int64() == 1 && tx.Flag() == 0 {
+			err := errors.New("checkpoint block can't package common transactions")
+			return nil, nil, 0, err
+		}
+		if header.IsCheckPoint.Int64() == 0 && tx.Flag() == 1 {
+			err := errors.New("common block can't package checkpoint transactions")
+			return nil, nil, 0, err
+		}
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
 		receipt, _, err := ApplyTransaction(p.config, p.bc, nil, gp, statedb, header, tx, usedGas, cfg)
 		if err != nil {

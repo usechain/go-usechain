@@ -24,6 +24,7 @@ var Modules = map[string]string{
 	"debug":      Debug_JS,
 	"eth":        Eth_JS,
 	"miner":      Miner_JS,
+	"voter":	  Voter_JS,
 	"net":        Net_JS,
 	"personal":   Personal_JS,
 	"rpc":        RPC_JS,
@@ -503,6 +504,38 @@ web3._extend({
 });
 `
 
+const Voter_JS = `
+web3._extend({
+	property: 'voter',
+	methods: [
+		new web3._extend.Method({
+			name: 'start',
+			call: 'voter_start'
+
+		}),
+		new web3._extend.Method({
+			name: 'stop',
+			call: 'voter_stop'
+		}),
+		new web3._extend.Method({
+			name: 'setVotebase',
+			call: 'voter_setVotebase',
+			params: 1,
+			inputFormatter: [web3._extend.formatters.inputAddressFormatter]
+		}),
+		new web3._extend.Method({
+			name: 'voting',
+			call: 'voter_voting'
+		}),
+		new web3._extend.Method({
+			name: 'votebase',
+			call: 'voter_votebase'
+		}),
+	],
+	properties: []
+});
+`
+
 const Net_JS = `
 web3._extend({
 	property: 'net',
@@ -639,6 +672,7 @@ web3._extend({
 			outputFormatter: function(status) {
 				status.pending = web3._extend.utils.toDecimal(status.pending);
 				status.queued = web3._extend.utils.toDecimal(status.queued);
+				status.pbft = web3._extend.utils.toDecimal(status.pbft);
 				return status;
 			}
 		}),

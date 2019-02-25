@@ -17,12 +17,18 @@
 package minerlist
 
 import (
+	"bytes"
+	"encoding/binary"
 	"encoding/hex"
-	"fmt"
-	"math/big"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/core/state"
+	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/crypto/sha3"
+	"github.com/usechain/go-usechain/log"
+	"math/big"
+	"math/rand"
+	"strconv"
+	"strings"
 )
 
 const (
@@ -37,41 +43,121 @@ func decodeHex(s string) []byte {
 	return b
 }
 
-func formatData64bytes(_data string) string{
-	dataRawlength := len(_data)
-
-	if dataRawlength > 64 {
-		fmt.Println("the string is explicit the length")
-		return _data;
-	}
-	for index := 0; index < 64 - dataRawlength; index++ {
-		_data = "0" + _data;
-	}
-	return _data
-}
-
 func ReadMinerNum(statedb *state.StateDB) *big.Int {
 	paramIndex := "0000000000000000000000000000000000000000000000000000000000000000"
-
 	// get data from the contract statedb
 	res := statedb.GetState(common.HexToAddress(MinerListContract), common.HexToHash(paramIndex))
 	return res.Big()
 }
 
+// return the string data that has been added to the num
+func IncreaseHexByNum(indexKeyHash []byte, num int64) string {
+	x := new(big.Int).SetBytes(indexKeyHash)
+	y := big.NewInt(int64(num))
+	x.Add(x, y)
+	return hex.EncodeToString(x.Bytes())
+}
 
 func IsMiner(statedb *state.StateDB, miner common.Address) bool {
-	key := formatData64bytes(miner.Hex()[2:])
-	paramIndex := "0000000000000000000000000000000000000000000000000000000000000001"
-
-	web3key := key + paramIndex
-
+	paramIndex := "0000000000000000000000000000000000000000000000000000000000000000"
 	hash := sha3.NewKeccak256()
+	hash.Write(decodeHex(paramIndex))
 	var keyIndex []byte
-	hash.Write(decodeHex(web3key))
 	keyIndex = hash.Sum(keyIndex)
+	for i := int64(0); i < ReadMinerNum(statedb).Int64(); i++ {
+		res := statedb.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, i)))
+		if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
+			return true
+		}
+	}
+	return false
+}
 
-	// get data from the contract statedb
-	res := statedb.GetState(common.HexToAddress(MinerListContract), common.HexToHash(hex.EncodeToString(keyIndex)))
+func CalQr(base []byte, number *big.Int, preQrSignature []byte) (common.Hash) {
+	return crypto.Keccak256Hash(bytes.Join([][]byte{base, number.Bytes(), preQrSignature}, []byte("")))
+}
 
-	return res.Big().Cmp(big.NewInt(1)) == 0
+func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common.Address, preSignatureQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, offset *big.Int, preDifficultyLevel *big.Int) (bool, int64) {
+	preLevel, _ := strconv.ParseFloat(preDifficultyLevel.String(), 64)
+	totalminernum, _ := strconv.ParseFloat(totalMinerNum.String(), 64)
+	minerlist := genRandomMinerList(preSignatureQr, offset, totalMinerNum)
+	qr := CalQr(preCoinbase.Bytes(), blockNumber, preSignatureQr)
+	idTarget := new(big.Int).Rem(qr.Big(), totalMinerNum)
+	paramIndex := "0000000000000000000000000000000000000000000000000000000000000000"
+	hash := sha3.NewKeccak256()
+	hash.Write(decodeHex(paramIndex))
+	var keyIndex []byte
+	keyIndex = hash.Sum(keyIndex)
+	var oldNode []int64
+	oldNode = append(oldNode, idTarget.Int64())
+	var level float64
+	if (preLevel > 3) {
+		level = 0.3
+	} else {
+		level = 0.1 * preLevel
+	}
+
+	if offset.Int64() == 0 {
+		idTargetfloat, _ := strconv.ParseFloat(idTarget.String(), 64)
+		if preDifficultyLevel.Int64() != 0 && idTargetfloat > (float64(0.618)-level)*totalminernum {
+			return false, 0
+		}
+		res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, minerlist[idTarget.Int64()])))
+		if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
+			log.Info("mined by successor first in order ", "id ", minerlist[idTarget.Int64()], "address ", miner.String()[2:])
+			return true, 0
+		}
+	} else {
+		idn := CalQr(idTarget.Bytes(), offset, preSignatureQr)
+		id := new(big.Int).Rem(idn.Big(), totalMinerNum)
+		idfloat, _ := strconv.ParseFloat(id.String(), 64)
+		if preDifficultyLevel.Int64() != 0 && idfloat > (float64(0.618)-level)*totalminernum {
+			return false, offset.Int64()
+		}
+	DONE:
+		for {
+			for index, value := range oldNode {
+				if id.Int64() == value {
+					id.Add(id, common.Big1)
+					id.Rem(id, totalMinerNum)
+					break
+				}
+				if int64(cap(oldNode)) == int64(index+1) {
+					break DONE
+				}
+			}
+			for index, value := range oldNode {
+				if id.Int64() == value {
+					break
+				}
+				if int64(cap(oldNode)) == int64(index+1) {
+					break DONE
+				}
+			}
+		}
+		res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, minerlist[id.Int64()])))
+		if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
+			log.Info("mined by other successor ", "id ", minerlist[id.Int64()], "address 0x", miner.String()[2:])
+			log.Info("the successor first in order ", "id", minerlist[idTarget.Int64()])
+			return true, offset.Int64()
+		}
+	}
+
+	return false, 0
+}
+
+func genRandomMinerList(preSignatureQr []byte, offset *big.Int, totalMinerNum *big.Int) ([]int64) {
+	s1 := rand.NewSource(int64(binary.BigEndian.Uint64(preSignatureQr)) + offset.Int64())
+	r1 := rand.New(s1)
+	list := make([]int64, totalMinerNum.Int64())
+	for i := int64(0); i < totalMinerNum.Int64(); i++ {
+		list[i] = i
+	}
+	for i := int64(0); i < totalMinerNum.Int64(); i++ {
+		r := r1.Int63n(totalMinerNum.Int64() - i)
+		temp := list[r]
+		list[r] = list[i]
+		list[i] = temp
+	}
+	return list
 }

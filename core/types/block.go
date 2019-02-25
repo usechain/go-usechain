@@ -74,10 +74,12 @@ type Header struct {
 	Coinbase    common.Address `json:"miner"            gencodec:"required"`
 
 	///TODO: need add signature check before receive block
-	MinerNum	*big.Int	   `json:"minerNum"         gencodec:"required"`
-	MinerTag	[]byte		   `json:"minerTag"         gencodec:"required"`    // The miner Tag is parent block coinbase
-																				// & current block 's signature signed by
-																				// current miner
+	// & current block 's signature signed by
+	// current miner
+	IsCheckPoint        *big.Int       `json:"isCheckPoint"              gencodec:"required"`
+	MinerQrSignature	[]byte         `json:"minerQrSignature"          gencodec:"required"`
+	DifficultyLevel		*big.Int	   `json:"difficultyLevel"           gencodec:"difficultyLevel"`
+
 	Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
 	TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`
 	ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`
@@ -94,8 +96,9 @@ type Header struct {
 
 // field type overrides for gencodec
 type headerMarshaling struct {
-	MinerNum   *hexutil.Big
-	MinerTag   *hexutil.Bytes
+	IsCheckPoint   *hexutil.Big
+	MinerQrSignature    *hexutil.Bytes
+	DifficultyLevel *hexutil.Big
 	Difficulty *hexutil.Big
 	Number     *hexutil.Big
 	GasLimit   hexutil.Uint64
@@ -117,8 +120,9 @@ func (h *Header) HashNoNonce() common.Hash {
 		h.ParentHash,
 		h.UncleHash,
 		h.Coinbase,
-		h.MinerNum,
-		h.MinerTag,
+		h.IsCheckPoint,
+		h.MinerQrSignature,
+		h.DifficultyLevel,
 		h.Root,
 		h.TxHash,
 		h.ReceiptHash,
@@ -267,12 +271,15 @@ func CopyHeader(h *Header) *Header {
 	if cpy.Number = new(big.Int); h.Number != nil {
 		cpy.Number.Set(h.Number)
 	}
-	if cpy.MinerNum = new(big.Int); h.MinerNum != nil {
-		cpy.MinerNum.Set(h.MinerNum)
+	if cpy.IsCheckPoint = new(big.Int); h.IsCheckPoint != nil {
+		cpy.IsCheckPoint.Set(h.IsCheckPoint)
 	}
-	if len(h.MinerTag) > 0 {
-		cpy.MinerTag = make([]byte, len(h.MinerTag))
-		copy(cpy.MinerTag, h.MinerTag)
+	if len(h.MinerQrSignature) > 0 {
+		cpy.MinerQrSignature = make([]byte, len(h.MinerQrSignature))
+		copy(cpy.MinerQrSignature, h.MinerQrSignature)
+	}
+	if cpy.DifficultyLevel = new(big.Int); h.DifficultyLevel != nil {
+		cpy.DifficultyLevel.Set(h.DifficultyLevel)
 	}
 	if len(h.Extra) > 0 {
 		cpy.Extra = make([]byte, len(h.Extra))
@@ -337,8 +344,9 @@ func (b *Block) MixDigest() common.Hash   { return b.header.MixDigest }
 func (b *Block) Nonce() uint64            { return binary.BigEndian.Uint64(b.header.Nonce[:]) }
 func (b *Block) Bloom() Bloom             { return b.header.Bloom }
 func (b *Block) Coinbase() common.Address { return b.header.Coinbase }
-func (b *Block) MinerNum()  *big.Int	  { return new(big.Int).Set(b.header.MinerNum) }
-func (b *Block) MinerTag() []byte 		  { return b.header.MinerTag }
+func (b *Block) IsCheckPoint()  *big.Int	  { return new(big.Int).Set(b.header.IsCheckPoint) }
+func (b *Block) MinerQrSignature() []byte 		  { return b.header.MinerQrSignature }
+func (b *Block) DifficultyLevel()  *big.Int	  { return new(big.Int).Set(b.header.DifficultyLevel) }
 func (b *Block) Root() common.Hash        { return b.header.Root }
 func (b *Block) ParentHash() common.Hash  { return b.header.ParentHash }
 func (b *Block) TxHash() common.Hash      { return b.header.TxHash }
@@ -434,8 +442,9 @@ func (h *Header) String() string {
 	ParentHash:	    %x
 	UncleHash:	    %x
 	Coinbase:	    %x
-    MinerNum:		%v
-	MinerTag:		%x
+    IsCheckPoint:		%v
+	MinerQrSignature:		%x
+    DifficultyLevel:		%v
 	Root:		    %x
 	TxSha		    %x
 	ReceiptSha:	    %x
@@ -448,7 +457,7 @@ func (h *Header) String() string {
 	Extra:		    %s
 	MixDigest:      %x
 	Nonce:		    %x
-]`, h.Hash(), h.ParentHash, h.UncleHash, h.Coinbase, h.MinerNum, h.MinerTag, h.Root, h.TxHash, h.ReceiptHash, h.Bloom, h.Difficulty, h.Number, h.GasLimit, h.GasUsed, h.Time, h.Extra, h.MixDigest, h.Nonce)
+]`, h.Hash(), h.ParentHash, h.UncleHash, h.Coinbase, h.IsCheckPoint, h.MinerQrSignature,h.DifficultyLevel, h.Root, h.TxHash, h.ReceiptHash, h.Bloom, h.Difficulty, h.Number, h.GasLimit, h.GasUsed, h.Time, h.Extra, h.MixDigest, h.Nonce)
 }
 
 type Blocks []*Block

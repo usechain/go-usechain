@@ -18,33 +18,88 @@ pragma solidity ^0.4.24;
 
 contract MinerList {
 
-    /// Indicator of miner
-    uint256 public MinerNum;
-    mapping (address => bool) public MinerAdded;
+    address[] public Miner;
+
+    uint256 ticket = 1 ether;
 
     modifier onlyMiner(address _miner) {
-        require (MinerAdded[_miner] == true);
+        bool isMiner = false;
+        uint len=Miner.length;
+        for (uint i = 0; i<len; i++){
+            if(_miner == Miner[i]){
+                isMiner = true;
+                break;
+            }
+        }
+        require (isMiner == true);
         _;
     }
 
     modifier onlyNotMiner(address _miner) {
-        require (MinerAdded[_miner] == false);
+        bool isMiner = false;
+        uint len=Miner.length;
+        for (uint i = 0; i<len; i++){
+            if(_miner == Miner[i]){
+                isMiner = true;
+                break;
+            }
+        }
+        require (isMiner == false);
         _;
     }
 
-    ///change the owner
-    function addMiner() public onlyNotMiner(msg.sender) returns(bool) {
-        MinerAdded[msg.sender] = true;
-        MinerNum++;
+    modifier onlyCommitteer(address _miner) {
+        bool isCommittee = true;
+        require (isCommittee == true);
+        _;
+    }
+
+    ///add miner
+    function addMiner() public payable onlyNotMiner(msg.sender) returns(bool) {
+        require(msg.value >= ticket);
+          if (msg.value > ticket) {
+               uint256 refundFee = msg.value - ticket;
+               msg.sender.transfer(refundFee);
+        }
+        Miner.push(msg.sender);
         return true;
     }
 
-    ///del the owner
-    function delMiner() public onlyMiner(msg.sender) returns(bool) {
-        MinerAdded[msg.sender] = false;
-        MinerNum--;
+    ///del miner
+    function delMinerBySelf() public payable onlyMiner(msg.sender) returns(bool) {
+        uint len=Miner.length;
+        for (uint i = 0; i<len; i++){
+            if(msg.sender == Miner[i]){
+                msg.sender.transfer(ticket);
+                if(len == 1) {
+                    delete Miner[len-1];
+                    break;
+                }
+                Miner[i] = Miner[len-1];
+                delete Miner[len-1];
+                break;
+            }
+        }
+        Miner.length--;
         return true;
     }
 
+    function delMinerByCommittee(address _miner) public payable onlyMiner(_miner) onlyCommitteer(msg.sender) returns(bool) {
+        uint len=Miner.length;
+        for (uint i = 0; i<len; i++){
+            if(_miner == Miner[i]){
+                _miner.transfer(ticket);
+                if(len == 1) {
+                    delete Miner[len-1];
+                    break;
+                }
+                Miner[i] = Miner[len-1];
+                delete Miner[len-1];
+                break;
+            }
+        }
+        Miner.length--;
+        return true;
+    }
 }
 

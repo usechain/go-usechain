@@ -23,6 +23,7 @@ import (
 	"io"
 	"math/big"
 	mrand "math/rand"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -97,6 +98,7 @@ type BlockChain struct {
 	rmLogsFeed    event.Feed
 	chainFeed     event.Feed
 	chainSideFeed event.Feed
+	chainRpowFeed event.Feed
 	chainHeadFeed event.Feed
 	logsFeed      event.Feed
 	scope         event.SubscriptionScope
@@ -128,6 +130,8 @@ type BlockChain struct {
 	vmConfig  vm.Config
 
 	badBlocks *lru.Cache // Bad block cache
+
+	votedHash common.Hash // valid voted block hash
 }
 
 // NewBlockChain returns a fully initialised block chain using information
@@ -312,6 +316,29 @@ func (bc *BlockChain) SetHead(head uint64) error {
 	return bc.loadLastState()
 }
 
+func (bc *BlockChain) GetTargetBlock() common.Hash {
+	bc.mu.Lock()
+	defer bc.mu.Unlock()
+	return bc.votedHash
+}
+
+func (bc *BlockChain) ClearTargetBlock() {
+	bc.mu.Lock()
+	defer bc.mu.Unlock()
+	bc.votedHash = common.Hash{}
+}
+
+func (bc *BlockChain) SwitchBlockChain(targetHash common.Hash) {
+	if bc.GetBlockByHash(targetHash) == nil {
+		bc.mu.Lock()
+		bc.votedHash = targetHash
+		bc.mu.Unlock()
+	}
+	hashes := make([]common.Hash, 1)
+	hashes[0] = bc.CurrentHeader().Hash()
+	bc.Rollback(hashes)
+}
+
 // FastSyncCommitHead sets the current head block to the one defined by the hash
 // irrelevant what the chain contents were prior.
 func (bc *BlockChain) FastSyncCommitHead(hash common.Hash) error {
@@ -340,13 +367,31 @@ func (bc *BlockChain) GasLimit() uint64 {
 // CurrentBlock retrieves the current head block of the canonical chain. The
 // block is retrieved from the blockchain's internal cache.
 func (bc *BlockChain) CurrentBlock() *types.Block {
-	return bc.currentBlock.Load().(*types.Block)
+	x := bc.currentBlock.Load()
+	if x == nil {
+		return nil
+	}
+	return x.(*types.Block)
+}
+
+// VmConfig retrieves the canonical chain evm config.
+func (bc *BlockChain) VmConfig() vm.Config {
+	return bc.vmConfig
+}
+
+// ChainConfig retrieves the canonical chain config.
+func (bc *BlockChain) ChainConfig() *params.ChainConfig {
+	return bc.chainConfig
 }
 
 // CurrentFastBlock retrieves the current fast-sync head block of the canonical
 // chain. The block is retrieved from the blockchain's internal cache.
 func (bc *BlockChain) CurrentFastBlock() *types.Block {
-	return bc.currentFastBlock.Load().(*types.Block)
+	x := bc.currentFastBlock.Load()
+	if x == nil {
+		return nil
+	}
+	return x.(*types.Block)
 }
 
 // SetProcessor sets the processor required for making state modifications.
@@ -956,8 +1001,13 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	reorg := externTd.Cmp(localTd) > 0
 	currentBlock = bc.CurrentBlock()
 	if !reorg && externTd.Cmp(localTd) == 0 {
-		// Split same-difficulty blocks by number, then at random
-		reorg = block.NumberU64() < currentBlock.NumberU64() || (block.NumberU64() == currentBlock.NumberU64() && mrand.Float64() < 0.5)
+		if block.NumberU64() % common.VoteSlot.Uint64() == common.VoteSlot.Uint64() - 1 {
+			// Split same-difficulty blocks by number, then by hash
+			reorg = block.NumberU64() < currentBlock.NumberU64() || (block.NumberU64() == currentBlock.NumberU64() && strings.Compare(block.Hash().Hex(), currentBlock.Hash().Hex()) < 0)
+		} else {
+			// Split same-difficulty blocks by number, then at random
+			reorg = block.NumberU64() < currentBlock.NumberU64() || (block.NumberU64() == currentBlock.NumberU64() && mrand.Float64() < 0.5)
+		}
 	}
 	if reorg {
 		// Reorganise the chain if the parent is not the head block
@@ -1002,6 +1052,8 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 	return n, err
 }
 
+var Inserted_forked_block int
+
 // insertChain will execute the actual chain insertion and event aggregation. The
 // only reason this method exists as a separate one is to make locking cleaner
 // with deferred statements.
@@ -1041,7 +1093,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		headers[i] = block.Header()
 		seals[i] = true
 	}
-	abort, results := bc.engine.VerifyHeaders(bc, headers, seals)
+	stateForVerifyHeaders, _ := bc.State()
+	abort, results := bc.engine.VerifyHeaders(bc, headers, seals, stateForVerifyHeaders)
 	defer close(abort)
 
 	// Iterate over the blocks and insert when the verifier permits
@@ -1173,6 +1226,13 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			log.Debug("Inserted forked block", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
 				common.PrettyDuration(time.Since(bstart)), "txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()))
 
+			Inserted_forked_block++
+			log.Info("Inserted forked block", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
+				common.PrettyDuration(time.Since(bstart)), "txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()))
+
+			fmt.Println("Inserted forked block", "number", block.Number(), "hash", block.Hash().String(), "diff", block.Difficulty(), "elapsed",
+				common.PrettyDuration(time.Since(bstart)), "txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()), "Inserted_forked_block", Inserted_forked_block)
+
 			blockInsertTimer.UpdateSince(bstart)
 			events = append(events, ChainSideEvent{block})
 		}
@@ -1217,6 +1277,7 @@ func (st *insertStats) report(chain []*types.Block, index int, cache common.Stor
 			"blocks", st.processed, "txs", txs, "mgas", float64(st.usedGas) / 1000000,
 			"elapsed", common.PrettyDuration(elapsed), "mgasps", float64(st.usedGas) * 1000 / float64(elapsed),
 			"number", end.Number(), "hash", end.Hash(), "cache", cache,
+			"timeFormBlockGenerate", time.Now().Unix() - end.Time().Int64(),
 		}
 		if st.queued > 0 {
 			context = append(context, []interface{}{"queued", st.queued}...)
@@ -1435,9 +1496,11 @@ Error: %v
 // of the header retrieval mechanisms already need to verify nonces, as well as
 // because nonces can be verified sparsely, not needing to check each.
 func (bc *BlockChain) InsertHeaderChain(chain []*types.Header, checkFreq int) (int, error) {
-
+	var parentForValidateHeaderChain *types.Block
+	parentForValidateHeaderChain = bc.GetBlock(bc.CurrentBlock().Hash(), bc.CurrentBlock().NumberU64())
+	stateForValidateHeaderChain, _ := state.New(parentForValidateHeaderChain.Root(), bc.stateCache)
 	start := time.Now()
-	if i, err := bc.hc.ValidateHeaderChain(chain, checkFreq); err != nil {
+	if i, err := bc.hc.ValidateHeaderChain(chain, checkFreq, stateForValidateHeaderChain); err != nil {
 		return i, err
 	}
 
@@ -1551,6 +1614,10 @@ func (bc *BlockChain) SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Su
 // SubscribeChainSideEvent registers a subscription of ChainSideEvent.
 func (bc *BlockChain) SubscribeChainSideEvent(ch chan<- ChainSideEvent) event.Subscription {
 	return bc.scope.Track(bc.chainSideFeed.Subscribe(ch))
+}
+
+func (bc *BlockChain) SubscribeChainRpowEvent(ch chan<- ChainRpowEvent) event.Subscription {
+	return bc.scope.Track(bc.chainRpowFeed.Subscribe(ch))
 }
 
 // SubscribeLogsEvent registers a subscription of []*types.Log.

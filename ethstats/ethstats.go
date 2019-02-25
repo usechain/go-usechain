@@ -49,17 +49,17 @@ const (
 	// history request.
 	historyUpdateRange = 50
 
-	// txChanSize is the size of channel listening to TxPreEvent.
+	// txChanSize is the size of channel listening to NewTxsEvent.
 	// The number is referenced from the size of tx pool.
-	txChanSize = 4096
+	txChanSize = 4096 * 16
 	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
 	chainHeadChanSize = 10
 )
 
 type txPool interface {
-	// SubscribeTxPreEvent should return an event subscription of
-	// TxPreEvent and send events to the given channel.
-	SubscribeTxPreEvent(chan<- core.TxPreEvent) event.Subscription
+	// SubscribeNewTxsEvent should return an event subscription of
+	// NewTxsEvent and send events to the given channel.
+	SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription
 }
 
 type blockChain interface {
@@ -150,8 +150,8 @@ func (s *Service) loop() {
 	headSub := blockchain.SubscribeChainHeadEvent(chainHeadCh)
 	defer headSub.Unsubscribe()
 
-	txEventCh := make(chan core.TxPreEvent, txChanSize)
-	txSub := txpool.SubscribeTxPreEvent(txEventCh)
+	txEventCh := make(chan core.NewTxsEvent, txChanSize)
+	txSub := txpool.SubscribeNewTxsEvent(txEventCh)
 	defer txSub.Unsubscribe()
 
 	// Start a goroutine that exhausts the subsciptions to avoid events piling up
@@ -473,8 +473,9 @@ type blockStats struct {
 	ParentHash common.Hash    `json:"parentHash"`
 	Timestamp  *big.Int       `json:"timestamp"`
 	Miner      common.Address `json:"miner"`
-	MinerNum   *big.Int		  `json:"minerNum"`
-	MinerTag   string		  `json:"minerTag"`
+	IsCheckPoint   *big.Int		  `json:"isCheckPoint"`
+	MinerQrSignature string   `json:"minerQrSignature"`
+	DifficultyLevel   *big.Int		  `json:"difficultyLevel"`
 	GasUsed    uint64         `json:"gasUsed"`
 	GasLimit   uint64         `json:"gasLimit"`
 	Diff       string         `json:"difficulty"`
@@ -561,8 +562,9 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 		ParentHash: header.ParentHash,
 		Timestamp:  header.Time,
 		Miner:      author,
-		MinerNum:	header.MinerNum,
-		MinerTag:   string(header.MinerTag),
+		IsCheckPoint:	header.IsCheckPoint,
+		MinerQrSignature: string((header.MinerQrSignature)),
+		DifficultyLevel:	header.DifficultyLevel,
 		GasUsed:    header.GasUsed,
 		GasLimit:   header.GasLimit,
 		Diff:       header.Difficulty.String(),
@@ -646,7 +648,7 @@ func (s *Service) reportPending(conn *websocket.Conn) error {
 	// Retrieve the pending count from the local blockchain
 	var pending int
 	if s.eth != nil {
-		pending, _ = s.eth.TxPool().Stats()
+		pending, _, _ = s.eth.TxPool().Stats()
 	} else {
 		pending = s.les.TxPool().Stats()
 	}

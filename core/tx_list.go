@@ -256,7 +256,7 @@ func (l *txList) Add(tx *types.Transaction, priceBump uint64) (bool, *types.Tran
 		// Have to ensure that the new gas price is higher than the old gas
 		// price as well as checking the percentage threshold to ensure that
 		// this is accurate for low (Wei-level) gas price replacements
-		if old.GasPrice().Cmp(tx.GasPrice()) >= 0 || threshold.Cmp(tx.GasPrice()) > 0 {
+		if old.GasPrice().Cmp(tx.GasPrice()) > 0 || threshold.Cmp(tx.GasPrice()) > 0 {
 			return false, nil
 		}
 	}
@@ -437,7 +437,7 @@ func (l *txPricedList) Cap(threshold *big.Int, local *accountSet) types.Transact
 			continue
 		}
 		// Stop the discards if we've reached the threshold
-		if tx.GasPrice().Cmp(threshold) >= 0 {
+		if tx.Flag() == 1 || tx.GasPrice().Cmp(threshold) >= 0 {
 			save = append(save, tx)
 			break
 		}
@@ -458,6 +458,9 @@ func (l *txPricedList) Cap(threshold *big.Int, local *accountSet) types.Transact
 // lowest priced transaction currently being tracked.
 func (l *txPricedList) Underpriced(tx *types.Transaction, local *accountSet) bool {
 	// Local transactions cannot be underpriced
+	if tx.Flag() == 1 {
+		return false
+	}
 	if local.containsTx(tx) {
 		return false
 	}
@@ -476,6 +479,7 @@ func (l *txPricedList) Underpriced(tx *types.Transaction, local *accountSet) boo
 		log.Error("Pricing query for empty pool") // This cannot happen, print to catch programming errors
 		return false
 	}
+
 	cheapest := []*types.Transaction(*l.items)[0]
 	return cheapest.GasPrice().Cmp(tx.GasPrice()) >= 0
 }
@@ -494,7 +498,7 @@ func (l *txPricedList) Discard(count int, local *accountSet) types.Transactions 
 			continue
 		}
 		// Non stale transaction found, discard unless local
-		if local.containsTx(tx) {
+		if tx.Flag() == 1 || local.containsTx(tx) {
 			save = append(save, tx)
 		} else {
 			drop = append(drop, tx)

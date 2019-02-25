@@ -17,14 +17,13 @@
 package tests
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/math"
-	"github.com/usechain/go-usechain/consensus/ethash"
-	"github.com/usechain/go-usechain/core/types"
-	"github.com/usechain/go-usechain/params"
+	//"github.com/usechain/go-usechain/consensus/ethash"
+	//"github.com/usechain/go-usechain/core/types"
+	//"github.com/usechain/go-usechain/params"
 )
 
 //go:generate gencodec -type DifficultyTest -field-override difficultyTestMarshaling -out gen_difficultytest.go
@@ -47,25 +46,25 @@ type difficultyTestMarshaling struct {
 	CurrentBlockNumber math.HexOrDecimal64
 }
 
-func (test *DifficultyTest) Run(config *params.ChainConfig) error {
-	//only run for difficulty testing
-
-	parentNumber := big.NewInt(int64(test.CurrentBlockNumber - 1))
-	parent := &types.Header{
-		Difficulty: test.ParentDifficulty,
-		Time:       test.ParentTimestamp,
-		Number:     parentNumber,
-		UncleHash:  test.UncleHash,
-	}
-
-	actual := ethash.CalcDifficulty(config, test.CurrentTimestamp.Uint64(), parent)
-	exp := test.CurrentDifficulty
-
-	if actual.Cmp(exp) != 0 {
-		return fmt.Errorf("parent[time %v diff %v unclehash:%x] child[time %v number %v] diff %v != expected %v",
-			test.ParentTimestamp, test.ParentDifficulty, test.UncleHash,
-			test.CurrentTimestamp, test.CurrentBlockNumber, actual, exp)
-	}
-	return nil
-
-}
+//func (test *DifficultyTest) Run(config *params.ChainConfig) error {
+//	//only run for difficulty testing
+//
+//	parentNumber := big.NewInt(int64(test.CurrentBlockNumber - 1))
+//	parent := &types.Header{
+//		Difficulty: test.ParentDifficulty,
+//		Time:       test.ParentTimestamp,
+//		Number:     parentNumber,
+//		UncleHash:  test.UncleHash,
+//	}
+//
+//	actual := ethash.CalcDifficulty(config, test.CurrentTimestamp.Uint64(), parent)
+//	exp := test.CurrentDifficulty
+//
+//	if actual.Cmp(exp) != 0 {
+//		return fmt.Errorf("parent[time %v diff %v unclehash:%x] child[time %v number %v] diff %v != expected %v",
+//			test.ParentTimestamp, test.ParentDifficulty, test.UncleHash,
+//			test.CurrentTimestamp, test.CurrentBlockNumber, actual, exp)
+//	}
+//	return nil
+//
+//}

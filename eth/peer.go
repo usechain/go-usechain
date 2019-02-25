@@ -37,7 +37,7 @@ var (
 )
 
 const (
-	maxKnownTxs      = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
+	maxKnownTxs      = 32768 * 8 // Maximum transactions hashes to keep in the known list (prevent DOS)
 	maxKnownBlocks   = 1024  // Maximum block hashes to keep in the known list (prevent DOS)
 	handshakeTimeout = 5 * time.Second
 )
@@ -402,6 +402,18 @@ func (ps *peerSet) BestPeer() *peer {
 		}
 	}
 	return bestPeer
+}
+
+func (ps *peerSet) SyncWithPeers(hash common.Hash) {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+
+	for _, p := range ps.peers {
+		p.RequestHeadersByHash(hash, 1, 0, false)
+		hashes := make([]common.Hash, 0, 1)
+		hashes = append(hashes, hash)
+		p.RequestBodies(hashes)
+	}
 }
 
 // Close disconnects all peers.

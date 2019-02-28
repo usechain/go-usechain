@@ -1655,7 +1655,10 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 	if err != nil {
 		return common.Hash{}, err
 	}
-	priv, _ := ks.GetPrivateKey(account)
+	priv, err := ks.GetPrivateKey(account)
+	if err != nil {
+		return common.Hash{}, err
+	}
 	committeePub := crypto.GenerateCreditPubKey(B, priv)
 	// committeePriv := crypto.GenerateCreditPrivKey(b, crypto.ToECDSAPub(common.FromHex(pub)))
 

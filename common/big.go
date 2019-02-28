@@ -28,6 +28,6 @@ var (
 	Big256 = big.NewInt(256)
 	Big257 = big.NewInt(257)
 	BlockSlot   = big.NewInt(25)
-	VoteSlot  = big.NewInt(10)
+	VoteSlot  = big.NewInt(1000000)
 	MaxCommitteemanCount = 4
 )

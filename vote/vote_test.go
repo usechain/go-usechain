@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 	"fmt"
+	"math/big"
+	"github.com/usechain/go-usechain/common"
 )
 
 func TestNewVoter(t *testing.T) {

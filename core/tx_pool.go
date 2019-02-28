@@ -756,6 +756,11 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		if err != nil {
 			return ErrInvalidAuthenticationsig
 		}
+	} else if tx.IsRegisterTransaction() {
+		err = tx.CheckCertLegality(from)
+		if err != nil {
+			return ErrInvalidAuthenticationsig
+		}
 	} else if tx.IsMainAuthentication() {
 		//log.Info("Is a Main authentication tx")
 		err = authentication.CheckMultiAccountSig(pool.currentState, tx, common.MainAddress, from)

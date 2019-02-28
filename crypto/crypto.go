@@ -29,11 +29,11 @@ import (
 	"os"
 
 	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/common/math"
 	"github.com/usechain/go-usechain/crypto/sha3"
-	"github.com/usechain/go-usechain/common/hexutil"
-	"github.com/usechain/go-usechain/rlp"
 	"github.com/usechain/go-usechain/log"
+	"github.com/usechain/go-usechain/rlp"
 	"strings"
 )
 
@@ -206,7 +206,7 @@ func zeroBytes(bytes []byte) {
 }
 
 // Generate account interface
-func GenerateABKey(AX string, AY string, BX string, BY string,AprivKey *ecdsa.PrivateKey) (ret []string,s *ecdsa.PrivateKey, err error) {
+func GenerateABKey(AX string, AY string, BX string, BY string, AprivKey *ecdsa.PrivateKey) (ret []string, s *ecdsa.PrivateKey, err error) {
 	bytesAX, err := hexutil.Decode(AX)
 	if err != nil {
 		return
@@ -230,39 +230,39 @@ func GenerateABKey(AX string, AY string, BX string, BY string,AprivKey *ecdsa.Pr
 
 	pa := &ecdsa.PublicKey{X: bnAX, Y: bnAY}
 	pb := &ecdsa.PublicKey{X: bnBX, Y: bnBY}
-	generatedA1, generatedS,s, err := GenerateABKey2528(pa, pb,AprivKey)
+	generatedA1, generatedS, s, err := GenerateABKey2528(pa, pb, AprivKey)
 
-	A1:=common.ToHex(FromECDSAPub(generatedA1))
-	SS:=common.ToHex(FromECDSAPub(generatedS))
+	A1 := common.ToHex(FromECDSAPub(generatedA1))
+	SS := common.ToHex(FromECDSAPub(generatedS))
 	//ss:=hexutil.Encode(s.D.Bytes())
-	log.Info("newABaccount infomation","A1",A1)
-	log.Info("newABaccount infomation","S",SS)
+	log.Info("newABaccount infomation", "A1", A1)
+	log.Info("newABaccount infomation", "S", SS)
 	//fmt.Println("newABaccount infomation","A1",ss)
 
-	return hexutil.PKPair2HexSlice(generatedA1, generatedS), s,nil
+	return hexutil.PKPair2HexSlice(generatedA1, generatedS), s, nil
 }
 
 // A1=[hash([b]A)]G+S
-func GenerateSubAccount(bA *ecdsa.PublicKey, S *ecdsa.PublicKey) common.Address{
-	hashBytes := Keccak256(FromECDSAPub(bA))   //hash([b]A)
+func GenerateSubAccount(bA *ecdsa.PublicKey, S *ecdsa.PublicKey) common.Address {
+	hashBytes := Keccak256(FromECDSAPub(bA)) //hash([b]A)
 	A1 := new(ecdsa.PublicKey)
 	A1.Curve = S256()
-	A1.X, A1.Y = S256().ScalarBaseMult(hashBytes)	//[hash([b]A)]G
+	A1.X, A1.Y = S256().ScalarBaseMult(hashBytes) //[hash([b]A)]G
 	A1.X, A1.Y = S256().Add(A1.X, A1.Y, S.X, S.Y)
 
 	return PubkeyToAddress(*A1)
 }
 
 // GenerateABKey2528 generates an OTA account for receiver using receiver's publickey
-func GenerateABKey2528(A *ecdsa.PublicKey, B *ecdsa.PublicKey,AprivKey *ecdsa.PrivateKey) (A1 *ecdsa.PublicKey, S *ecdsa.PublicKey,s *ecdsa.PrivateKey, err error) {
+func GenerateABKey2528(A *ecdsa.PublicKey, B *ecdsa.PublicKey, AprivKey *ecdsa.PrivateKey) (A1 *ecdsa.PublicKey, S *ecdsa.PublicKey, s *ecdsa.PrivateKey, err error) {
 	s, err = GenerateKey()
 	if err != nil {
-		return nil, nil,nil, err
+		return nil, nil, nil, err
 	}
 	S = &s.PublicKey
 	A1 = new(ecdsa.PublicKey)
-	*A1 = generateA1(S, B,AprivKey)
-	return A1, S,s,err
+	*A1 = generateA1(S, B, AprivKey)
+	return A1, S, s, err
 }
 
 // A1=[hash([b]A)]G+S
@@ -278,9 +278,9 @@ func ScanPubSharesA1(bA *ecdsa.PublicKey, S *ecdsa.PublicKey) ecdsa.PublicKey {
 	A1.X = bA.X
 	A1.Y = bA.Y
 
-	A1Bytes := Keccak256(FromECDSAPub(A1))        //hash([a]B)
+	A1Bytes := Keccak256(FromECDSAPub(A1)) //hash([a]B)
 
-	A1.X, A1.Y = S256().ScalarBaseMult(A1Bytes)   //[hash([a]B)]G
+	A1.X, A1.Y = S256().ScalarBaseMult(A1Bytes) //[hash([a]B)]G
 
 	A1.X, A1.Y = S256().Add(A1.X, A1.Y, S.X, S.Y) //A1=[hash([a]B)]G+S
 	A1.Curve = S256()
@@ -288,18 +288,42 @@ func ScanPubSharesA1(bA *ecdsa.PublicKey, S *ecdsa.PublicKey) ecdsa.PublicKey {
 }
 
 // generateA1 generate one pulic key of AB account by using algorithm A1=[hash([a]B)]G+S
-func generateA1(S *ecdsa.PublicKey, B *ecdsa.PublicKey,AprivKey *ecdsa.PrivateKey) ecdsa.PublicKey {
+func generateA1(S *ecdsa.PublicKey, B *ecdsa.PublicKey, AprivKey *ecdsa.PrivateKey) ecdsa.PublicKey {
 	A1 := new(ecdsa.PublicKey)
 
-	A1.X, A1.Y = S256().ScalarMult(B.X, B.Y, AprivKey.D.Bytes())   //A1=[a]B
+	A1.X, A1.Y = S256().ScalarMult(B.X, B.Y, AprivKey.D.Bytes()) //A1=[a]B
 
-	A1Bytes := Keccak256(FromECDSAPub(A1))        //hash([a]B)
+	A1Bytes := Keccak256(FromECDSAPub(A1)) //hash([a]B)
 
-	A1.X, A1.Y = S256().ScalarBaseMult(A1Bytes)   //[hash([a]B)]G
+	A1.X, A1.Y = S256().ScalarBaseMult(A1Bytes) //[hash([a]B)]G
 
 	A1.X, A1.Y = S256().Add(A1.X, A1.Y, S.X, S.Y) //A1=[hash([a]B)]G+S
 	A1.Curve = S256()
 	return *A1
+}
+
+func GenerateCreditPubKey(committeepubkey string, privkey *ecdsa.PrivateKey) *ecdsa.PublicKey {
+	ecdsaPub := ToECDSAPub(common.FromHex(committeepubkey))
+
+	A := new(ecdsa.PublicKey)
+
+	A.X, A.Y = S256().ScalarMult(ecdsaPub.X, ecdsaPub.Y, privkey.D.Bytes()) // A = [a]B
+	ABytes := Keccak256(FromECDSAPub(A))                                    // hash([a]B)
+	A.X, A.Y = S256().ScalarBaseMult(ABytes)                                // A = [hash([a]B)]G
+	A.Curve = S256()
+	return A
+}
+
+func GenerateCreditPrivKey(bigint string, pubkey *ecdsa.PublicKey) *ecdsa.PrivateKey {
+	// priv, _ := HexToECDSA(committeeprivkey)
+	A := new(ecdsa.PublicKey)
+	n := new(big.Int)
+
+	n, _ = n.SetString(bigint, 10)
+	A.X, A.Y = S256().ScalarMult(pubkey.X, pubkey.Y, n.Bytes()) // [A]b
+	ABytes := Keccak256(FromECDSAPub(A))                        // hash([A]b)
+	B, _ := ToECDSA(ABytes)
+	return B
 }
 
 // GenerteABPrivateKey generates the privatekey for an AB account using receiver's main account's privatekey
@@ -336,10 +360,10 @@ func GenerateABPrivateKey2528(privateKey *ecdsa.PrivateKey, privateKey2 *ecdsa.P
 	pub.X, pub.Y = S256().ScalarMult(destPubB.X, destPubB.Y, privateKey.D.Bytes()) //[a]B
 
 	//hash
-	k := new(big.Int).SetBytes(Keccak256(FromECDSAPub(pub)))                        //hash([a]B)
+	k := new(big.Int).SetBytes(Keccak256(FromECDSAPub(pub))) //hash([a]B)
 
-	k.Add(k, privateKey2.D)                                                          //hash([a]B)+s
-	k.Mod(k, S256().Params().N)                                                     //mod to feild N
+	k.Add(k, privateKey2.D)     //hash([a]B)+s
+	k.Mod(k, S256().Params().N) //mod to feild N
 
 	retPriv1 = new(ecdsa.PrivateKey)
 	retPriv2 = new(ecdsa.PrivateKey)
@@ -401,11 +425,11 @@ func RingSign(M []byte, x *big.Int, PublicKeys []*ecdsa.PublicKey) ([]*ecdsa.Pub
 		return nil, nil, nil, nil, ErrRingSignFail
 	}
 
-	rnd,rnderr := rand.Int(rand.Reader, big.NewInt(int64(n)))
+	rnd, rnderr := rand.Int(rand.Reader, big.NewInt(int64(n)))
 	if rnderr != nil {
 		return nil, nil, nil, nil, ErrRingSignFail
 	}
-	s := int(rnd.Int64())  //s is the random position for real key
+	s := int(rnd.Int64()) //s is the random position for real key
 
 	if s > 0 {
 		PublicKeys[0], PublicKeys[s] = PublicKeys[s], PublicKeys[0] //exchange real public key position
@@ -496,45 +520,44 @@ type RingSignedData struct {
 }
 
 var (
-	ErrInvalidPrivateKey = errors.New("invalid private key")
+	ErrInvalidPrivateKey   = errors.New("invalid private key")
 	ErrInvalidPunlicKeySet = errors.New("invalid public key set")
 )
 
 // GenRingSignData generate ring sign data
-func GenRingSignData(hashMsg string, privateKey string, publickeyset string) (string,string, error) {
+func GenRingSignData(hashMsg string, privateKey string, publickeyset string) (string, string, error) {
 	if !hexutil.Has0xPrefix(privateKey) {
-		return "","", ErrInvalidPrivateKey
+		return "", "", ErrInvalidPrivateKey
 	}
 
 	hmsg, err := hexutil.Decode(hashMsg)
 	if err != nil {
-		return "", "",err
+		return "", "", err
 	}
 
 	ecdsaPrivateKey, err := HexToECDSA(privateKey[2:])
 	if err != nil {
-		return "","", err
+		return "", "", err
 	}
-
 
 	privKey, err := hexutil.Decode(privateKey)
 	if err != nil {
-		return "","", err
+		return "", "", err
 	}
 
 	if privKey == nil {
-		return "","", ErrInvalidPrivateKey
+		return "", "", ErrInvalidPrivateKey
 	}
 
-	publickeys:=strings.Split(publickeyset,",")
-	if len(publickeys) == 0 || len(publickeys)>6{
-		return "","", ErrInvalidPunlicKeySet
+	publickeys := strings.Split(publickeyset, ",")
+	if len(publickeys) == 0 || len(publickeys) > 6 {
+		return "", "", ErrInvalidPunlicKeySet
 	}
 
 	return genRingSignData(hmsg, privKey, &ecdsaPrivateKey.PublicKey, publickeys)
 }
 
-func genRingSignData(hashMsg []byte, privateKey []byte, actualPub *ecdsa.PublicKey, publickeyset []string) (string,string, error) {
+func genRingSignData(hashMsg []byte, privateKey []byte, actualPub *ecdsa.PublicKey, publickeyset []string) (string, string, error) {
 	otaPrivD := new(big.Int).SetBytes(privateKey)
 
 	publicKeys := make([]*ecdsa.PublicKey, 0)
@@ -543,24 +566,24 @@ func genRingSignData(hashMsg []byte, privateKey []byte, actualPub *ecdsa.PublicK
 	for _, publickey := range publickeyset {
 		pubBytes, err := hexutil.Decode(publickey)
 		if err != nil {
-			return "","", errors.New("fail to decode publickey!")
+			return "", "", errors.New("fail to decode publickey!")
 		}
 
-		publicKeyA:= ToECDSAPub(pubBytes)
+		publicKeyA := ToECDSAPub(pubBytes)
 
 		publicKeys = append(publicKeys, publicKeyA)
 	}
 
 	retPublicKeys, keyImage, w_random, q_random, err := RingSign(hashMsg, otaPrivD, publicKeys)
 	if err != nil {
-		return "", "",err
+		return "", "", err
 	}
 
-	return encodeRingSignOut(retPublicKeys, keyImage, w_random, q_random)     // 这里的key随机调整过位置
+	return encodeRingSignOut(retPublicKeys, keyImage, w_random, q_random) // 这里的key随机调整过位置
 }
 
 //  encodeRingSignOut encode all ring sign out data to a string
-func encodeRingSignOut(publicKeys []*ecdsa.PublicKey, keyimage *ecdsa.PublicKey, Ws []*big.Int, Qs []*big.Int) (string, string,error) {
+func encodeRingSignOut(publicKeys []*ecdsa.PublicKey, keyimage *ecdsa.PublicKey, Ws []*big.Int, Qs []*big.Int) (string, string, error) {
 	tmp := make([]string, 0)
 	for _, pk := range publicKeys {
 		tmp = append(tmp, common.ToHex(FromECDSAPub(pk)))
@@ -583,7 +606,7 @@ func encodeRingSignOut(publicKeys []*ecdsa.PublicKey, keyimage *ecdsa.PublicKey,
 	qStr := strings.Join(qa, "&")
 
 	outs := strings.Join([]string{pkStr, k, wStr, qStr}, "+")
-	return outs,k, nil
+	return outs, k, nil
 }
 
 var (
@@ -648,7 +671,6 @@ func DecodeRingSignOut(s string) (error, []*ecdsa.PublicKey, *ecdsa.PublicKey, [
 
 	return nil, publickeys, keyimgae, w, q
 }
-
 
 // VerifyRingSign verifies the validity of ring signature
 func verifyRingSign(M []byte, PublicKeys []*ecdsa.PublicKey, I *ecdsa.PublicKey, c []*big.Int, r []*big.Int) bool {
@@ -737,21 +759,20 @@ func verifyRingSign(M []byte, PublicKeys []*ecdsa.PublicKey, I *ecdsa.PublicKey,
 }
 
 // VerifyRingSign verify ring signature
-func VerifyRingSign(msg string,ringsig string) bool {
+func VerifyRingSign(msg string, ringsig string) bool {
 
-	msg1,err := hexutil.Decode(msg)
+	msg1, err := hexutil.Decode(msg)
 	if err != nil {
 		log.Error("VerifyRingSign decode msg error")
 		return false
 	}
 	msg2 := Keccak256(msg1)
 
-	err,publickeys,keyimage,c,r:=DecodeRingSignOut(ringsig)
-	if err !=nil {
+	err, publickeys, keyimage, c, r := DecodeRingSignOut(ringsig)
+	if err != nil {
 		return false
 	}
 
-	verifyRES:=verifyRingSign(msg2,publickeys,keyimage,c,r)
+	verifyRES := verifyRingSign(msg2, publickeys, keyimage, c, r)
 	return verifyRES
 }
-

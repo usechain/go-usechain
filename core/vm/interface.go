@@ -34,6 +34,14 @@ type StateDB interface {
 	GetNonce(common.Address) uint64
 	SetNonce(common.Address, uint64)
 
+	SetTradePoints(common.Address, uint64)
+	AddTradePoints(common.Address, uint64)
+	GetTradePoints(common.Address) uint64
+
+	SetCertifications(common.Address, uint64)
+	AddCertifications(common.Address, uint64)
+	GetCertifications(common.Address) uint64
+
 	GetCodeHash(common.Address) common.Hash
 	GetCode(common.Address) []byte
 	SetCode(common.Address, []byte)

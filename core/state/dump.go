@@ -32,6 +32,11 @@ type DumpAccount struct {
 	CodeHash string            `json:"codeHash"`
 	Code     string            `json:"code"`
 	Storage  map[string]string `json:"storage"`
+
+	TradePoints    uint64 `json:"tradepoints"`
+	Certifications uint64 `json:"certifications"`
+	ReviewPoints   string `json:"reviewpoints"`
+	RewardPoints   string `json:"rewardpoints"`
 }
 
 type Dump struct {
@@ -61,6 +66,11 @@ func (self *StateDB) RawDump() Dump {
 			CodeHash: common.Bytes2Hex(data.CodeHash),
 			Code:     common.Bytes2Hex(obj.Code(self.db)),
 			Storage:  make(map[string]string),
+
+			TradePoints:    data.TradePoints,
+			Certifications: data.Certifications,
+			ReviewPoints:   data.ReviewPoints.String(),
+			RewardPoints:   data.RewardPoints.String(),
 		}
 		storageIt := trie.NewIterator(obj.getTrie(self.db).NodeIterator(nil))
 		for storageIt.Next() {

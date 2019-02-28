@@ -17,21 +17,22 @@
 package types
 
 import (
+	"bytes"
 	"container/heap"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"math/big"
-	"sync/atomic"
-	"bytes"
 	"github.com/usechain/go-usechain/accounts/abi"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/crypto"
-	"github.com/usechain/go-usechain/rlp"
-	"strings"
 	"github.com/usechain/go-usechain/log"
-	"encoding/hex"
+	"github.com/usechain/go-usechain/rlp"
+	"io"
+	"math/big"
+	"strings"
+	"sync/atomic"
 )
 
 //go:generate gencodec -type txdata -field-override txdataMarshaling -out gen_tx_json.go
@@ -213,7 +214,7 @@ func (tx *Transaction) To() *common.Address {
 func (tx *Transaction) IsMainAuthentication() bool {
 	//The authentication tx payload must longer than 36 bytes
 	//Added levelTag and address type
-	if len(tx.Data()) <= 4 + 32 * 30 {
+	if len(tx.Data()) <= 4+32*30 {
 		return false
 	}
 
@@ -234,7 +235,7 @@ func (tx *Transaction) IsMainAuthentication() bool {
 func (tx *Transaction) IsSubAuthentication() bool {
 	//The authentication tx payload must longer than 36 bytes
 	//Added levelTag and address type
-	if len(tx.Data()) <= 4 + 32 * 30 {
+	if len(tx.Data()) <= 4+32*30 {
 		return false
 	}
 
@@ -251,13 +252,36 @@ func (tx *Transaction) IsSubAuthentication() bool {
 	return true
 }
 
+func (tx *Transaction) IsRegisterTransaction() bool {
+
+	if len(tx.Data()) <= 4+32*10 {
+		return false
+	}
+
+	if bytes.Compare(tx.Data()[:4], []byte{248, 22, 31, 117}) == 0 {
+		return true
+	}
+	return false
+}
+
+func (tx *Transaction) IsCommitteeTransaction() bool {
+	// TODO: sender addr need to be fixed
+	if len(tx.Data()) <= 4+32 {
+		return false
+	}
+
+	if bytes.Compare(tx.Data()[:4], []byte{199, 174, 221, 31}) == 0 {
+		return true
+	}
+	return false
+}
 
 //Another authentication implementation write in state_trasanction.go
 //OTA transaction verify
 func (tx *Transaction) IsAuthentication() bool {
 	//The authentication tx payload must longer than 36 bytes
 	//Added levelTag and address type
-	if len(tx.Data()) <= 4 + 32 * 10{
+	if len(tx.Data()) <= 4+32*10 {
 		return false
 	}
 
@@ -274,6 +298,74 @@ func (tx *Transaction) IsAuthentication() bool {
 	return true
 }
 
+func (tx *Transaction) GetVerifiedAddress() common.Address {
+	creditABI, _ := abi.JSON(strings.NewReader(common.CreditABI))
+
+	method, exist := creditABI.Methods["verifyHash"]
+	if !exist {
+		log.Error("method not found:", "verifyHash")
+	}
+
+	InputDataInterface, err := method.Inputs.UnpackABI(tx.Data()[4:])
+	if err != nil {
+		log.Error("method.Inputs: ", err)
+	}
+
+	var inputData []interface{}
+	for _, param := range InputDataInterface {
+		inputData = append(inputData, param)
+	}
+
+	addr := inputData[0].(common.Address)
+	return addr
+}
+
+func (tx *Transaction) CheckCertLegality(_from common.Address) error {
+	creditABI, _ := abi.JSON(strings.NewReader(common.CreditABI))
+
+	method, exist := creditABI.Methods["register"]
+	if !exist {
+		log.Error("method not found:", "register")
+	}
+
+	InputDataInterface, err := method.Inputs.UnpackABI(tx.Data()[4:])
+	if err != nil {
+		log.Error("method.Inputs: ", err)
+	}
+
+	var inputData []interface{}
+	for _, param := range InputDataInterface {
+		inputData = append(inputData, param)
+	}
+
+	// pubKey := inputData[0]
+	hashKey := Decode32Uint8(inputData[1].([32]uint8))
+	// identity := inputData[2]
+	issuerData := DecodeUint8(inputData[3].([]uint8))
+	issuer := NewIssuer()
+	i, _ := hexutil.Decode(issuerData)
+	json.Unmarshal(i, issuer)
+
+	cert, _ := hex.DecodeString(issuer.Cert)
+	err = crypto.CheckUserRegisterCert(cert, hashKey)
+
+	return err
+}
+
+func Decode32Uint8(bs [32]uint8) string {
+	b := make([]byte, len(bs))
+	for i, v := range bs {
+		b[i] = byte(v)
+	}
+	return hexutil.Encode(b)
+}
+func DecodeUint8(bs []uint8) string {
+	b := make([]byte, len(bs))
+	for i, v := range bs {
+		b[i] = byte(v)
+	}
+	return hexutil.Encode(b)
+}
 
 //check the certificate signature if the transaction is authentication Tx
 //   MultiAB account authentication TX:
@@ -287,16 +379,16 @@ func (tx *Transaction) CheckCertificateSig(_from common.Address) error {
 
 	usechainABI, err := abi.JSON(strings.NewReader(common.UsechainABI))
 	if err != nil {
-		log.Error("parse usechainABI",err)
+		log.Error("parse usechainABI", err)
 	}
 
 	method, exist := usechainABI.Methods["storeOneTimeAddress"]
 	if !exist {
 		log.Error("method not found:", "storeOneTimeAddress")
 	}
-	InputDataInterface,err :=method.Inputs.UnpackABI(tx.Data()[4:])
-	if err !=nil {
-		fmt.Println("method.Inputs: ",err)
+	InputDataInterface, err := method.Inputs.UnpackABI(tx.Data()[4:])
+	if err != nil {
+		fmt.Println("method.Inputs: ", err)
 		return err
 	}
 
@@ -315,15 +407,14 @@ func (tx *Transaction) CheckCertificateSig(_from common.Address) error {
 		return errors.New("the pubkey & address doesn't match")
 	}
 
-	sig,_ := hex.DecodeString(sign)
+	sig, _ := hex.DecodeString(sign)
 	err = crypto.CheckUserCertStandard(ca, _from, sig)
-	if  err != nil {
+	if err != nil {
 		return errors.New("the CA cert is illegal")
 	}
 
 	return err
 }
-
 
 //get the authentication level, only for authentication Tx
 func (tx *Transaction) GetTxAuthenticationLevel() int {
@@ -609,4 +700,3 @@ func (m Message) Gas() uint64          { return m.gasLimit }
 func (m Message) Nonce() uint64        { return m.nonce }
 func (m Message) Data() []byte         { return m.data }
 func (m Message) CheckNonce() bool     { return m.checkNonce }
-

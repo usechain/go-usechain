@@ -17,18 +17,18 @@
 package core
 
 import (
-	"os"
 	"errors"
 	"math"
 	"math/big"
+	"os"
 
 	"github.com/usechain/go-usechain/common"
-	"github.com/usechain/go-usechain/core/state"
-	"github.com/usechain/go-usechain/core/vm"
-	"github.com/usechain/go-usechain/core/types"
-	"github.com/usechain/go-usechain/params"
-	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/contracts/authentication"
+	"github.com/usechain/go-usechain/core/state"
+	"github.com/usechain/go-usechain/core/types"
+	"github.com/usechain/go-usechain/core/vm"
+	"github.com/usechain/go-usechain/log"
+	"github.com/usechain/go-usechain/params"
 )
 
 var (
@@ -287,6 +287,16 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	}
 	st.refundGas()
 	st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+	st.state.AddTradePoints(sender.Address(), 1)
+
+	if !contractCreation {
+		transactionFormat := msgToTransaction(msg)
+		if transactionFormat.IsCommitteeTransaction() {
+			addr := transactionFormat.GetVerifiedAddress()
+			// Points for the identity verification.
+			st.state.AddCertifications(addr, common.IDVerified)
+		}
+	}
 
 	return ret, st.gasUsed(), vmerr != nil, err
 }

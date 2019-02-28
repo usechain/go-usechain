@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"container/heap"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/usechain/go-usechain/accounts/abi"
@@ -338,22 +339,32 @@ func (tx *Transaction) CheckCertLegality(_from common.Address) error {
 	}
 
 	// pubKey := inputData[0]
-	hashKey := "0x" + B2S(inputData[1].([32]uint8))
+	hashKey := Decode32Uint8(inputData[1].([32]uint8))
 	// identity := inputData[2]
-	// issuer := inputData[3]
+	issuerData := DecodeUint8(inputData[3].([]uint8))
+	issuer := NewIssuer()
+	i, _ := hexutil.Decode(issuerData)
+	json.Unmarshal(i, issuer)
 
-	cert, _ := hex.DecodeString(crypto.ReadUserCert())
+	cert, _ := hex.DecodeString(issuer.Cert)
 	err = crypto.CheckUserRegisterCert(cert, hashKey)
 
 	return err
 }
 
-func B2S(bs [32]uint8) string {
+func Decode32Uint8(bs [32]uint8) string {
 	b := make([]byte, len(bs))
 	for i, v := range bs {
 		b[i] = byte(v)
 	}
-	return hex.EncodeToString(b)
+	return hexutil.Encode(b)
+}
+func DecodeUint8(bs []uint8) string {
+	b := make([]byte, len(bs))
+	for i, v := range bs {
+		b[i] = byte(v)
+	}
+	return hexutil.Encode(b)
 }
 
 //check the certificate signature if the transaction is authentication Tx

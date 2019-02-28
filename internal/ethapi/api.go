@@ -1621,38 +1621,7 @@ func (s *PrivateAccountAPI) GenerateRSAKeypair() error {
 	return err
 }
 
-type Identity struct {
-	Data     string `json:"data"`
-	Nation   string `json:"nation"`
-	Entity   string `json:"entity"`
-	Fpr      string `json:"fpr"`
-	Alg      string `json:"alg"`
-	CertType string `json:"certtype"`
-	Ver      string `json:"ver"`
-	Cdate    string `json:"cdate"`
-}
-
-type Issuer struct {
-	Cert   string `json:"cert"`
-	Alg    string `json:"alg"`
-	UseId  string `json:"useid"`
-	PubKey string `json:"pubkey"`
-	Cdate  string `json:"cdate"`
-	Edate  string `json:"edate"`
-}
-
-type UserData struct {
-	Id        string `json:"id"`
-	CertType  string `json:"certtype"`
-	Name      string `json:"name"`
-	EName     string `json:"ename"`
-	Nation    string `json:"nation"`
-	Address   string `json:"address"`
-	BirthDate string `json:"birthdate"`
-}
-
-var B = "0x04334a10106c551d6bf6ee281653eab47fbe5fb68b100a9fb4c17e0193ee5285a46de19c81cc796df55d6a90fceaf47ea05a2c1591c24346b5a0554ed4bd4f31f9"
-var b = "33431506567349998020842321911135580870676597990408321508701492916562825459482"
+var B = "0x043b470fd13cfb408c4a4131aa96224dd701432808816025f852d9315e59e08f63a6f324c510f3ba0e226a7dcf1c44233a333b069efdafe532c69b3430b5db57f5"
 
 func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
 
@@ -1677,7 +1646,7 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 	}
 
 	d := GetUserData()
-	ud := UserData{}
+	ud := types.NewUserData()
 	json.Unmarshal(d, &ud)
 
 	//public key
@@ -1714,18 +1683,23 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 
 }
 
-func GetIssuerData(ud UserData, useId common.Address, pubKey string) []byte {
+func GetIssuerData(ud *types.UserData, useId common.Address, pubKey string) []byte {
 	cert := GetCert()
-	i := Issuer{Cert: cert, Alg: "RSA", UseId: useId.Str(), PubKey: pubKey, Cdate: "2018-12-26"}
-	data, _ := json.Marshal(i)
+	issuer := types.NewIssuer()
+	issuer.Cert = cert
+	issuer.Alg = "RSA"
+	issuer.UseId = useId.Str()
+	issuer.PubKey = pubKey
+	issuer.Cdate = "2018-12-26"
+	data, _ := json.Marshal(issuer)
 	return data
 }
 
-func GetIdentityData(ud UserData, pubKey *ecdsa.PublicKey) []byte {
-	identity := Identity{}
+func GetIdentityData(ud *types.UserData, pubKey *ecdsa.PublicKey) []byte {
+	identity := types.NewIdentity()
 	data, _ := json.Marshal(ud)
 	encData, _ := EncryptUserData(data, pubKey)
-	identity.Data = string(encData)
+	identity.Data = hexutil.Encode(encData)
 	identity.Alg = "ECIES"
 	identity.Fpr = crypto.Keccak256Hash([]byte(data)).Hex()
 

@@ -431,7 +431,7 @@ func (self *worker) commitNewWork() {
 		time.Sleep(wait)
 	}
 
-	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp - 5)) > 0 {
+	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp - int64(common.TimeSlot))) > 0 {
 		//log.Trace("Block time slot should be more than five seconds")
 		//time.Sleep(time.Duration(parent.Time().Int64() + int64(5) - tstamp) * time.Second)
 		//tstamp = parent.Time().Int64() + 5
@@ -458,10 +458,10 @@ func (self *worker) commitNewWork() {
 		Time:       big.NewInt(tstamp),
 	}
 	blockNumber := header.Number
-	if int64(new(big.Int).Rem(num, common.VoteSlot).Cmp(common.Big0)) == 0{
-		header.IsCheckPoint = common.Big1
+	if int64(new(big.Int).Mod(num, common.VoteSlot).Cmp(common.Big0)) == 0{
+		header.IsCheckPoint = big.NewInt(1)
 	}else{
-		header.IsCheckPoint = common.Big0
+		header.IsCheckPoint = big.NewInt(0)
 	}
 
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
@@ -507,7 +507,7 @@ func (self *worker) commitNewWork() {
 
 		if header.Number.Cmp(common.Big1) == 0 {
 			header.MinerQrSignature = []byte(genesisQrSignature)
-			preDifficultyLevel = common.Big0
+			preDifficultyLevel = big.NewInt(0)
 			preSignatureQr = []byte(genesisQrSignature)
 		} else {
 			minerQrSignature, _ := wallet.SignHash(account, qr.Bytes())
@@ -533,7 +533,7 @@ func (self *worker) commitNewWork() {
 
 		header.DifficultyLevel = big.NewInt(level)
 		if header.Number.Cmp(common.Big1) == 0 {
-			header.DifficultyLevel = common.Big0
+			header.DifficultyLevel = big.NewInt(0)
 		}
 		header.Coinbase = self.coinbase
 

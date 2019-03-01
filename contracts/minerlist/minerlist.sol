@@ -57,7 +57,7 @@ contract MinerList {
     ///add miner
     function addMiner() public payable onlyNotMiner(msg.sender) returns(bool) {
         require(msg.value >= ticket);
-          if (msg.value > ticket) {
+        if (msg.value > ticket) {
                uint256 refundFee = msg.value - ticket;
                msg.sender.transfer(refundFee);
         }
@@ -71,16 +71,11 @@ contract MinerList {
         for (uint i = 0; i<len; i++){
             if(msg.sender == Miner[i]){
                 msg.sender.transfer(ticket);
-                if(len == 1) {
-                    delete Miner[len-1];
-                    break;
-                }
                 Miner[i] = Miner[len-1];
-                delete Miner[len-1];
+                Miner.length--;
                 break;
             }
         }
-        Miner.length--;
         return true;
     }
 
@@ -89,17 +84,11 @@ contract MinerList {
         for (uint i = 0; i<len; i++){
             if(_miner == Miner[i]){
                 _miner.transfer(ticket);
-                if(len == 1) {
-                    delete Miner[len-1];
-                    break;
-                }
                 Miner[i] = Miner[len-1];
-                delete Miner[len-1];
+                Miner.length--;
                 break;
             }
         }
-        Miner.length--;
         return true;
     }
 }
-

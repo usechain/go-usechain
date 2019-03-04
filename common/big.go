@@ -30,5 +30,5 @@ var (
 	BlockSlot   = big.NewInt(25)
 	VoteSlot  = big.NewInt(10)
 	MaxCommitteemanCount = 1
-	TimeSlot = 5
+	BlockInterval = 5
 )

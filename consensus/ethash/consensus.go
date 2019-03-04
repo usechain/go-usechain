@@ -235,7 +235,7 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	tstampHead := header.Time
 	tstampSub := new(big.Int).Sub(tstampHead, tstampParent)
 
-	if tstampSub.Int64() < int64(common.TimeSlot) {
+	if tstampSub.Int64() < int64(common.BlockInterval) {
 		return fmt.Errorf("Block time slot should be more than five seconds")
 	}
 

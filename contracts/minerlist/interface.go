@@ -28,12 +28,13 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
+	"github.com/usechain/go-usechain/common/hexutil"
 )
 
 const (
 	MinerListContract = "0xfffffffffffffffffffffffffffffffff0000002"
-	ignore_slot = int64(1)
-	paramIndex = "0000000000000000000000000000000000000000000000000000000000000000"
+	ignoreSlot = int64(1)
+	paramIndex = "0x0000000000000000000000000000000000000000000000000000000000000000"
 )
 
 func ReadMinerNum(statedb *state.StateDB) *big.Int {
@@ -52,15 +53,11 @@ func IncreaseHexByNum(indexKeyHash []byte, num int64) string {
 
 func IsMiner(statedb *state.StateDB, miner common.Address) bool {
 	hash := sha3.NewKeccak256()
-	hash.Write(decodeHex(paramIndex))
+	hash.Write(hexutil.MustDecode(paramIndex))
 	var keyIndex []byte
 	keyIndex = hash.Sum(keyIndex)
 	for i := int64(0); i < ReadMinerNum(statedb).Int64(); i++ {
-		/*res := statedb.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, i)))
-		if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
-			return true
-		}*/
-		if(checkAddress(statedb, miner, keyIndex, i)){
+		if checkAddress(statedb, miner, keyIndex, i) {
 			return true
 		}
 	}
@@ -73,15 +70,10 @@ func CalQr(base []byte, number *big.Int, preQrSignature []byte) (common.Hash) {
 
 func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common.Address, preSignatureQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, offset *big.Int, preDifficultyLevel *big.Int) (bool, int64) {
 	hash := sha3.NewKeccak256()
-	hash.Write(decodeHex(paramIndex))
+	hash.Write(hexutil.MustDecode(paramIndex))
 	var keyIndex []byte
 	keyIndex = hash.Sum(keyIndex)
-	if(totalMinerNum.Cmp(common.Big1) == 0){
-		/*res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, minerlist[0])))
-		if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
-			log.Info("mined by successor first in order ", "id ", minerlist[0], "address ", miner.String()[2:])
-			return true, 0
-		}*/
+	if totalMinerNum.Cmp(common.Big1) == 0 {
 		return checkAddress(state, miner, keyIndex, 0), 0
 	}
 	minerlist := genRandomMinerList(preSignatureQr, offset, totalMinerNum)
@@ -102,11 +94,6 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 		if preDifficultyLevel.Int64() != 0 && idTargetfloat > (float64(0.618)-level)*totalminernum {
 			return false, 0
 		}
-		/*res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, minerlist[idTarget.Int64()])))
-		if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
-			log.Info("mined by successor first in order ", "id ", minerlist[idTarget.Int64()], "address ", miner.String()[2:])
-			return true, 0
-		}*/
 		return checkAddress(state, miner, keyIndex, minerlist[idTarget.Int64()]), 0
 	} else {
 		id := calId(idTarget, preSignatureQr, totalMinerNum, offset)
@@ -115,22 +102,8 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 			return false, offset.Int64()
 		}
 
-		/*res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, minerlist[id.Int64()])))
-		if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
-			log.Info("mined by other successor ", "id ", minerlist[id.Int64()], "address 0x", miner.String()[2:])
-			log.Info("the successor first in order ", "id", minerlist[idTarget.Int64()])
-			return true, offset.Int64()
-		}*/
 		return checkAddress(state, miner, keyIndex, minerlist[id.Int64()]), offset.Int64()
 	}
-}
-
-func decodeHex(s string) []byte {
-	b, err := hex.DecodeString(s)
-	if err != nil {
-		panic(err)
-	}
-	return b
 }
 
 //Generate a random list of miners for each block slot
@@ -157,14 +130,14 @@ func calIdTarget(preCoinbase common.Address, preSignatureQr []byte, blockNumber 
 }
 
 func calId(idTarget *big.Int, preSignatureQr []byte, totalMinerNum *big.Int, offset *big.Int) (*big.Int){
-	idn := CalQr(idTarget.Bytes(), offset, preSignatureQr)
-	id := new(big.Int).Mod(idn.Big(), totalMinerNum)
+	idNext := CalQr(idTarget.Bytes(), offset, preSignatureQr)
+	id := new(big.Int).Mod(idNext.Big(), totalMinerNum)
 
 	var oldNode []int64
-	for i := ignore_slot; i > 0; i-- {
-		idn_temp := CalQr(idTarget.Bytes(), new(big.Int).Sub(offset, big.NewInt(i)), preSignatureQr)
-		id_temp := new(big.Int).Mod(idn_temp.Big(), totalMinerNum)
-		oldNode = append(oldNode, id_temp.Int64())
+	for i := ignoreSlot; i > 0; i-- {
+		idNextTemp := CalQr(idTarget.Bytes(), new(big.Int).Sub(offset, big.NewInt(i)), preSignatureQr)
+		idTemp := new(big.Int).Mod(idNextTemp.Big(), totalMinerNum)
+		oldNode = append(oldNode, idTemp.Int64())
 	}
 
 	DONE:

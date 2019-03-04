@@ -431,7 +431,7 @@ func (self *worker) commitNewWork() {
 		time.Sleep(wait)
 	}
 
-	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp - int64(common.TimeSlot))) > 0 {
+	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp - int64(common.BlockInterval))) > 0 {
 		//log.Trace("Block time slot should be more than five seconds")
 		//time.Sleep(time.Duration(parent.Time().Int64() + int64(5) - tstamp) * time.Second)
 		//tstamp = parent.Time().Int64() + 5

@@ -18,6 +18,4 @@ func TestNewVoter(t *testing.T) {
 
 	channel = <-expire.C
 	fmt.Println("time is", channel)
-
-
 }

@@ -97,6 +97,9 @@ var (
 	ErrOversizedData = errors.New("oversized data")
 
 	// ErrPbftTo is returned if to is not nil in a pbft transaction
+	ErrTxpoolFull = errors.New("the txpool is already full")
+
+	// ErrPbftTo is returned if to is not nil in a pbft transaction
 	ErrPbftTo = errors.New("invalid receiver in pbft transaction")
 
 	// ErrPbftAmount is returned if amount is not zero in a pbft transaction
@@ -192,9 +195,10 @@ var DefaultTxPoolConfig = TxPoolConfig{
 	PriceBump:  10,
 
 	AccountSlots: 16,
-	GlobalSlots:  4096,
-	AccountQueue: 64,
-	GlobalQueue:  1024,
+	GlobalSlots:  4096*2,
+	///TODO: need to get a suitable parameters, and avoid TX DDOS attack
+	AccountQueue: 64*32*4,
+	GlobalQueue:  1024*16,
 
 	Lifetime: 3 * time.Hour,
 }
@@ -828,19 +832,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 	}
 	// If the transaction pool is full, discard underpriced transactions
 	if uint64(len(pool.all)) >= pool.config.GlobalSlots+pool.config.GlobalQueue {
-		// If the new transaction is underpriced, don't accept it
-		if pool.priced.Underpriced(tx, pool.locals) {
-			log.Debug("Discarding underpriced transaction", "hash", hash, "price", tx.GasPrice())
-			underpricedTxCounter.Inc(1)
-			return false, ErrUnderpriced
-		}
-		// New transaction is better than our worse ones, make room for it
-		drop := pool.priced.Discard(len(pool.all)-int(pool.config.GlobalSlots+pool.config.GlobalQueue-1), pool.locals)
-		for _, tx := range drop {
-			log.Debug("Discarding freshly underpriced transaction", "hash", tx.Hash(), "price", tx.GasPrice())
-			underpricedTxCounter.Inc(1)
-			pool.removeTx(tx.Hash())
-		}
+		return false, ErrTxpoolFull
 	}
 	// If the transaction is replacing an already pending one, do directly
 	from, _ := types.Sender(pool.signer, tx) // already validated

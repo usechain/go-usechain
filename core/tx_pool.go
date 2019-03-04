@@ -196,6 +196,7 @@ var DefaultTxPoolConfig = TxPoolConfig{
 
 	AccountSlots: 16,
 	GlobalSlots:  4096*2,
+	///TODO: need to get a suitable parameters, and avoid TX DDOS attack
 	AccountQueue: 64*32*4,
 	GlobalQueue:  1024*16,
 
@@ -825,22 +826,8 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 		return false, err
 	}
 	// If the transaction pool is full, discard underpriced transactions
-	fmt.Println("uint64(len(pool.all))", uint64(len(pool.all)))
 	if uint64(len(pool.all)) >= pool.config.GlobalSlots+pool.config.GlobalQueue {
 		return false, ErrTxpoolFull
-		// If the new transaction is underpriced, don't accept it
-		if pool.priced.Underpriced(tx, pool.locals) {
-			log.Debug("Discarding underpriced transaction", "hash", hash, "price", tx.GasPrice())
-			underpricedTxCounter.Inc(1)
-			return false, ErrUnderpriced
-		}
-		// New transaction is better than our worse ones, make room for it
-		drop := pool.priced.Discard(len(pool.all)-int(pool.config.GlobalSlots+pool.config.GlobalQueue-1), pool.locals)
-		for _, tx := range drop {
-			log.Debug("Discarding freshly underpriced transaction", "hash", tx.Hash(), "price", tx.GasPrice())
-			underpricedTxCounter.Inc(1)
-			pool.removeTx(tx.Hash())
-		}
 	}
 	// If the transaction is replacing an already pending one, do directly
 	from, _ := types.Sender(pool.signer, tx) // already validated

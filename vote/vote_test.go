@@ -4,8 +4,6 @@ import (
 	"testing"
 	"time"
 	"fmt"
-	"math/big"
-	"github.com/usechain/go-usechain/common"
 )
 
 func TestNewVoter(t *testing.T) {
@@ -20,6 +18,4 @@ func TestNewVoter(t *testing.T) {
 
 	channel = <-expire.C
 	fmt.Println("time is", channel)
-
-
 }

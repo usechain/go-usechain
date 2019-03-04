@@ -235,7 +235,7 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	tstampHead := header.Time
 	tstampSub := new(big.Int).Sub(tstampHead, tstampParent)
 
-	if tstampSub.Int64() < 5 {
+	if tstampSub.Int64() < int64(common.BlockInterval) {
 		return fmt.Errorf("Block time slot should be more than five seconds")
 	}
 
@@ -268,7 +268,7 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	preDifficultyLevel := parent.DifficultyLevel
 
 	if header.Number.Cmp(common.Big1) == 0 {
-		preDifficultyLevel = common.Big0
+		preDifficultyLevel = big.NewInt(0)
 		preSignatureQr = []byte(genesisQrSignature)
 	}
 

@@ -144,6 +144,14 @@ func (h UnprefixedHash) MarshalText() ([]byte, error) {
 	return []byte(hex.EncodeToString(h[:])), nil
 }
 
+// return the string data that has been added to the num
+func IncreaseHexByNum(indexKeyHash []byte, num int64) string {
+	x := new(big.Int).SetBytes(indexKeyHash)
+	y := big.NewInt(int64(num))
+	x.Add(x, y)
+	return hex.EncodeToString(x.Bytes())
+}
+
 // Address represents the 20 byte address of an Ethereum account.
 type Address [AddressLength]byte
 

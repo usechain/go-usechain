@@ -467,10 +467,11 @@ func (self *worker) commitNewWork() {
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&self.mining) == 1 {
 		totalMinerNum := minerlist.ReadMinerNum(self.current.state)
-		if totalMinerNum.Int64() == 0 {
+
+		/*if totalMinerNum.Int64() == 0 {
 			log.Error("no miner, please check the genesis.json file")
 			return
-		}
+		}*/
 
 		if !minerlist.IsMiner(self.current.state, self.coinbase) {
 			log.Error("Coinbase should be legal miner address, please register for mining")

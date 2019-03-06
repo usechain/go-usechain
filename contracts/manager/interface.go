@@ -39,8 +39,8 @@ func IsCommittee(statedb *state.StateDB, addr common.Address) bool {
 	// if normal mode, need strict check based on state db
 	// the committeeOnDuty Array key index start from 2
 	///TODO:change the committeeOnDuty to map struct for decline db queries
-	for i := int64(2); i < int64(common.MaxCommitteemanCount); i++ {
-		res := statedb.GetState(common.HexToAddress(ManagerContract), common.BigToHash(big.NewInt(i)))
+	for i := int64(0); i < int64(common.MaxCommitteemanCount); i++ {
+		res := statedb.GetState(common.HexToAddress(ManagerContract), common.BigToHash(big.NewInt(i+2)))
 		if strings.EqualFold(addr.Hash().String(), res.String()) {
 			return true
 		}

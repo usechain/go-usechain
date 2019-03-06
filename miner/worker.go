@@ -557,10 +557,11 @@ func (self *worker) commitNewWork() {
 	}
 	// Create the current work task and check any fork transitions needed
 	work := self.current
+	committeeCnt := self.chain.GetCommitteeCount()
 	var pending map[common.Address]types.Transactions
 	if header.IsCheckPoint.Cmp(common.Big1) == 0 {
 		pending, err = self.eth.TxPool().GetValidPbft(blockNumber.Uint64() - 1)
-		gen, targetHash, _ := CanGenBlockInCheckPoint(pending)
+		gen, targetHash, _ := CanGenBlockInCheckPoint(pending, committeeCnt)
 		if !gen {
 			DONE2:
 				for{
@@ -618,8 +619,8 @@ func (self *worker) commitNewWork() {
 	self.push(work)
 }
 
-func CanGenBlockInCheckPoint(txs map[common.Address]types.Transactions) (bool, common.Hash, uint32) {
-	if float64(len(txs)) < math.Ceil(float64(common.MaxCommitteemanCount)*2 / 3) {
+func CanGenBlockInCheckPoint(txs map[common.Address]types.Transactions, cnt int32) (bool, common.Hash, uint32) {
+	if float64(len(txs)) < math.Ceil(float64(cnt)*2 / 3) {
 		return false, common.Hash{}, 0
 	}
 
@@ -646,7 +647,7 @@ func CanGenBlockInCheckPoint(txs map[common.Address]types.Transactions) (bool, c
 		maxHash = hash
 	}
 
-	if float64(maxCount) < math.Ceil(float64(common.MaxCommitteemanCount)*2 / 3) {
+	if float64(maxCount) < math.Ceil(float64(cnt)*2 / 3) {
 		return false, maxHash, maxCount
 	}
 

@@ -35,6 +35,7 @@ import (
 	"github.com/usechain/go-usechain/metrics"
 	"github.com/usechain/go-usechain/params"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
+	"github.com/usechain/go-usechain/contracts/manager"
 )
 
 const (
@@ -110,6 +111,9 @@ var (
 
 	// ErrPbftPrice is returned if price is not zero in a pbft transaction
 	ErrPbftPrice = errors.New("invalid price in pbft transaction")
+
+	// ErrPbftPrice is returned if price is not zero in a pbft transaction
+	ErrPbftSender = errors.New("invalid sender in pbft transaction")
 
 	// ErrPbftPayloadLen is returned if length of payload is invalid in a pbft transaction
 	ErrPbftPayloadLen = errors.New("invalid length of payload in a pbft transaction")
@@ -734,6 +738,10 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		}
 		if tx.GasPrice().Int64() != 0 {
 			return ErrPbftPrice
+		}
+
+		if !manager.IsCommittee(pool.currentState, from) {
+			return ErrPbftSender
 		}
 
 		payload := tx.Data()

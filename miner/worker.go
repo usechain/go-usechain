@@ -38,7 +38,6 @@ import (
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/params"
 	"gopkg.in/fatih/set.v0"
-	"github.com/usechain/go-usechain/contracts/manager"
 )
 
 const (
@@ -557,7 +556,7 @@ func (self *worker) commitNewWork() {
 	}
 	// Create the current work task and check any fork transitions needed
 	work := self.current
-	committeeCnt := manager.GetCommitteeCount(work.state)
+	committeeCnt := self.chain.GetCommitteeCount()
 	var pending map[common.Address]types.Transactions
 	if header.IsCheckPoint.Cmp(common.Big1) == 0 {
 		pending, err = self.eth.TxPool().GetValidPbft(blockNumber.Uint64() - 1)
@@ -619,7 +618,7 @@ func (self *worker) commitNewWork() {
 	self.push(work)
 }
 
-func CanGenBlockInCheckPoint(txs map[common.Address]types.Transactions, cnt uint) (bool, common.Hash, uint32) {
+func CanGenBlockInCheckPoint(txs map[common.Address]types.Transactions, cnt int32) (bool, common.Hash, uint32) {
 	if float64(len(txs)) < math.Ceil(float64(cnt)*2 / 3) {
 		return false, common.Hash{}, 0
 	}

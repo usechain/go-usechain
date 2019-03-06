@@ -44,6 +44,7 @@ import (
 	"github.com/usechain/go-usechain/trie"
 	"github.com/hashicorp/golang-lru"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
+	"github.com/usechain/go-usechain/contracts/manager"
 )
 
 var (
@@ -132,6 +133,7 @@ type BlockChain struct {
 	badBlocks *lru.Cache // Bad block cache
 
 	votedHash common.Hash // valid voted block hash
+	committeeCnt int32   // committee max number
 }
 
 // NewBlockChain returns a fully initialised block chain using information
@@ -227,6 +229,10 @@ func (bc *BlockChain) loadLastState() error {
 			return err
 		}
 	}
+	if err := bc.loadCommitteeState(currentBlock.Root(), bc.stateCache); err != nil {
+		log.Warn("Load committee info failed", "err", err)
+		return err
+	}
 	// Everything seems to be fine, set as the head block
 	bc.currentBlock.Store(currentBlock)
 
@@ -258,6 +264,17 @@ func (bc *BlockChain) loadLastState() error {
 	log.Info("Loaded most recent local full block", "number", currentBlock.Number(), "hash", currentBlock.Hash(), "td", blockTd)
 	log.Info("Loaded most recent local fast block", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash(), "td", fastTd)
 
+	return nil
+}
+
+// loadCommitteeState loads the last known committee state from the database.
+func (bc *BlockChain) loadCommitteeState(root common.Hash, db state.Database) error {
+	// Make sure the state associated with the block is available
+	statedb, err := state.New(root, bc.stateCache)
+	if err != nil {
+		return err
+	}
+	bc.committeeCnt = manager.GetCommitteeCount(statedb)
 	return nil
 }
 
@@ -1540,6 +1557,10 @@ func (bc *BlockChain) writeHeader(header *types.Header) error {
 
 	_, err := bc.hc.WriteHeader(header)
 	return err
+}
+
+func (bc *BlockChain) GetCommitteeCount() int32 {
+	return bc.committeeCnt
 }
 
 // CurrentHeader retrieves the current head header of the canonical chain. The

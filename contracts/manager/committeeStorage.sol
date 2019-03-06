@@ -161,8 +161,6 @@ contract committeeStorage {
     {
         uint roundIndex = whichRound();
         rounds[roundIndex].selected = true;
-        // with actual vote & confirm, must be product environment
-        mode = 0;
     }
 
     // @notice get address's votes
@@ -226,9 +224,8 @@ contract committeeStorage {
     constant
     returns(uint)
     {
-        uint roundIndex = whichRound();
-        for(uint i = 0; i < rounds[roundIndex].committes.length; i++) {
-        if(rounds[roundIndex].committes[i].addr == msg.sender) {
+        for(uint i = 0; i < MAX_COMMITTEEMAN_COUNT; i++) {
+        if(committeeOnDuty[i] == msg.sender) {
             return i;
         }
     }
@@ -255,6 +252,8 @@ contract committeeStorage {
         uint committeeIndex = getCommitteeIndex();
         rounds[roundIndex].committes[committeeIndex].confirmed = true;
         rounds[roundIndex].committes[committeeIndex].asymPubkey = _asymPubkey;
+        
+        //on duty
         if(isEntireConfirmed() == true) {
             // @notice update committee into on duty array
             for(uint i = 0; i < MAX_COMMITTEEMAN_COUNT; i++) {
@@ -307,7 +306,6 @@ contract committeeStorage {
     //confirm the committee public key
     ///TODO: Not used yet
     function confirmCommitteePubkey(string _pubkey)
-    isCommittee
     public
     {
         uint roundIndex = whichRound();

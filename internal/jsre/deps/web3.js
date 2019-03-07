@@ -5749,20 +5749,6 @@ var methods = function () {
         inputFormatter: [formatters.inputAddressFormatter]
     });
 
-
-    var newABaccount = new Method({
-        name:'newABaccount',
-        call:'personal_newABaccount',
-        params: 2,
-        inputFormatter: [formatters.inputAddressFormatter,null]
-    });
-
-    var generateRSAKeypair = new Method({
-        name:'generateRSAKeypair',
-        call:'personal_generateRSAKeypair',
-        params: 0
-    });
-
     return [
         verify,
         verifyQuery,
@@ -5773,8 +5759,6 @@ var methods = function () {
         sign,
         sendTransaction,
         lockAccount,
-        newABaccount,
-        generateRSAKeypair,
     ];
 };
 
@@ -13732,15 +13716,6 @@ module.exports = XMLHttpRequest;
         }
 
         var methods = function () {
-            var sendMainTransaction = new Method({
-                name: 'sendMainTransaction',
-                call: 'use_sendMainTransaction',
-                params: 3,
-                inputFormatter: [null,formatters.inputTransactionFormatter,formatters.inputDefaultBlockNumberFormatter]
-            });
-
-
-
             var getTradePoints = new Method({
                 name: 'getTradePoints',
                 call: 'use_getTradePoints',
@@ -13757,20 +13732,6 @@ module.exports = XMLHttpRequest;
                 outputFormatter: formatters.outputBigNumberFormatter
             });
 
-            var sendSubTransaction = new Method({
-                name: 'sendSubTransaction',
-                call: 'use_sendSubTransaction',
-                params: 3,
-                inputFormatter: [null,formatters.inputTransactionFormatter,formatters.inputDefaultBlockNumberFormatter]
-            });
-
-            var getConfirmedMainAS = new Method({
-                name: 'getConfirmedMainAS',
-                call: 'use_getConfirmedMainAS',
-                params: 4,
-                inputFormatter: [null, null,null, formatters.inputDefaultBlockNumberFormatter]
-            });
-
             var queryAddr = new Method({
                 name: 'queryAddr',
                 call: 'use_queryAddr',
@@ -13785,39 +13746,11 @@ module.exports = XMLHttpRequest;
                 inputFormatter: [null,formatters.inputDefaultBlockNumberFormatter]
             });
 
-            var sendOneTimeTransaction = new Method({
-                name: 'sendOneTimeTransaction',
-                call: 'use_sendOneTimeTransaction',
-                params: 1,
-                inputFormatter: [formatters.inputTransactionFormatter]
-            });
-
             var sendCreditRegisterTransaction = new Method({
                 name: 'sendCreditRegisterTransaction',
                 call: 'use_sendCreditRegisterTransaction',
                 params: 1,
                 inputFormatter: [formatters.inputTransactionFormatter]
-            });
-
-            var getOneTimePubSet = new Method({
-                name: 'getOneTimePubSet',
-                call: 'use_getOneTimePubSet',
-                params: 3,
-                inputFormatter: [null, null, formatters.inputDefaultBlockNumberFormatter]
-            });
-
-            var getUnConfirmedMainInfo = new Method({
-                name: 'getUnConfirmedMainInfo',
-                call: 'use_getUnConfirmedMainInfo',
-                params: 4,
-                inputFormatter: [null, null,null, formatters.inputDefaultBlockNumberFormatter]
-            });
-
-            var getConfirmedMainInfo = new Method({
-                name: 'getConfirmedMainInfo',
-                call: 'use_getConfirmedMainInfo',
-                params: 4,
-                inputFormatter: [null, null,null, formatters.inputDefaultBlockNumberFormatter]
             });
 
             var minerRegister = new Method({
@@ -13837,19 +13770,9 @@ module.exports = XMLHttpRequest;
             return [
                 getTradePoints,
                 getCertifications,
-                sendMainTransaction,
-                sendSubTransaction,
-                sendOneTimeTransaction,
                 sendCreditRegisterTransaction,
-                getOneTimePubSet,
-                getUnConfirmedMainInfo,
-
-                getConfirmedMainInfo,
-                getConfirmedMainAS,
-
                 queryAddr,
                 minerAddr,
-
                 minerRegister,
                 minerUnRegister
             ];

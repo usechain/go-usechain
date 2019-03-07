@@ -50,6 +50,9 @@ const (
 	// txChanSize is the size of channel listening to NewTxsEvent.
 	// The number is referenced from the size of tx pool.
 	txChanSize = 4096 * 16
+
+	// txsCache is the size of tx sending cache
+	txCacheLimit = 1024
 )
 
 var (
@@ -85,6 +88,7 @@ type ProtocolManager struct {
 	txsCh         chan core.NewTxsEvent
 	txsSub        event.Subscription
 	minedBlockSub *event.TypeMuxSubscription
+	txsCache	  []*types.Transaction
 
 	// channels for fetcher, syncer, txsyncLoop
 	newPeerCh   chan *peer
@@ -703,7 +707,7 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 	for _, tx := range txs {
 		peers := pm.peers.PeersWithoutTx(tx.Hash())
 		transfer := peers
-		if tx.Flag() != 1 {
+		if tx.Flag() != 1 && len(peers) > 9 && len(txs) >= txCacheLimit / 2 {
 			// Send the block to a subset of our peers if not a pbft transaction
 			transfer = peers[:int(math.Sqrt(float64(len(peers))))]
 		}
@@ -732,11 +736,23 @@ func (self *ProtocolManager) minedBroadcastLoop() {
 }
 
 func (self *ProtocolManager) txBroadcastLoop() {
+	t := time.NewTimer(100 * time.Millisecond)
 	for {
 		select {
 		case event := <-self.txsCh:
-			self.BroadcastTxs(event.Txs)
-
+			for _,tx := range event.Txs {
+				self.txsCache = append(self.txsCache, tx)
+			}
+			if len(self.txsCache) >= txCacheLimit {
+				self.BroadcastTxs(self.txsCache)
+				self.txsCache = self.txsCache[:0]
+			}
+		case <-t.C:
+			if len(self.txsCache) > 0{
+				self.BroadcastTxs(self.txsCache)
+				self.txsCache = self.txsCache[:0]
+			}
+			t.Reset(100 * time.Millisecond)
 		// Err() channel will be closed when unsubscribing.
 		case <-self.txsSub.Err():
 			return

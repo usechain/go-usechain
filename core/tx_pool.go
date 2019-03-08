@@ -764,7 +764,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if tx.Flag() == 1 {
 		return ValidatePbftTx(pool.currentState, pool.chain.CurrentBlock().Number(), tx, from)
 	}
-
+	
 	//If the transaction is authentication, check txCert Signature
 	//If the transaction isn't, check the address legality
 	if tx.IsRegisterTransaction() {
@@ -821,7 +821,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 		return false, err
 	}
 	// If the transaction pool is full, discard underpriced transactions
-	if uint64(len(pool.all)) >= pool.config.GlobalSlots+pool.config.GlobalQueue {
+	if uint64(len(pool.all)) >= pool.config.GlobalSlots+pool.config.GlobalQueue && tx.Flag() != 1{
 		return false, ErrTxpoolFull
 	}
 	// If the transaction is replacing an already pending one, do directly

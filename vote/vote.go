@@ -174,7 +174,10 @@ func (self *Voter) voteChain() {
 
 	log.Info("Checkpoint vote is sent", "hash", signedTx.Hash().String())
 	//add tx to the txpool
-	self.txpool.AddLocal(signedTx)
+	err = self.txpool.AddLocal(signedTx)
+	if err != nil {
+		log.Warn("Checkpoint vote sent failed", "err", err)
+	}
 }
 
 //Fill the vote info

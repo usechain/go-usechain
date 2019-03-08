@@ -717,6 +717,7 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 		}
 		log.Trace("Broadcast transaction", "hash", tx.Hash(), "recipients", len(peers))
 	}
+	log.Trace("broadcast a bunch of transactions", "cnt", len(txs))
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, txs := range txset {
 		peer.SendTransactions(txs)

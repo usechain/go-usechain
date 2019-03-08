@@ -251,7 +251,7 @@ func (l *txList) Overlaps(tx *types.Transaction) bool {
 func (l *txList) Add(tx *types.Transaction, priceBump uint64) (bool, *types.Transaction) {
 	// If there's an older better transaction, abort
 	old := l.txs.Get(tx.Nonce())
-	if old != nil {
+	if old != nil && tx.Flag() != 1 {
 		threshold := new(big.Int).Div(new(big.Int).Mul(old.GasPrice(), big.NewInt(100+int64(priceBump))), big.NewInt(100))
 		// Have to ensure that the new gas price is higher than the old gas
 		// price as well as checking the percentage threshold to ensure that

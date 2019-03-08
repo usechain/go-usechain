@@ -219,7 +219,6 @@ contract committeeStorage {
                 success = true;
             }
         }
-        success = false;
     }
 
     /// @notice test

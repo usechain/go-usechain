@@ -1,6 +1,12 @@
-pragma solidity >=0.5.0 <0.6.0;
+pragma solidity >=0.5.2 <0.6.0;
 
 import "https://github.com/OpenZeppelin/openzeppelin-solidity/contracts/access/roles/SignerRole.sol";
+
+contract Committee{
+    /// @notice Whether the msg.sender is committee or not.
+    /// @return Whether the transfer was successful or not
+    function IsOndutyCommittee(address _user) public view returns(bool success);
+}
 
 contract CreditSystem is SignerRole{
 
@@ -10,6 +16,9 @@ contract CreditSystem is SignerRole{
     mapping (address => UseID) IDs;
     mapping (bytes32 => UseData) DataSet;
     bytes32[] public unregister;
+
+    /// @notice Committee contract address
+    address public CommitteeAddr = address(0xffFFFfFFffFfffffFffFFfFFFFFFFFFff0000003);
 
     struct Hash {
         bytes32 hash;
@@ -37,6 +46,12 @@ contract CreditSystem is SignerRole{
         bool[] verifies;            // certificate's status
     }
 
+
+    /// @notice only committee can do
+    modifier onlyCommittee(address _user) {
+        require (Committee(CommitteeAddr).IsOndutyCommittee(_user) == true);
+        _;
+    }
 
     function register(string memory _publicKey,
                     //address _useId,
@@ -68,6 +83,10 @@ contract CreditSystem is SignerRole{
         IDs[addr].baseHash.hash,
         IDs[addr].hl.hashes,
         IDs[addr].hl.verifies);
+    }
+
+    function isMainAccount(address _user) public view returns (bool){
+        return DataSet[IDs[_user].baseHash.hash].verify == true;
     }
 
     function addNewIdentity(bytes32 hashKey, bytes memory _identity, bytes memory _issuer)
@@ -133,7 +152,8 @@ contract CreditSystem is SignerRole{
 
     function verifyHash(address addr, bytes32 hash)
         public
-        onlySigner
+        // onlySigner
+        onlyCommittee(msg.sender)
         returns(bool){
             require(IDs[addr].useId != address(0));
             DataSet[hash].verify = true;
@@ -148,4 +168,13 @@ contract CreditSystem is SignerRole{
             }
         return false;
     }
+
+    function setCommitteeAddr(address _addr)
+        public
+        onlySigner
+        returns(bool success) {
+            require (CommitteeAddr != _addr);
+            CommitteeAddr = _addr;
+            success = true;
+        }
 }

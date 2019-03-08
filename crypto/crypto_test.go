@@ -26,7 +26,6 @@ import (
 	"testing"
 
 	"github.com/usechain/go-usechain/common"
-	"github.com/usechain/go-usechain/common/hexutil"
 )
 
 var testAddrHex = "970e8128ab834e8eac17ab8e3812f010678cf791"
@@ -219,48 +218,4 @@ func TestPythonIntegration(t *testing.T) {
 
 	t.Logf("msg: %x, privkey: %s sig: %x\n", msg0, kh, sig0)
 	t.Logf("msg: %x, privkey: %s sig: %x\n", msg1, kh, sig1)
-}
-
-///////////////////////////greg add 2018/07/04/////////////////////////////
-/////////////////////////////////////////////////////////////////////////
-func TestRingSign(t *testing.T) {
-
-	address := "0xb24f93396c915E003bd713319366c6fFA281cb9D"
-	msg1, _ := hexutil.Decode(address)
-	msg := Keccak256(msg1)
-	msg2 := hexutil.Encode(msg)
-
-	privateKey := "0x6dc1c88c2362cb85d6468ba225c5c0b39bbb216c9b67ad65e54c0000b00257c5"
-
-	publickeys := "0x04a3781e211cb2ad11e8d98b10eac054969e511faca98e22e68efe72d207314876ed3d53d823b4c74d911619c1854f4a7fce4811d086099a155911ef16a397e6bc," +
-		"0x04f80cc382ad254a4a94b15abf0c27af79933fe04cfdda1af8797244ac0c75def559772be355f081bd1ba146643efdb2fa4b538a587f173ef6c3731aec41756455," +
-		"0x0418c59aec60da2c04946710781ee839509ad2d3a188dc71710d684a50a25b5d7c648055cae6663ff10cb8e11e1d31e19a99533ad5637affdb61a053d5af6c3fe4," +
-		"0x04b00d07ab9d843e1375ea42d13ea8f30f97342795329fe5973281822092cde153f8ab504d25a4887dd67a9e111f5a824ee9eb24ce59c9c3d09d07af2975599a9f," +
-		"0x0418c59aec60da2c04946710781ee839509ad2d3a188dc71710d684a50a25b5d7c648055cae6663ff10cb8e11e1d31e19a99533ad5637affdb61a053d5af6c3fe4"
-	res, _, err := GenRingSignData(msg2, privateKey, publickeys)
-	if err != nil {
-		t.Fatal("ringsing error", err)
-	}
-
-	verifyRES := VerifyRingSign(address, res)
-	if verifyRES != true {
-		t.Error("Wrong Ring Signature!")
-	}
-}
-
-func TestVerifyRingSign(t *testing.T) {
-	msg := "0xb24f93396c915E003bd713319366c6fFA281cb9D"
-	ringsig := "0x04a3781e211cb2ad11e8d98b10eac054969e511faca98e22e68efe72d207314876ed3d53d823b4c74d911619c1854f4a7fce4811d086099a155911ef16a397e6bc&0x048579ab48414e804dcb328855e954850e6a9c2a7d3e61435938f6fe1f3c7905fc15eb4ace284d21a9764b56cefc61cff3749df86ef31cb71c7bf61f47c5b152a7&0x04f80cc382ad254a4a94b15abf0c27af79933fe04cfdda1af8797244ac0c75def559772be355f081bd1ba146643efdb2fa4b538a587f173ef6c3731aec41756455&0x0418c59aec60da2c04946710781ee839509ad2d3a188dc71710d684a50a25b5d7c648055cae6663ff10cb8e11e1d31e19a99533ad5637affdb61a053d5af6c3fe4&0x04b00d07ab9d843e1375ea42d13ea8f30f97342795329fe5973281822092cde153f8ab504d25a4887dd67a9e111f5a824ee9eb24ce59c9c3d09d07af2975599a9f&0x0418c59aec60da2c04946710781ee839509ad2d3a188dc71710d684a50a25b5d7c648055cae6663ff10cb8e11e1d31e19a99533ad5637affdb61a053d5af6c3fe4+0x0499b7e7aedb55e94580b25843b8829159c12704d3921bddf9c04ea2c77543af2a2449a63b0618d32b1a9db7167aa10a705f75f2082abb153db304ab43d204af77+0x62f4afad6059b78d1d6c5b8a469fc3445f28f5bdd7b0cd7db7a42807d66e68b6&0xc2c75dda6427fd92ea13cda76beff5a562a1db8615eadfc7bc30eef431bc0f13&0x98b14724b0eaa855d8ce815055201fe5672a53c5f40f55d1b7be477b1f0827e3&0x30da249676695ddf70df2be28ac1f75d8339430a51af38f5f7ef790457b17297&0xcd2181296061e9b1daeba5cfa4f574efc52f129d2fe8a9666a69c7a4aeeaa262&0x3d6c828a86549b3d33503633087e38dbc16f91ec7b539311d342a4e7f7250460+0xdca3e364de413de791dc23ab2380ac180c442594df5b6d893213117c7a666b29&0x5643f2ed5975059a79d7a862bb382568640a452fd4781aad6a30e8f765019539&0x6196a4976a9c7164d717abba55caf985632cecd5be7d04691cbffa53122337a8&0x3394b30501572c5b3e38f17d3ddd511b4b801cf55688c3a5f1bbbdf1061de75b&0xb5c5166dbcb8dcb9533b26dc4a4e14a65769f00ba7ad1f8655625a276eed3081&0x658bb92f5be8d0059c2f8f22034aa7ba68d277e9f0cefb2bf2cb317462a2e74a"
-	msg1, _ := hexutil.Decode(msg)
-	msg2 := Keccak256(msg1)
-
-	err, publickeys, keyimage, c, r := DecodeRingSignOut(ringsig)
-	if err != nil {
-		t.Fatal("false")
-	}
-
-	verifyRES := verifyRingSign(msg2, publickeys, keyimage, c, r)
-	if verifyRES != true {
-		t.Error("Verify signature return false!")
-	}
 }

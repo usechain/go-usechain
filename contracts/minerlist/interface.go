@@ -19,8 +19,8 @@ package minerlist
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/crypto/sha3"
@@ -28,7 +28,6 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
-	"github.com/usechain/go-usechain/common/hexutil"
 )
 
 const (
@@ -41,14 +40,6 @@ func ReadMinerNum(statedb *state.StateDB) *big.Int {
 	// get data from the contract statedb
 	res := statedb.GetState(common.HexToAddress(MinerListContract), common.HexToHash(paramIndex))
 	return res.Big()
-}
-
-// return the string data that has been added to the num
-func IncreaseHexByNum(indexKeyHash []byte, num int64) string {
-	x := new(big.Int).SetBytes(indexKeyHash)
-	y := big.NewInt(int64(num))
-	x.Add(x, y)
-	return hex.EncodeToString(x.Bytes())
 }
 
 func IsMiner(statedb *state.StateDB, miner common.Address) bool {
@@ -169,7 +160,7 @@ func calId(idTarget *big.Int, preSignatureQr []byte, totalMinerNum *big.Int, off
 }
 
 func checkAddress(statedb *state.StateDB, miner common.Address, keyIndex []byte, offset int64) (bool){
-	res := statedb.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, offset)))
+	res := statedb.GetState(common.HexToAddress(MinerListContract), common.HexToHash(common.IncreaseHexByNum(keyIndex, offset)))
 	if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
 		return true
 	}

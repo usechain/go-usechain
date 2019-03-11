@@ -25,8 +25,6 @@ import (
 	"github.com/usechain/go-usechain/core"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/common"
-	"github.com/usechain/go-usechain/common/hexutil"
-	"github.com/usechain/go-usechain/contracts/utils"
 	"github.com/usechain/go-usechain/contracts/manager"
 	"github.com/usechain/go-usechain/event"
 	"github.com/usechain/go-usechain/log"
@@ -158,22 +156,15 @@ func (self *Voter) voteChain() {
 		return
 	}
 
-	///TODO:must be a committee
 	//check the votebase whether a committee
 	//get the nonce from current header to ensure the tx be packed in the next block
-	nonce := self.txpool.StateDB().GetNonce(self.votebase)
-	managerContract, err := manager.NewManagerContract(self.blockchain, true)
-	if err != nil {
-		log.Error("manager contract re-construct failed")
-		return
-	}
-	res, _ := managerContract.CallContract(self.votebase, nonce, "IsCommittee")
-	if hexutil.Encode(res) == utils.ContractFalse{
+	if !manager.IsCommittee(self.txpool.StateDB(),self.votebase) {
 		log.Error("Not a committee, can't vote")
 		return
 	}
 
 	//new a transaction
+	nonce := self.txpool.StateDB().GetNonce(self.votebase)
 	tx := types.NewPbftMessage(nonce, self.writeVoteInfo())
 	signedTx, err := wallet.SignTx(account, tx, nil)
 	if err != nil {
@@ -183,7 +174,10 @@ func (self *Voter) voteChain() {
 
 	log.Info("Checkpoint vote is sent", "hash", signedTx.Hash().String())
 	//add tx to the txpool
-	self.txpool.AddLocal(signedTx)
+	err = self.txpool.AddLocal(signedTx)
+	if err != nil {
+		log.Warn("Checkpoint vote sent failed", "err", err)
+	}
 }
 
 //Fill the vote info

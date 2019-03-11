@@ -41,6 +41,7 @@ type StateDB interface {
 	SetCertifications(common.Address, uint64)
 	AddCertifications(common.Address, uint64)
 	GetCertifications(common.Address) uint64
+	IsCertificationVerified(common.Address, uint64) bool
 
 	GetCodeHash(common.Address) common.Hash
 	GetCode(common.Address) []byte

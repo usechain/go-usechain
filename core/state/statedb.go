@@ -26,6 +26,7 @@ import (
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/rlp"
 	"github.com/usechain/go-usechain/trie"
+	"math"
 	"math/big"
 	"sort"
 	"sync"
@@ -239,6 +240,16 @@ func (self *StateDB) AddCertifications(addr common.Address, certifications uint6
 		currentCert := stateObject.Certifications()
 		stateObject.SetCertifications(currentCert + certifications)
 	}
+}
+
+func (self *StateDB) IsCertificationVerified(addr common.Address, flag uint64) bool {
+	stateObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		currentCert := stateObject.Certifications()
+		n := new(big.Int).Rsh(big.NewInt(int64(currentCert)), uint(math.Log2(float64(flag)))) // n >> log2flag e.g if flag=4 then n >> 2
+		return new(big.Int).Mod(n, big.NewInt(2)).Cmp(big.NewInt(1)) == 0                     // if n%2 == 1 then flag is verified
+	}
+	return false
 }
 
 func (self *StateDB) GetCode(addr common.Address) []byte {

@@ -70,6 +70,10 @@ contract CreditSystem is SignerRole{
         IDs[addr].hl.verifies);
     }
 
+    function isMainAccount(address _user) public view returns (bool){
+      return DataSet[IDs[_user].baseHash.hash].verify == true;
+    }
+
     function addNewIdentity(bytes32 hashKey, bytes memory _identity, bytes memory _issuer)
         public
         payable

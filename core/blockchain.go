@@ -856,8 +856,9 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 			continue
 		}
 		// Check local voted block
-		if block.NumberU64() % common.VoteSlot.Uint64() == 0 && bc.GetBlockByNumber(block.NumberU64()) != nil {
-			return i, fmt.Errorf("refuse to cover local voted block")
+		tempBlock := bc.GetBlockByNumber(block.NumberU64())
+		if block.NumberU64() % common.VoteSlot.Uint64() == 0 && tempBlock != nil && tempBlock.Hash() != block.Hash() {
+			return i, fmt.Errorf("refuse to cover local voted block: %v", tempBlock.Hash())
 		}
 		// Compute all the non-consensus fields of the receipts
 		SetReceiptsData(bc.chainConfig, block, receipts)
@@ -1134,8 +1135,9 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		bstart := time.Now()
 
 		// Check local voted block
-		if block.NumberU64() % common.VoteSlot.Uint64() == 0 && bc.GetBlockByNumber(block.NumberU64()) != nil {
-			return i, events, coalescedLogs, fmt.Errorf("refuse to cover local voted block")
+		tempBlock := bc.GetBlockByNumber(block.NumberU64())
+		if block.NumberU64() % common.VoteSlot.Uint64() == 0 && tempBlock != nil && tempBlock.Hash() != block.Hash() {
+			return i, events, coalescedLogs, fmt.Errorf("refuse to cover local voted block: %v", tempBlock.Hash().Hex())
 		}
 
 		err := <-results

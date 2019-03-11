@@ -209,49 +209,6 @@ func (tx *Transaction) To() *common.Address {
 	return &to
 }
 
-//Another authentication implementation write in state_trasanction.go
-//Main&Sub account authentication
-func (tx *Transaction) IsMainAuthentication() bool {
-	//The authentication tx payload must longer than 36 bytes
-	//Added levelTag and address type
-	if len(tx.Data()) <= 4+32*30 {
-		return false
-	}
-
-	//leavel below, something wrong with !=
-	if bytes.Compare(tx.Data()[:4], []byte{0x10, 0xc9, 0x56, 0xea}) != 0 {
-		return false
-	}
-
-	if !strings.EqualFold((*tx.To()).Hex(), common.AuthenticationContractAddressString) {
-		log.Debug("contract address doesn't match")
-		return false
-	}
-
-	return true
-}
-
-//Another authentication implementation write in state_trasanction.go
-func (tx *Transaction) IsSubAuthentication() bool {
-	//The authentication tx payload must longer than 36 bytes
-	//Added levelTag and address type
-	if len(tx.Data()) <= 4+32*30 {
-		return false
-	}
-
-	//leavel below, something wrong with !=
-	if bytes.Compare(tx.Data()[:4], []byte{0xca, 0xcc, 0x93, 0x4c}) != 0 {
-		return false
-	}
-
-	if !strings.EqualFold((*tx.To()).Hex(), common.AuthenticationContractAddressString) {
-		log.Debug("Contract address doesn't match")
-		return false
-	}
-
-	return true
-}
-
 func (tx *Transaction) IsRegisterTransaction() bool {
 
 	if len(tx.Data()) <= 4+32*10 {
@@ -274,28 +231,6 @@ func (tx *Transaction) IsCommitteeTransaction() bool {
 		return true
 	}
 	return false
-}
-
-//Another authentication implementation write in state_trasanction.go
-//OTA transaction verify
-func (tx *Transaction) IsAuthentication() bool {
-	//The authentication tx payload must longer than 36 bytes
-	//Added levelTag and address type
-	if len(tx.Data()) <= 4+32*10 {
-		return false
-	}
-
-	//leavel below, something wrong with !=
-	if bytes.Compare(tx.Data()[:4], []byte{0xfd, 0xf0, 0x3f, 0x86}) != 0 {
-		return false
-	}
-
-	if !strings.EqualFold((*tx.To()).Hex(), common.AuthenticationContractAddressString) {
-		log.Debug("contract address doesn't match")
-		return false
-	}
-
-	return true
 }
 
 func (tx *Transaction) GetVerifiedAddress() common.Address {
@@ -365,60 +300,6 @@ func DecodeUint8(bs []uint8) string {
 		b[i] = byte(v)
 	}
 	return hexutil.Encode(b)
-}
-
-//check the certificate signature if the transaction is authentication Tx
-//   MultiAB account authentication TX:
-//   -------------------------------------------------------------------
-//  |             |              |               |                      |
-//  |   ABI_tag   |   pubkey     |     sign      |       CA cert        |
-//  |             |              |               |                      |
-//   -------------------------------------------------------------------
-//  ======================================================================
-func (tx *Transaction) CheckCertificateSig(_from common.Address) error {
-
-	usechainABI, err := abi.JSON(strings.NewReader(common.UsechainABI))
-	if err != nil {
-		log.Error("parse usechainABI", err)
-	}
-
-	method, exist := usechainABI.Methods["storeOneTimeAddress"]
-	if !exist {
-		log.Error("method not found:", "storeOneTimeAddress")
-	}
-	InputDataInterface, err := method.Inputs.UnpackABI(tx.Data()[4:])
-	if err != nil {
-		fmt.Println("method.Inputs: ", err)
-		return err
-	}
-
-	var inputData []string
-	for _, param := range InputDataInterface {
-		inputData = append(inputData, param.(string))
-	}
-
-	pub := inputData[0]
-	sign := inputData[1]
-	ca := inputData[2]
-
-	pubHex, _ := hexutil.Decode(pub)
-	pubKey := crypto.ToECDSAPub(pubHex)
-	if crypto.PubkeyToAddress(*pubKey) != _from {
-		return errors.New("the pubkey & address doesn't match")
-	}
-
-	sig, _ := hex.DecodeString(sign)
-	err = crypto.CheckUserCertStandard(ca, _from, sig)
-	if err != nil {
-		return errors.New("the CA cert is illegal")
-	}
-
-	return err
-}
-
-//get the authentication level, only for authentication Tx
-func (tx *Transaction) GetTxAuthenticationLevel() int {
-	return int(tx.Data()[35])
 }
 
 // Hash hashes the RLP encoding of tx.

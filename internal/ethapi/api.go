@@ -20,20 +20,15 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"math/big"
-	"path/filepath"
-	"strings"
-	"time"
-
-	"github.com/usechain/go-usechain/contracts/authentication"
-
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/usechain/go-usechain/accounts"
+	"github.com/usechain/go-usechain/accounts/abi"
 	"github.com/usechain/go-usechain/accounts/cacertreg"
 	"github.com/usechain/go-usechain/accounts/keystore"
 	"github.com/usechain/go-usechain/common"
@@ -47,17 +42,16 @@ import (
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/crypto/ecies"
 	"github.com/usechain/go-usechain/log"
+	"github.com/usechain/go-usechain/node"
 	"github.com/usechain/go-usechain/p2p"
 	"github.com/usechain/go-usechain/params"
 	"github.com/usechain/go-usechain/rlp"
 	"github.com/usechain/go-usechain/rpc"
-
-	"encoding/hex"
-
-	"github.com/usechain/go-usechain/accounts/abi"
-	"github.com/usechain/go-usechain/node"
-
-	"crypto/rand"
+	"io/ioutil"
+	"math/big"
+	"path/filepath"
+	"strings"
+	"time"
 )
 
 const (
@@ -185,7 +179,7 @@ func (s *PublicTxPoolAPI) Inspect() map[string]map[string]map[string]string {
 		if tx.Flag() == 1 {
 			payload := tx.Data()
 			blockHash := payload[:common.HashLength]
-			number := payload[common.HashLength:len(payload)]
+			number := payload[common.HashLength:]
 			return fmt.Sprintf("pbft vote: block %v, height %v", common.BytesToHash(blockHash).String(), new(big.Int).SetBytes(number).Uint64())
 		}
 		if to := tx.To(); to != nil {
@@ -1719,23 +1713,6 @@ func EncryptUserData(userData []byte, pubKey *ecdsa.PublicKey) ([]byte, error) {
 	return encrypted, err
 }
 
-func DecryptUserData(userData []byte, privateKey *ecdsa.PrivateKey) ([]byte, error) {
-	decrypted, err := ecies.ImportECDSA(privateKey).Decrypt(rand.Reader, userData, nil, nil)
-	return decrypted, err
-}
-
-func GetUserIdFromData(jsonData []byte) string {
-	var data map[string]string
-	if err := json.Unmarshal(jsonData, &data); err != nil {
-		log.Error("Unpack data error!")
-	}
-	idType := data["certype"]
-	idNum := data["id"]
-
-	userId := crypto.Keccak256Hash([]byte(idType + "-" + idNum)).Hex()
-	return string(userId)
-}
-
 func GetUserData() []byte {
 	userDataPath := filepath.Join(node.DefaultDataDir(), "userData.json")
 	dataBytes, _ := readData(userDataPath)
@@ -1759,15 +1736,13 @@ func readData(filename string) ([]byte, error) {
 	return userData, err
 }
 
+// QueryAddr returns the address whether already been credited
 func (s *PublicBlockChainAPI) QueryAddr(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) uint64 {
 	stateDb, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if stateDb == nil || err != nil {
 		return 0
 	}
-
-	if authentication.CheckAddrAuthenticateStat(stateDb, addr) == 0 {
-		return 0
-	}
+	///TODO: leave the space, add the new credit interface later
 	return 1
 }
 

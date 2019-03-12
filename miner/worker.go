@@ -421,9 +421,7 @@ func (self *worker) commitNewWork() {
 	parent := self.chain.CurrentBlock()
 
 	tstamp := tstart.Unix()
-	//if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
-	//	tstamp = parent.Time().Int64() + 1
-	//}
+
 	// this will ensure we're not going off too far in the future
 	if now := time.Now().Unix(); tstamp > now+1 {
 		wait := time.Duration(tstamp-now) * time.Second
@@ -431,12 +429,9 @@ func (self *worker) commitNewWork() {
 		time.Sleep(wait)
 	}
 
-	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp - int64(common.BlockInterval))) > 0 {
-		//log.Trace("Block time slot should be more than five seconds")
-		//time.Sleep(time.Duration(parent.Time().Int64() + int64(5) - tstamp) * time.Second)
-		//tstamp = parent.Time().Int64() + 5
+	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp-int64(common.BlockInterval))) > 0 {
 	DONE:
-		for{
+		for {
 			select {
 			case <-self.chainRpowCh:
 			default:
@@ -453,25 +448,20 @@ func (self *worker) commitNewWork() {
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
 		//GasLimit:   core.CalcGasLimit(parent),
-		GasLimit:	210000000,
-		Extra:      self.extra,
-		Time:       big.NewInt(tstamp),
+		GasLimit: 210000000,
+		Extra:    self.extra,
+		Time:     big.NewInt(tstamp),
 	}
 	blockNumber := header.Number
-	if int64(new(big.Int).Mod(num, common.VoteSlot).Cmp(common.Big0)) == 0{
+	if int64(new(big.Int).Mod(num, common.VoteSlot).Cmp(common.Big0)) == 0 {
 		header.IsCheckPoint = big.NewInt(1)
-	}else{
+	} else {
 		header.IsCheckPoint = big.NewInt(0)
 	}
 
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&self.mining) == 1 {
 		totalMinerNum := minerlist.ReadMinerNum(self.current.state)
-
-		/*if totalMinerNum.Int64() == 0 {
-			log.Error("no miner, please check the genesis.json file")
-			return
-		}*/
 
 		if !minerlist.IsMiner(self.current.state, self.coinbase, totalMinerNum) {
 			log.Error("Coinbase should be legal miner address, please register for mining")
@@ -480,15 +470,15 @@ func (self *worker) commitNewWork() {
 
 		// Look up the wallet containing the requested signer
 		account := accounts.Account{Address: self.coinbase}
-		wallet, err :=self.eth.AccountManager().Find(account)
+		wallet, err := self.eth.AccountManager().Find(account)
 		if err != nil {
-			log.Error("To be a miner of usechain RPOW, need local account","err", err)
+			log.Error("To be a miner of usechain RPOW, need local account", "err", err)
 			return
 		}
 
 		minerHash := crypto.Keccak256Hash(append((parent.Coinbase()).Bytes(), header.Number.Bytes()...))
 		// Assemble sign the data with the wallet
-		_ , err = wallet.SignHash(account, minerHash.Bytes())
+		_, err = wallet.SignHash(account, minerHash.Bytes())
 		if err != nil {
 			log.Error("Failed to unlock the coinbase account", "err", err)
 			return
@@ -498,12 +488,10 @@ func (self *worker) commitNewWork() {
 
 		preCoinbase := parent.Coinbase()
 		qr := minerlist.CalQr(preCoinbase.Bytes(), blockNumber, preSignatureQr)
-		//idTarget := new(big.Int).Rem(qr.Big(), totalMinerNum)
 
 		tstampSub := header.Time.Int64() - parent.Time().Int64()
 		n := big.NewInt(tstampSub / common.BlockSlot.Int64())
 
-		//signature, err := wallet.SignHash(account, minerHash.Bytes())
 		preDifficultyLevel := parent.DifficultyLevel()
 
 		if header.Number.Cmp(common.Big1) == 0 {
@@ -519,7 +507,7 @@ func (self *worker) commitNewWork() {
 
 		if !IsValidMiner {
 		DONE1:
-			for{
+			for {
 				select {
 				case <-self.chainRpowCh:
 				default:
@@ -542,7 +530,7 @@ func (self *worker) commitNewWork() {
 			log.Error("Failed to prepare header for mining", "err", err)
 			return
 		}
-	}else {
+	} else {
 		if err := self.engine.Prepare(self.chain, header, nil); err != nil {
 			log.Error("Failed to prepare header for mining", "err", err)
 			return
@@ -564,14 +552,13 @@ func (self *worker) commitNewWork() {
 		gen, targetHash, _ := CanGenBlockInCheckPoint(pending, committeeCnt)
 		if !gen {
 		DONE2:
-			for{
+			for {
 				select {
 				case <-self.chainRpowCh:
 				default:
 					break DONE2
 				}
 			}
-			//time.Sleep(time.Duration(tstampSub % slot + 1) * time.Second)
 			time.Sleep(10 * time.Millisecond)
 			self.chainRpowCh <- 1
 			return
@@ -595,7 +582,7 @@ func (self *worker) commitNewWork() {
 				}
 			}
 		}
-	}else{
+	} else {
 		pending, err = self.eth.TxPool().Pending()
 	}
 
@@ -620,7 +607,7 @@ func (self *worker) commitNewWork() {
 }
 
 func CanGenBlockInCheckPoint(txs map[common.Address]types.Transactions, cnt int32) (bool, common.Hash, uint32) {
-	if float64(len(txs)) < math.Ceil(float64(cnt)*2 / 3) {
+	if float64(len(txs)) < math.Ceil(float64(cnt)*2/3) {
 		return false, common.Hash{}, 0
 	}
 
@@ -647,7 +634,7 @@ func CanGenBlockInCheckPoint(txs map[common.Address]types.Transactions, cnt int3
 		maxHash = hash
 	}
 
-	if float64(maxCount) < math.Ceil(float64(cnt)*2 / 3) {
+	if float64(maxCount) < math.Ceil(float64(cnt)*2/3) {
 		return false, maxHash, maxCount
 	}
 

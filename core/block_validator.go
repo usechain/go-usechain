@@ -18,11 +18,11 @@ package core
 
 import (
 	"fmt"
-	"github.com/usechain/go-usechain/common"
-	"github.com/usechain/go-usechain/contracts/minerlist"
 	"math/big"
 
+	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/consensus"
+	"github.com/usechain/go-usechain/contracts/minerlist"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/params"

@@ -473,7 +473,7 @@ func (self *worker) commitNewWork() {
 			return
 		}*/
 
-		if !minerlist.IsMiner(self.current.state, self.coinbase) {
+		if !minerlist.IsMiner(self.current.state, self.coinbase, totalMinerNum) {
 			log.Error("Coinbase should be legal miner address, please register for mining")
 			return
 		}

@@ -117,7 +117,7 @@ func (v *BlockValidator) ValidateMiner(block, parent *types.Block, statedb *stat
 
 	totalMinerNum := minerlist.ReadMinerNum(statedb)
 
-	if !minerlist.IsMiner(statedb, header.Coinbase) && totalMinerNum.Int64() > 1 {
+	if !minerlist.IsMiner(statedb, header.Coinbase, totalMinerNum) && totalMinerNum.Int64() > 1 {
 		return fmt.Errorf("Coinbase should be legal miner address, invalid miner")
 	}
 

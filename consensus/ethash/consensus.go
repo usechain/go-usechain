@@ -259,33 +259,6 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 		return errZeroBlockTime
 	}
 
-	/*// Verify block miner
-	preCoinbase := parent.Coinbase
-	blockNumber := header.Number
-	preSignatureQr := parent.MinerQrSignature
-	preDifficultyLevel := parent.DifficultyLevel
-
-	if header.Number.Cmp(common.Big1) == 0 {
-		preDifficultyLevel = big.NewInt(0)
-		preSignatureQr = []byte(genesisQrSignature)
-	}
-
-	n := new(big.Int).Div(tstampSub, common.BlockSlot)
-
-	IsValidMiner, level := minerlist.IsValidMiner(state, header.Coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n, preDifficultyLevel)
-
-	if !IsValidMiner {
-		return fmt.Errorf("invalid miner")
-	}
-
-	if header.Number.Cmp(common.Big1) == 0 && header.DifficultyLevel.Int64() != 0 {
-		return fmt.Errorf("invalid difficultyLevel: have %v, want 0", header.DifficultyLevel)
-	}
-
-	if header.Number.Cmp(common.Big1) != 0 && level != header.DifficultyLevel.Int64() {
-		return fmt.Errorf("invalid difficultyLevel: have %v, want %v", header.DifficultyLevel, level)
-	}*/
-
 	// Verify the block's difficulty based in it's timestamp and parent's difficulty
 	expected := ethash.CalcDifficulty(chain, header.Time.Uint64(), header, parent)
 

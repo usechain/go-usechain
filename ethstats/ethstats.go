@@ -476,6 +476,7 @@ type blockStats struct {
 	IsCheckPoint   *big.Int		  `json:"isCheckPoint"`
 	MinerQrSignature string   `json:"minerQrSignature"`
 	DifficultyLevel   *big.Int		  `json:"difficultyLevel"`
+	PrimaryMiner string   `json:"primaryMiner"`
 	GasUsed    uint64         `json:"gasUsed"`
 	GasLimit   uint64         `json:"gasLimit"`
 	Diff       string         `json:"difficulty"`
@@ -565,6 +566,7 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 		IsCheckPoint:	header.IsCheckPoint,
 		MinerQrSignature: string((header.MinerQrSignature)),
 		DifficultyLevel:	header.DifficultyLevel,
+		PrimaryMiner: string((header.PrimaryMiner)),
 		GasUsed:    header.GasUsed,
 		GasLimit:   header.GasLimit,
 		Diff:       header.Difficulty.String(),

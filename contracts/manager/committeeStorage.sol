@@ -1,4 +1,4 @@
-pragma solidity >=0.5.2 <0.6.0;
+pragma solidity ^0.4.20;
 
 contract committeeStorage {
     /// @notice Committee
@@ -212,13 +212,14 @@ contract committeeStorage {
     function IsOndutyCommittee(address _user)
     public
     view
-    returns(bool success)
+    returns(bool)
     {
         for (uint i=0; i<MAX_COMMITTEEMAN_COUNT; i++) {
             if (committeeOnDuty[i] == _user) {
-                success = true;
+                return true;
             }
         }
+        return false;
     }
 
     /// @notice test
@@ -323,7 +324,7 @@ contract committeeStorage {
     public
     {
         uint roundIndex = whichRound();
-        if(keccak256(abi.encodePacked(rounds[roundIndex].committeePublicKey_candidate)) != keccak256(abi.encodePacked(_pubkey))) {
+        if(keccak256(rounds[roundIndex].committeePublicKey_candidate) != keccak256(_pubkey)) {
             return;
         }
         rounds[roundIndex].committeePublicKey_candidate = _pubkey;

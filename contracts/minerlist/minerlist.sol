@@ -14,18 +14,18 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-usechain library. If not, see <http://www.gnu.org/licenses/>.
 
-pragma solidity >=0.5.2 <0.6.0;
+pragma solidity ^0.4.20;
 
 contract Committee {
     /// @notice Whether the msg.sender is committee or not.
     /// @return Whether the transfer was successful or not
-    function IsOndutyCommittee(address _user) public view returns(bool success);
+    function IsOndutyCommittee(address _user) public view returns(bool);
 }
 
 contract Credit {
     /// @notice Whether the address is main account or not
     /// @return true or false
-    function isMainAccount(address _user) public view returns (bool);
+    function isMainAccount(address _user) public view returns(bool);
 }
 
 contract MinerList {
@@ -106,7 +106,7 @@ contract MinerList {
     }
 
     /// @notice only committee can del miner
-    function delMinerByCommittee(address payable _miner) public payable onlyMiner(_miner) onlyCommittee(msg.sender) returns(bool) {
+    function delMinerByCommittee(address _miner) public payable onlyMiner(_miner) onlyCommittee(msg.sender) returns(bool) {
         uint len=Miner.length;
         for (uint i = 0; i<len; i++){
             if(_miner == Miner[i]){

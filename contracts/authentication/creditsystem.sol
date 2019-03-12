@@ -1,15 +1,95 @@
-pragma solidity >=0.5.2 <0.6.0;
+pragma solidity ^0.4.20;
 
-import "https://github.com/OpenZeppelin/openzeppelin-solidity/contracts/access/roles/SignerRole.sol";
+//import "https://github.com/OpenZeppelin/openzeppelin-solidity/contracts/access/roles/SignerRole.sol";
 
-contract Committee{
+/**
+ * @title Roles
+ * @dev Library for managing addresses assigned to a Role.
+ */
+library Roles {
+    struct Role {
+        mapping (address => bool) bearer;
+    }
+
+    /**
+     * @dev give an account access to this role
+     */
+    function add(Role storage role, address account) internal {
+        require(account != address(0));
+        require(!has(role, account));
+
+        role.bearer[account] = true;
+    }
+
+    /**
+     * @dev remove an account's access to this role
+     */
+    function remove(Role storage role, address account) internal {
+        require(account != address(0));
+        require(has(role, account));
+
+        role.bearer[account] = false;
+    }
+
+    /**
+     * @dev check if an account has this role
+     * @return bool
+     */
+    function has(Role storage role, address account) internal view returns (bool) {
+        require(account != address(0));
+        return role.bearer[account];
+    }
+}
+
+contract SignerRole {
+    using Roles for Roles.Role;
+
+    event SignerAdded(address indexed account);
+    event SignerRemoved(address indexed account);
+
+    Roles.Role private _signers;
+
+    function SignerRole() internal {
+        _addSigner(msg.sender);
+    }
+
+    modifier onlySigner() {
+        require(isSigner(msg.sender));
+        _;
+    }
+
+    function isSigner(address account) public view returns (bool) {
+        return _signers.has(account);
+    }
+
+    function addSigner(address account) public onlySigner {
+        _addSigner(account);
+    }
+
+    function renounceSigner() public {
+        _removeSigner(msg.sender);
+    }
+
+    function _addSigner(address account) internal {
+        _signers.add(account);
+        SignerAdded(account);
+    }
+
+    function _removeSigner(address account) internal {
+        _signers.remove(account);
+        SignerRemoved(account);
+    }
+}
+
+
+contract Committee {
     /// @notice Whether the msg.sender is committee or not.
     /// @return Whether the transfer was successful or not
-    function IsOndutyCommittee(address _user) public view returns(bool success);
+    function IsOndutyCommittee(address _user) public view returns(bool);
 }
 
 contract CreditSystem is SignerRole{
-
+// contract CreditSystem is SignerRole{
     event NewUserRegister(address indexed addr, bytes32 indexed hash);
     event NewIdentity(address indexed addr, bytes32 indexed hash);
 
@@ -46,11 +126,14 @@ contract CreditSystem is SignerRole{
         bool[] verifies;            // certificate's status
     }
 
-
     /// @notice only committee can do
     modifier onlyCommittee(address _user) {
         require (Committee(CommitteeAddr).IsOndutyCommittee(_user) == true);
         _;
+    }
+
+    function test(address _user) public view returns(bool){
+        return Committee(CommitteeAddr).IsOndutyCommittee(_user) == true;
     }
 
     function register(string memory _publicKey,
@@ -70,7 +153,7 @@ contract CreditSystem is SignerRole{
         IDs[addr] = user;
         IDs[addr].hl.hashes.push(_hashKey);
         IDs[addr].hl.verifies.push(false);
-        emit NewUserRegister(addr, _hashKey);
+        NewUserRegister(addr, _hashKey);
         return true;
     }
 
@@ -99,7 +182,7 @@ contract CreditSystem is SignerRole{
         DataSet[hashKey] = ud;
         IDs[msg.sender].hl.hashes.push(hashKey);
         IDs[msg.sender].hl.verifies.push(false);
-        emit NewIdentity(msg.sender, hashKey);
+        NewIdentity(msg.sender, hashKey);
         return true;
     }
 
@@ -169,12 +252,4 @@ contract CreditSystem is SignerRole{
         return false;
     }
 
-    function setCommitteeAddr(address _addr)
-        public
-        onlySigner
-        returns(bool success) {
-            require (CommitteeAddr != _addr);
-            CommitteeAddr = _addr;
-            success = true;
-        }
 }

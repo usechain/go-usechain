@@ -32,6 +32,7 @@ import (
 
 const (
 	MinerListContract = "0xfffffffffffffffffffffffffffffffff0000002"
+	GenesisQrSignature = "8287dbe2b47bcc884dce4b9ea1a0dc76"
 	ignoreSlot = int64(1)
 	paramIndex = "0x0000000000000000000000000000000000000000000000000000000000000000"
 )
@@ -42,9 +43,9 @@ func ReadMinerNum(statedb *state.StateDB) *big.Int {
 	return res.Big()
 }
 
-func IsMiner(statedb *state.StateDB, miner common.Address) bool {
+func IsMiner(statedb *state.StateDB, miner common.Address, totalMinerNum *big.Int) bool {
 	//add for test solo mining
-	if ReadMinerNum(statedb).Cmp(common.Big0) == 0 {
+	if totalMinerNum.Cmp(common.Big0) == 0 {
 		return true
 	}
 
@@ -52,7 +53,7 @@ func IsMiner(statedb *state.StateDB, miner common.Address) bool {
 	hash.Write(hexutil.MustDecode(paramIndex))
 	var keyIndex []byte
 	keyIndex = hash.Sum(keyIndex)
-	for i := int64(0); i < ReadMinerNum(statedb).Int64(); i++ {
+	for i := int64(0); i < totalMinerNum.Int64(); i++ {
 		if checkAddress(statedb, miner, keyIndex, i) {
 			return true
 		}

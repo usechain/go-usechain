@@ -18,7 +18,6 @@ package miner
 
 import (
 	"container/ring"
-	"fmt"
 	"github.com/usechain/go-usechain/core"
 	"sync"
 
@@ -89,8 +88,6 @@ func (set *unconfirmedBlocks) Insert(index uint64, hash common.Hash, bc *core.Bl
 	time := block.Time().Int64() - preBlock.Time().Int64()
 	log.Info("blockNumber", "index",index)
 	log.Info("block time slot", "time",time)
-	fmt.Println("blockNumber", "index",index)
-	fmt.Println("block time slot", "time",time)
 }
 
 // Shift drops all unconfirmed blocks from the set which exceed the unconfirmed sets depth

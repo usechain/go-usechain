@@ -78,7 +78,8 @@ type Header struct {
 	// current miner
 	IsCheckPoint        *big.Int       `json:"isCheckPoint"              gencodec:"required"`
 	MinerQrSignature	[]byte         `json:"minerQrSignature"          gencodec:"required"`
-	DifficultyLevel		*big.Int	   `json:"difficultyLevel"           gencodec:"difficultyLevel"`
+	DifficultyLevel		*big.Int	   `json:"difficultyLevel"           gencodec:"required"`
+	PrimaryMiner        []byte         `json:"primaryMiner"              gencodec:"required"`
 
 	Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
 	TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`
@@ -97,8 +98,9 @@ type Header struct {
 // field type overrides for gencodec
 type headerMarshaling struct {
 	IsCheckPoint   *hexutil.Big
-	MinerQrSignature    *hexutil.Bytes
+	MinerQrSignature *hexutil.Bytes
 	DifficultyLevel *hexutil.Big
+	PrimaryMiner *hexutil.Bytes
 	Difficulty *hexutil.Big
 	Number     *hexutil.Big
 	GasLimit   hexutil.Uint64
@@ -123,6 +125,7 @@ func (h *Header) HashNoNonce() common.Hash {
 		h.IsCheckPoint,
 		h.MinerQrSignature,
 		h.DifficultyLevel,
+		h.PrimaryMiner,
 		h.Root,
 		h.TxHash,
 		h.ReceiptHash,
@@ -281,6 +284,10 @@ func CopyHeader(h *Header) *Header {
 	if cpy.DifficultyLevel = new(big.Int); h.DifficultyLevel != nil {
 		cpy.DifficultyLevel.Set(h.DifficultyLevel)
 	}
+	if len(h.PrimaryMiner) > 0 {
+		cpy.PrimaryMiner = make([]byte, len(h.PrimaryMiner))
+		copy(cpy.PrimaryMiner, h.PrimaryMiner)
+	}
 	if len(h.Extra) > 0 {
 		cpy.Extra = make([]byte, len(h.Extra))
 		copy(cpy.Extra, h.Extra)
@@ -347,6 +354,7 @@ func (b *Block) Coinbase() common.Address { return b.header.Coinbase }
 func (b *Block) IsCheckPoint()  *big.Int	  { return new(big.Int).Set(b.header.IsCheckPoint) }
 func (b *Block) MinerQrSignature() []byte 		  { return b.header.MinerQrSignature }
 func (b *Block) DifficultyLevel()  *big.Int	  { return new(big.Int).Set(b.header.DifficultyLevel) }
+func (b *Block) PrimaryMiner() []byte 		  { return b.header.PrimaryMiner }
 func (b *Block) Root() common.Hash        { return b.header.Root }
 func (b *Block) ParentHash() common.Hash  { return b.header.ParentHash }
 func (b *Block) TxHash() common.Hash      { return b.header.TxHash }
@@ -445,6 +453,7 @@ func (h *Header) String() string {
     IsCheckPoint:		%v
 	MinerQrSignature:		%x
     DifficultyLevel:		%v
+	PrimaryMiner:		%x
 	Root:		    %x
 	TxSha		    %x
 	ReceiptSha:	    %x
@@ -457,7 +466,7 @@ func (h *Header) String() string {
 	Extra:		    %s
 	MixDigest:      %x
 	Nonce:		    %x
-]`, h.Hash(), h.ParentHash, h.UncleHash, h.Coinbase, h.IsCheckPoint, h.MinerQrSignature,h.DifficultyLevel, h.Root, h.TxHash, h.ReceiptHash, h.Bloom, h.Difficulty, h.Number, h.GasLimit, h.GasUsed, h.Time, h.Extra, h.MixDigest, h.Nonce)
+]`, h.Hash(), h.ParentHash, h.UncleHash, h.Coinbase, h.IsCheckPoint, h.MinerQrSignature,h.DifficultyLevel, h.PrimaryMiner, h.Root, h.TxHash, h.ReceiptHash, h.Bloom, h.Difficulty, h.Number, h.GasLimit, h.GasUsed, h.Time, h.Extra, h.MixDigest, h.Nonce)
 }
 
 type Blocks []*Block

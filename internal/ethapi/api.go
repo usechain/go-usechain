@@ -919,6 +919,7 @@ func (s *PublicBlockChainAPI) rpcOutputBlock(b *types.Block, inclTx bool, fullTx
 		"isCheckPoint":     head.IsCheckPoint,
 		"minerQrSignature": head.MinerQrSignature,
 		"difficultyLevel":  head.DifficultyLevel,
+		"primaryMiner": head.PrimaryMiner,
 		"difficulty":       (*hexutil.Big)(head.Difficulty),
 		"totalDifficulty":  (*hexutil.Big)(s.b.GetTd(b.Hash())),
 		"extraData":        hexutil.Bytes(head.Extra),
@@ -1752,7 +1753,8 @@ func (s *PublicBlockChainAPI) MinerAddr(ctx context.Context, addr common.Address
 		return 0
 	}
 
-	if minerlist.IsMiner(stateDb, addr) == false {
+	totalMinerNum := minerlist.ReadMinerNum(stateDb)
+	if minerlist.IsMiner(stateDb, addr, totalMinerNum) == false {
 		return 0
 	}
 	return 1

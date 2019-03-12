@@ -267,7 +267,6 @@ contract committeeStorage {
         uint committeeIndex = uint(getCommitteeIndex());
         rounds[roundIndex].committees[committeeIndex].confirmed = true;
         rounds[roundIndex].committees[committeeIndex].asymPubkey = _asymPubkey;
-
         //on duty
         if(isEntireConfirmed() == true) {
             // @notice update committee into on duty array
@@ -317,7 +316,7 @@ contract committeeStorage {
         // rounds[roundIndex].pubKeyConfirmed[msg.sender] = true;
         // rounds[roundIndex].confirmCount == 1;
     }
-
+    
     /// @dev confirm the committee public key
     /// TODO: Not used yet
     function confirmCommitteePubkey(string memory _pubkey)

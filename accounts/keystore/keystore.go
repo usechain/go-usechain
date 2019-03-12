@@ -628,25 +628,3 @@ func (ks *KeyStore) GetABaddr(a accounts.Account) (string, error) {
 	ABaddress := hex.EncodeToString(abAddr[:])
 	return ABaddress, nil
 }
-
-func (ks *KeyStore) GetRingSignInfo(a accounts.Account, from common.Address) (string, string, string) {
-	ks.mu.RLock()
-	defer ks.mu.RUnlock()
-
-	unlockedKey, found := ks.unlocked[a.Address]
-	if !found {
-		return "", "", ""
-	}
-
-	AprivKey := unlockedKey.PrivateKey
-	privateKey := hexutil.Encode(AprivKey.D.Bytes())
-
-	//ring signature message
-	addr := hexutil.Encode(from[:])
-
-	msg, _ := hexutil.Decode(addr)
-	msg1 := crypto.Keccak256(msg)
-	msg2 := hexutil.Encode(msg1)
-
-	return privateKey, addr, msg2
-}

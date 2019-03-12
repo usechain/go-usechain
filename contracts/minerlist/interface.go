@@ -19,8 +19,8 @@ package minerlist
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/crypto/sha3"
@@ -28,7 +28,6 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
-	"github.com/usechain/go-usechain/common/hexutil"
 )
 
 const (
@@ -43,15 +42,12 @@ func ReadMinerNum(statedb *state.StateDB) *big.Int {
 	return res.Big()
 }
 
-// return the string data that has been added to the num
-func IncreaseHexByNum(indexKeyHash []byte, num int64) string {
-	x := new(big.Int).SetBytes(indexKeyHash)
-	y := big.NewInt(int64(num))
-	x.Add(x, y)
-	return hex.EncodeToString(x.Bytes())
-}
-
 func IsMiner(statedb *state.StateDB, miner common.Address) bool {
+	//add for test solo mining
+	if ReadMinerNum(statedb).Cmp(common.Big0) == 0 {
+		return true
+	}
+
 	hash := sha3.NewKeccak256()
 	hash.Write(hexutil.MustDecode(paramIndex))
 	var keyIndex []byte
@@ -73,9 +69,15 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 	hash.Write(hexutil.MustDecode(paramIndex))
 	var keyIndex []byte
 	keyIndex = hash.Sum(keyIndex)
+
+	// add for test solo mining
+	if totalMinerNum.Cmp(common.Big0) == 0 {
+		return true, 0
+	}
 	if totalMinerNum.Cmp(common.Big1) == 0 {
 		return checkAddress(state, miner, keyIndex, 0), 0
 	}
+
 	minerlist := genRandomMinerList(preSignatureQr, offset, totalMinerNum)
 	preLevel, _ := strconv.ParseFloat(preDifficultyLevel.String(), 64)
 	totalminernum, _ := strconv.ParseFloat(totalMinerNum.String(), 64)
@@ -158,7 +160,7 @@ func calId(idTarget *big.Int, preSignatureQr []byte, totalMinerNum *big.Int, off
 }
 
 func checkAddress(statedb *state.StateDB, miner common.Address, keyIndex []byte, offset int64) (bool){
-	res := statedb.GetState(common.HexToAddress(MinerListContract), common.HexToHash(IncreaseHexByNum(keyIndex, offset)))
+	res := statedb.GetState(common.HexToAddress(MinerListContract), common.HexToHash(common.IncreaseHexByNum(keyIndex, offset)))
 	if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
 		return true
 	}

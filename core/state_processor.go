@@ -21,6 +21,7 @@ import (
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/consensus"
 	"github.com/usechain/go-usechain/consensus/misc"
+	"github.com/usechain/go-usechain/contracts/manager"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/core/vm"
@@ -69,7 +70,8 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	}
 
 	// Iterate over and process the individual transactions
-	if header.IsCheckPoint.Int64() == 1 && float64(block.Transactions().Len()) < math.Ceil(float64(common.MaxCommitteemanCount)*2/3) {
+	p.bc.committeeCnt = manager.GetCommitteeCount(statedb)
+	if header.IsCheckPoint.Int64() == 1 && float64(block.Transactions().Len()) < math.Ceil(float64(p.bc.committeeCnt)*2/3) {
 		err := errors.New("checkpoint block should contain more than three-seconds voter")
 		return nil, nil, 0, err
 	}

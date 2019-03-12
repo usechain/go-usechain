@@ -20,7 +20,7 @@ contract MinerList {
 
     address[] public Miner;
 
-    uint256 ticket = 1 ether;
+    uint256 ticket = 1000000000000000000;
 
     modifier onlyMiner(address _miner) {
         bool isMiner = false;

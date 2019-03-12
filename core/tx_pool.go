@@ -27,7 +27,7 @@ import (
 
 	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/common"
-	"github.com/usechain/go-usechain/contracts/authentication"
+	"github.com/usechain/go-usechain/contracts/manager"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/event"
@@ -111,6 +111,9 @@ var (
 	// ErrPbftPrice is returned if price is not zero in a pbft transaction
 	ErrPbftPrice = errors.New("invalid price in pbft transaction")
 
+	// ErrPbftPrice is returned if price is not zero in a pbft transaction
+	ErrPbftSender = errors.New("invalid sender in pbft transaction")
+
 	// ErrPbftPayloadLen is returned if length of payload is invalid in a pbft transaction
 	ErrPbftPayloadLen = errors.New("invalid length of payload in a pbft transaction")
 
@@ -191,14 +194,14 @@ var DefaultTxPoolConfig = TxPoolConfig{
 	Journal:   "transactions.rlp",
 	Rejournal: time.Hour,
 
-	PriceLimit: 1,
+	PriceLimit: 1000000000,
 	PriceBump:  10,
 
 	AccountSlots: 16,
-	GlobalSlots:  4096*2,
+	GlobalSlots:  4096 * 2,
 	///TODO: need to get a suitable parameters, and avoid TX DDOS attack
-	AccountQueue: 64*32*4,
-	GlobalQueue:  1024*16,
+	AccountQueue: 64 * 32 * 4,
+	GlobalQueue:  1024 * 16,
 
 	Lifetime: 3 * time.Hour,
 }
@@ -696,6 +699,42 @@ func (pool *TxPool) local() map[common.Address]types.Transactions {
 	return txs
 }
 
+// validatePbftTx checks whether a pbft transaction is valid
+func ValidatePbftTx(state *state.StateDB, h *big.Int, tx *types.Transaction, from common.Address) error {
+	if *tx.To() != common.HexToAddress("0x0000000000000000000000000000000000000000") {
+		return ErrPbftTo
+	}
+	if tx.Value().Int64() != 0 {
+		return ErrPbftAmount
+	}
+	if tx.Gas() != 0 {
+		return ErrPbftGas
+	}
+	if tx.GasPrice().Int64() != 0 {
+		return ErrPbftPrice
+	}
+
+	if !manager.IsCommittee(state, from) {
+		return ErrPbftSender
+	}
+
+	payload := tx.Data()
+	len := len(payload)
+	if len <= common.HashLength {
+		return ErrPbftPayloadLen
+	}
+	number := new(big.Int).SetBytes(payload[common.HashLength:len]).Uint64()
+
+	if number%common.VoteSlot.Uint64() != common.VoteSlot.Uint64()-1 {
+		return ErrPbftHeight
+	}
+
+	if number < h.Uint64() {
+		return ErrOverduePbftHeight
+	}
+	return nil
+}
+
 // validateTx checks whether a transaction is valid according to the consensus
 // rules and adheres to some heuristic limits of the local node (price and size).
 func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
@@ -723,70 +762,21 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 
 	// If it's vote transaction
 	if tx.Flag() == 1 {
-		if *tx.To() != common.HexToAddress("0x0000000000000000000000000000000000000000") {
-			return ErrPbftTo
-		}
-		if tx.Value().Int64() != 0 {
-			return ErrPbftAmount
-		}
-		if tx.Gas() != 0 {
-			return ErrPbftGas
-		}
-		if tx.GasPrice().Int64() != 0 {
-			return ErrPbftPrice
-		}
-
-		payload := tx.Data()
-		len := len(payload)
-		if len <= common.HashLength {
-			return ErrPbftPayloadLen
-		}
-		number := new(big.Int).SetBytes(payload[common.HashLength:len]).Uint64()
-
-		if number % common.VoteSlot.Uint64() != common.VoteSlot.Uint64()-1 {
-			return ErrPbftHeight
-		}
-
-		if number < pool.chain.CurrentBlock().Number().Uint64() {
-			return ErrOverduePbftHeight
-		}
+		return ValidatePbftTx(pool.currentState, pool.chain.CurrentBlock().Number(), tx, from)
 	}
 
 	//If the transaction is authentication, check txCert Signature
 	//If the transaction isn't, check the address legality
-	if tx.IsAuthentication() {
-		//log.Info("Is a authentication tx")
-		err = tx.CheckCertificateSig(from)
-		if err != nil {
-			return ErrInvalidAuthenticationsig
-		}
-	} else if tx.IsRegisterTransaction() {
+	if tx.IsRegisterTransaction() {
 		err = tx.CheckCertLegality(from)
 		if err != nil {
 			return ErrInvalidAuthenticationsig
 		}
-	} else if tx.IsMainAuthentication() {
-		//log.Info("Is a Main authentication tx")
-		err = authentication.CheckMultiAccountSig(pool.currentState, tx, common.MainAddress, from)
-		if err != nil {
-			return ErrInvalidAuthenticationsig
-		}
-	} else if tx.IsSubAuthentication() {
-		//log.Info("Is a Sub authentication tx")
-		err = authentication.CheckMultiAccountSig(pool.currentState, tx, common.SubAddress, from)
-		if err != nil {
-			return ErrInvalidAuthenticationsig
-		}
-	}
-
-	//If it's vote transaction, pass the left checking process
-	if tx.Flag() == 1 {
-		return nil
 	}
 
 	// Drop non-local transactions under our own minimal accepted gas price
 	local = local || pool.locals.contains(from) // account may be local even if the transaction arrived from the network
-	if !local && pool.gasPrice.Cmp(tx.GasPrice()) > 0 && !tx.IsAuthentication() {
+	if !local && pool.gasPrice.Cmp(tx.GasPrice()) > 0 {
 		return ErrUnderpriced
 	}
 
@@ -820,7 +810,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 	// If the transaction is already known, discard it
 	hash := tx.Hash()
-	if pool.all[hash] != nil && tx.Flag() == 0{
+	if pool.all[hash] != nil && tx.Flag() == 0 {
 		log.Debug("Discarding already known transaction", "hash", hash)
 		return false, fmt.Errorf("known transaction: %x", hash)
 	}
@@ -831,7 +821,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 		return false, err
 	}
 	// If the transaction pool is full, discard underpriced transactions
-	if uint64(len(pool.all)) >= pool.config.GlobalSlots+pool.config.GlobalQueue {
+	if uint64(len(pool.all)) >= pool.config.GlobalSlots+pool.config.GlobalQueue && tx.Flag() != 1 {
 		return false, ErrTxpoolFull
 	}
 	// If the transaction is replacing an already pending one, do directly
@@ -1351,7 +1341,7 @@ func (pool *TxPool) demoteUnexecutables() {
 			}
 
 			payload := tx.Data()
-			vote_h := new(big.Int).SetBytes(payload[common.HashLength:len(payload)]).Uint64()
+			vote_h := new(big.Int).SetBytes(payload[common.HashLength:]).Uint64()
 
 			if vote_h < height {
 				list.txs.Remove(tx.Nonce())

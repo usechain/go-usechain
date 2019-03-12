@@ -23,7 +23,6 @@ import (
 	"os"
 
 	"github.com/usechain/go-usechain/common"
-	"github.com/usechain/go-usechain/contracts/authentication"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/core/vm"
@@ -194,7 +193,7 @@ func (st *StateTransition) buyGas() error {
 	return nil
 }
 
-func (st *StateTransition) preCheck() error {
+func (st *StateTransition) preCheck() (err error) {
 	msg := st.msg
 	sender := st.from()
 
@@ -207,6 +206,27 @@ func (st *StateTransition) preCheck() error {
 			return ErrNonceTooLow
 		}
 	}
+
+	// Check whether a valid pdft or credit register tx
+	transactionFormat := msgToTransaction(msg)
+	db, ok := (st.state).(*state.StateDB)
+	if !ok {
+		log.Error("vm state assert failed")
+		os.Exit(1)
+	}
+	///TODO:all transaction should be identified by Tx.flag, with switch
+	if transactionFormat.Flag() == 1 {
+		err = ValidatePbftTx(db, st.evm.Context.BlockNumber, transactionFormat, common.Address(sender))
+		if err != nil {
+			return err
+		}
+	} else if transactionFormat.IsRegisterTransaction() {
+		err = transactionFormat.CheckCertLegality(common.Address(sender))
+		if err != nil {
+			return vm.ErrInvalidAuthenticationsig
+		}
+	}
+
 	return st.buyGas()
 }
 
@@ -221,33 +241,6 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	sender := st.from() // err checked in preCheck
 	homestead := st.evm.ChainConfig().IsHomestead(st.evm.BlockNumber)
 	contractCreation := msg.To() == nil
-
-	db, ok := (st.state).(*state.StateDB)
-	if !ok {
-		log.Error("vm state assert failed")
-		os.Exit(1)
-	}
-	// If it's transaction about authentication
-	if !contractCreation {
-		transactionFormat := msgToTransaction(msg)
-
-		if transactionFormat.IsAuthentication() {
-			err = transactionFormat.CheckCertificateSig(msg.From())
-			if err != nil {
-				return nil, 0, false, vm.ErrInvalidAuthenticationsig
-			}
-		} else if transactionFormat.IsMainAuthentication() {
-			err = authentication.CheckMultiAccountSig(db, transactionFormat, common.MainAddress, msg.From())
-			if err != nil {
-				return nil, 0, false, vm.ErrInvalidAuthenticationsig
-			}
-		} else if transactionFormat.IsSubAuthentication() {
-			err = authentication.CheckMultiAccountSig(db, transactionFormat, common.SubAddress, msg.From())
-			if err != nil {
-				return nil, 0, false, vm.ErrInvalidAuthenticationsig
-			}
-		}
-	}
 
 	// Pay intrinsic gas
 	gas, err := IntrinsicGas(st.data, contractCreation, homestead)

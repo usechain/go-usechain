@@ -36,7 +36,7 @@ import (
 // Ethash proof-of-work protocol constants.
 var (
 	// Block reward in hui for successfully mining a block upward from Sapphir
-	SapphireBlockReward *big.Int = big.NewInt(0).Mul(big.NewInt(5e+18), big.NewInt(1e+5))
+	SapphireBlockReward *big.Int = big.NewInt(0).Mul(big.NewInt(1e+18), big.NewInt(15))
 	// Maximum number of uncles allowed in a single block
 	maxUncles = 2
 	// Max time from current time allowed for blocks, before they're considered future blocks

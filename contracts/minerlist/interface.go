@@ -32,6 +32,7 @@ import (
 
 const (
 	MinerListContract = "0xfffffffffffffffffffffffffffffffff0000002"
+	GenesisQrSignature = "8287dbe2b47bcc884dce4b9ea1a0dc76"
 	ignoreSlot = int64(1)
 	paramIndex = "0x0000000000000000000000000000000000000000000000000000000000000000"
 )

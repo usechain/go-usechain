@@ -435,17 +435,17 @@ func (self *worker) commitNewWork() {
 		//log.Trace("Block time slot should be more than five seconds")
 		//time.Sleep(time.Duration(parent.Time().Int64() + int64(5) - tstamp) * time.Second)
 		//tstamp = parent.Time().Int64() + 5
-		DONE:
-			for{
-				select {
-				case <-self.chainRpowCh:
-				default:
-					break DONE
-				}
+	DONE:
+		for{
+			select {
+			case <-self.chainRpowCh:
+			default:
+				break DONE
 			}
-			time.Sleep(10 * time.Millisecond)
-			self.chainRpowCh <- 1
-			return
+		}
+		time.Sleep(10 * time.Millisecond)
+		self.chainRpowCh <- 1
+		return
 	}
 
 	num := parent.Number()
@@ -563,18 +563,18 @@ func (self *worker) commitNewWork() {
 		pending, err = self.eth.TxPool().GetValidPbft(blockNumber.Uint64() - 1)
 		gen, targetHash, _ := CanGenBlockInCheckPoint(pending, committeeCnt)
 		if !gen {
-			DONE2:
-				for{
-					select {
-					case <-self.chainRpowCh:
-					default:
-						break DONE2
-					}
+		DONE2:
+			for{
+				select {
+				case <-self.chainRpowCh:
+				default:
+					break DONE2
 				}
-				//time.Sleep(time.Duration(tstampSub % slot + 1) * time.Second)
-				time.Sleep(10 * time.Millisecond)
-				self.chainRpowCh <- 1
-				return
+			}
+			//time.Sleep(time.Duration(tstampSub % slot + 1) * time.Second)
+			time.Sleep(10 * time.Millisecond)
+			self.chainRpowCh <- 1
+			return
 		} else {
 			if parent.Hash() != targetHash {
 				log.Info("Switch block chain", "current hash", parent.Hash().Hex(), "parent height", parent.NumberU64(), "target hash", targetHash.Hex())

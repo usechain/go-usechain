@@ -19,7 +19,6 @@ package ethash
 import (
 	"errors"
 	"fmt"
-	"github.com/usechain/go-usechain/contracts/minerlist"
 	"math/big"
 	"runtime"
 	"time"
@@ -230,8 +229,7 @@ func (ethash *Ethash) VerifyUncles(chain consensus.ChainReader, block *types.Blo
 // stock Ethereum ethash engine.
 // See YP section 4.3.4. "Block Header Validity"
 func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *types.Header, uncle bool, seal bool, state *state.StateDB) error {
-	///TODO: add miner filter, and when there is only one miner, doesn't needs registration
-	tstampParent := parent.Time
+	/*tstampParent := parent.Time
 	tstampHead := header.Time
 	tstampSub := new(big.Int).Sub(tstampHead, tstampParent)
 
@@ -242,7 +240,7 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	totalMinerNum := minerlist.ReadMinerNum(state)
 	if !minerlist.IsMiner(state, header.Coinbase) && totalMinerNum.Int64() > 1 {
 		return fmt.Errorf("Coinbase should be legal miner address, invalid miner")
-	}
+	}*/
 	// Ensure that the header's extra-data section is of a reasonable size
 	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
 		return fmt.Errorf("extra-data too long: %d > %d", len(header.Extra), params.MaximumExtraDataSize)
@@ -261,7 +259,7 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 		return errZeroBlockTime
 	}
 
-	// Verify block miner
+	/*// Verify block miner
 	preCoinbase := parent.Coinbase
 	blockNumber := header.Number
 	preSignatureQr := parent.MinerQrSignature
@@ -286,7 +284,7 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 
 	if header.Number.Cmp(common.Big1) != 0 && level != header.DifficultyLevel.Int64() {
 		return fmt.Errorf("invalid difficultyLevel: have %v, want %v", header.DifficultyLevel, level)
-	}
+	}*/
 
 	// Verify the block's difficulty based in it's timestamp and parent's difficulty
 	expected := ethash.CalcDifficulty(chain, header.Time.Uint64(), header, parent)

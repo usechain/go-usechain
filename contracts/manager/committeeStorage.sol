@@ -1,39 +1,39 @@
-pragma solidity ^ 0.4.24;
+pragma solidity ^0.4.20;
 
 contract committeeStorage {
-    // @notice Committee
+    /// @notice Committee
     uint constant public MAX_COMMITTEEMAN_COUNT = 5;
     uint constant public Requirement = 3;
 
     uint constant public Election_cycle = 2628000;
     uint constant public Election_duration = 50000;
 
-    // @notice Signle Mode, Multi Mode or Product Mode
+    /// @notice Signle Mode, Multi Mode or Product Mode
     // 0: Product Mode, full check
     // 1: Signle Mode, only one committee, and checkpoint only need one committee confirm
     uint public mode = 0;
 
-    // @notice Vote
+    /// @notice Vote
     bool public vote_enabled = true;
 
-    // @notice Committee On Duty
+    /// @notice Committee On Duty
     address[MAX_COMMITTEEMAN_COUNT] public committeeOnDuty;
 
-    // @dev Committee
+    /// @dev Committee
     struct Committee {
         bool confirmed;
         address addr;
         string asymPubkey;
     }
 
-    // @dev Election round
+    /// @dev Election round
     struct Round {
         address[] candidate;
         mapping(address => uint) votes;    //candidate's vote count
         mapping(address => bool) voted;    //voter whether voted already
 
         bool selected;
-        Committee[MAX_COMMITTEEMAN_COUNT] committes;
+        Committee[MAX_COMMITTEEMAN_COUNT] committees;
 
         string committeePublicKey;
         string committeePublicKey_candidate;
@@ -42,50 +42,50 @@ contract committeeStorage {
     }
     mapping(uint => Round) public rounds;
 
-    // @notice In which round now
+    /// @notice In which round now
     function whichRound()
-    public
-    constant
+    internal
+    view
     returns(uint)
     {
         return block.number/Election_cycle;
     }
 
     // @notice whether main account
-    ///TODO: add it
+    /// TODO: add it
     modifier isMainAccount() {
         require(true);
         _;
     }
 
     /****************voting*********************/
-    // @notice voting now?
+    /// @notice voting now?
     modifier isVoting() {
         //require(block.number%Election_cycle <= Election_duration);
         require(vote_enabled);
         _;
     }
 
-    // @notice not voting
+    /// @notice not voting
     modifier notVoting() {
         //require(block.number%Election_cycle > Election_duration);
         require(!vote_enabled);
         _;
     }
 
-    // @notice can't vote twice in one round
+    /// @notice can't vote twice in one round
     modifier notVoted() {
         require(rounds[whichRound()].voted[msg.sender] == false);
         _;
     }
 
-    // @notice committee already been selected
+    /// @notice committee already been selected
     modifier notSelected() {
         require(rounds[whichRound()].selected == false);
         _;
     }
 
-    // @notice start vote or stop it
+    /// @notice start vote or stop it
     function controlVote(bool _flag) public {
         vote_enabled = _flag;
     }
@@ -94,7 +94,7 @@ contract committeeStorage {
         return block.number;
     }
 
-    // @notice votes
+    /// @notice votes
     function vote(address _candidate)
     isMainAccount
     isVoting
@@ -113,12 +113,12 @@ contract committeeStorage {
 
         // check whether candidate in committee list or not
         for(uint i=0; i<MAX_COMMITTEEMAN_COUNT;i++) {
-            if(rounds[roundIndex].committes[i].addr == _candidate) {
+            if(rounds[roundIndex].committees[i].addr == _candidate) {
                 return true;
             }
 
-            if(rounds[roundIndex].committes[i].addr == address(0)) {
-                rounds[roundIndex].committes[i].addr = _candidate;
+            if(rounds[roundIndex].committees[i].addr == address(0)) {
+                rounds[roundIndex].committees[i].addr = _candidate;
                 return true;
             }
         }
@@ -128,32 +128,32 @@ contract committeeStorage {
         return true;
     }
 
-    // do sort at each tx
+    /// @dev do sort at each tx
     function reSort(uint _roundIndex, address _candidate)
     internal {
         // init min
         uint minIndex = 0;
-        address minCandidate = rounds[_roundIndex].committes[0].addr;
+        address minCandidate = rounds[_roundIndex].committees[0].addr;
         uint minVotes = rounds[_roundIndex].votes[minCandidate];
 
         // reindex min
         for(uint i=1; i<MAX_COMMITTEEMAN_COUNT;i++){
-            minCandidate = rounds[_roundIndex].committes[i].addr;
+            minCandidate = rounds[_roundIndex].committees[i].addr;
             if(minVotes > rounds[_roundIndex].votes[minCandidate]) {
                 minVotes = rounds[_roundIndex].votes[minCandidate];
                 minIndex = i;
             }
         }
-        minCandidate = rounds[_roundIndex].committes[minIndex].addr;
+        minCandidate = rounds[_roundIndex].committees[minIndex].addr;
         // update
         if (minVotes < rounds[_roundIndex].votes[_candidate]) {
-            rounds[_roundIndex].committes[minIndex].addr = _candidate;
-            rounds[_roundIndex].committes[minIndex].confirmed = false;
-            rounds[_roundIndex].committes[minIndex].asymPubkey = "";
+            rounds[_roundIndex].committees[minIndex].addr = _candidate;
+            rounds[_roundIndex].committees[minIndex].confirmed = false;
+            rounds[_roundIndex].committees[minIndex].asymPubkey = "";
         }
     }
 
-    // @notice confirm votes after election ends
+    /// @notice confirm votes after election ends
     function confirmVoting()
     notVoting
     notSelected
@@ -163,10 +163,10 @@ contract committeeStorage {
         rounds[roundIndex].selected = true;
     }
 
-    // @notice get address's votes
+    /// @notice get address's votes
     function getVotes(address _candidate)
     public
-    constant
+    view
     returns(uint)
     {
         return rounds[whichRound()].votes[_candidate];
@@ -175,17 +175,17 @@ contract committeeStorage {
     // @test
     function getCandidateLen()
     public
-    constant
+    view
     returns(uint)
     {
         uint roundIndex = whichRound();
         return rounds[roundIndex].candidate.length;
     }
 
-    //@test
+    /// @notice test
     function getCandidate(uint _index)
     public
-    constant
+    view
     returns(address)
     {
         uint roundIndex = whichRound();
@@ -193,104 +193,118 @@ contract committeeStorage {
     }
 
     /****************committes*********************/
-    // @notice whether a committes now
+    /// @notice whether a committes now
     modifier isCommittee() {
-        require(getCommitteeIndex() != 0xffff);
+        require(getCommitteeIndex() != -1);
         _;
     }
 
-    // @notice whether a committes now
+    /// @notice whether a committes now
     function IsCommittee()
     public
-    constant
+    view
     returns(bool)
     {
-        return  getCommitteeIndex() != 0xffff;
+        return  getCommitteeIndex() != -1;
     }
 
-    //@test
+    /// @notice whether msg.sender is an on duty committee
+    function IsOndutyCommittee(address _user)
+    public
+    view
+    returns(bool)
+    {
+        for (uint i=0; i<MAX_COMMITTEEMAN_COUNT; i++) {
+            if (committeeOnDuty[i] == _user) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// @notice test
     function getCommittee(uint _index)
     public
-    constant
+    view
     returns(address)
     {
         uint roundIndex = whichRound();
-        return rounds[roundIndex].committes[_index].addr;
+        return rounds[roundIndex].committees[_index].addr;
     }
 
-    // @notice whether a committes now
+    /// @notice whether a committes now
     function getCommitteeIndex()
-    public
-    constant
-    returns(uint)
+    internal
+    view
+    returns(int)
     {
         for(uint i = 0; i < MAX_COMMITTEEMAN_COUNT; i++) {
-        if(committeeOnDuty[i] == msg.sender) {
-            return i;
+            // if(committeeOnDuty[i] == msg.sender) {
+                if (rounds[whichRound()].committees[i].addr == msg.sender) {
+                return int(i);
+            }
         }
-    }
-        return 0xffff;
+        return -1;
     }
 
-    // @notice check the committee whether confirmed
+    /// @notice check the committee whether confirmed
     function getCommitteeConfirmStat()
     public
-    constant
+    view
     returns(bool)
     {
         uint roundIndex = whichRound();
-        uint committeeIndex = getCommitteeIndex();
-        return rounds[roundIndex].committes[committeeIndex].confirmed;
+        uint committeeIndex = uint(getCommitteeIndex());
+        return rounds[roundIndex].committees[committeeIndex].confirmed;
     }
 
-    // @notice confirm & upload whisper asymPubkey
-    function confirmAndKeyUpload(string _asymPubkey)
+    /// @notice confirm & upload whisper asymPubkey
+    function confirmAndKeyUpload(string memory _asymPubkey)
     isCommittee
     public
     {
         uint roundIndex = whichRound();
-        uint committeeIndex = getCommitteeIndex();
-        rounds[roundIndex].committes[committeeIndex].confirmed = true;
-        rounds[roundIndex].committes[committeeIndex].asymPubkey = _asymPubkey;
-        
+        uint committeeIndex = uint(getCommitteeIndex());
+        rounds[roundIndex].committees[committeeIndex].confirmed = true;
+        rounds[roundIndex].committees[committeeIndex].asymPubkey = _asymPubkey;
         //on duty
         if(isEntireConfirmed() == true) {
             // @notice update committee into on duty array
             for(uint i = 0; i < MAX_COMMITTEEMAN_COUNT; i++) {
-                committeeOnDuty[i] = rounds[roundIndex].committes[i].addr;
+                committeeOnDuty[i] = rounds[roundIndex].committees[i].addr;
             }
         }
     }
 
-    // @notice get committee asym key
+    /// @notice get committee asym key
     function getCommitteeAsymkey(uint index)
     public
-    constant
-    returns(string)
+    view
+    returns(string memory)
     {
         uint roundIndex = whichRound();
-        return rounds[roundIndex].committes[index].asymPubkey;
+        return rounds[roundIndex].committees[index].asymPubkey;
     }
 
-    //Check whether all committee confirmed&&uploaded
+    /// @dev Check whether all committee confirmed&&uploaded
     function isEntireConfirmed()
     public
-    constant
+    view
     returns(bool)
     {
         uint roundIndex = whichRound();
         for(uint i = 0; i < MAX_COMMITTEEMAN_COUNT; i++) {
-        if (rounds[roundIndex].committes[i].confirmed == false) {
-            return false;
+            if (rounds[roundIndex].committees[i].confirmed == false) {
+                return false;
+            }
         }
-    }
         return true;
     }
 
 
     /*****************committeePublicKey upload & confirm********************/
-    //upload committee's personal public key
-    function uploadCommitteePubkey(string _pubkey)
+    /// @dev upload committee's personal public key
+    function uploadCommitteePubkey(string memory _pubkey)
     isCommittee
     public
     {
@@ -302,14 +316,14 @@ contract committeeStorage {
         // rounds[roundIndex].pubKeyConfirmed[msg.sender] = true;
         // rounds[roundIndex].confirmCount == 1;
     }
-
-    //confirm the committee public key
-    ///TODO: Not used yet
-    function confirmCommitteePubkey(string _pubkey)
+    
+    /// @dev confirm the committee public key
+    /// TODO: Not used yet
+    function confirmCommitteePubkey(string memory _pubkey)
     public
     {
         uint roundIndex = whichRound();
-        if(keccak256(abi.encodePacked(rounds[roundIndex].committeePublicKey_candidate)) != keccak256(abi.encodePacked(_pubkey))) {
+        if(keccak256(rounds[roundIndex].committeePublicKey_candidate) != keccak256(_pubkey)) {
             return;
         }
         rounds[roundIndex].committeePublicKey_candidate = _pubkey;
@@ -321,11 +335,11 @@ contract committeeStorage {
         }
     }
 
-    //@dev get the current committeePublicKey
+    /// @dev get the current committeePublicKey
     function getCommitteePubkey()
     public
-    constant
-    returns(string)
+    view
+    returns(string memory)
     {
         uint roundIndex = whichRound();
         return rounds[roundIndex].committeePublicKey;

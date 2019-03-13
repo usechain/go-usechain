@@ -21,6 +21,7 @@ func (h Header) MarshalJSON() ([]byte, error) {
 		IsCheckPoint    *hexutil.Big   `json:"isCheckPoint"         gencodec:"required"`
 		MinerQrSignature     hexutil.Bytes  `json:"minerQrSignature"          gencodec:"required"`
 		DifficultyLevel    *hexutil.Big   `json:"difficultyLevel"         gencodec:"required"`
+		PrimaryMiner     hexutil.Bytes  `json:"primaryMiner"          gencodec:"required"`
 		Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
 		TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`
 		ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`
@@ -42,6 +43,7 @@ func (h Header) MarshalJSON() ([]byte, error) {
 	enc.IsCheckPoint = (*hexutil.Big)(h.IsCheckPoint)
 	enc.MinerQrSignature = h.MinerQrSignature
 	enc.DifficultyLevel = (*hexutil.Big)(h.DifficultyLevel)
+	enc.PrimaryMiner = h.PrimaryMiner
 	enc.Root = h.Root
 	enc.TxHash = h.TxHash
 	enc.ReceiptHash = h.ReceiptHash
@@ -66,6 +68,7 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		IsCheckPoint	*hexutil.Big    `json:"isCheckPoint"         gencodec:"required"`
 		MinerQrSignature     *hexutil.Bytes  `json:"minerQrSignature"          gencodec:"required"`
 		DifficultyLevel	*hexutil.Big    `json:"difficultyLevel"         gencodec:"required"`
+		PrimaryMiner     *hexutil.Bytes  `json:"primaryMiner"          gencodec:"required"`
 		Root        *common.Hash    `json:"stateRoot"        gencodec:"required"`
 		TxHash      *common.Hash    `json:"transactionsRoot" gencodec:"required"`
 		ReceiptHash *common.Hash    `json:"receiptsRoot"     gencodec:"required"`
@@ -109,6 +112,10 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 	h.DifficultyLevel = (*big.Int)(dec.DifficultyLevel)
 	if dec.Root == nil {
 		return errors.New("missing required field 'stateRoot' for Header")
+	}
+	h.PrimaryMiner = *dec.PrimaryMiner
+	if dec.PrimaryMiner == nil {
+		return errors.New("missing required field 'primaryMiner' for Header")
 	}
 	h.Root = *dec.Root
 	if dec.TxHash == nil {

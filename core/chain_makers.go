@@ -237,6 +237,7 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 				IsCheckPoint:	parent.IsCheckPoint(),
 				MinerQrSignature:	parent.MinerQrSignature(),
 				DifficultyLevel:	parent.DifficultyLevel(),
+				PrimaryMiner:	    parent.PrimaryMiner(),
 			},
 			&types.Header{
 				Number:     parent.Number(),

@@ -27,6 +27,7 @@ import (
 
 	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/contracts/manager"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/event"
@@ -34,7 +35,6 @@ import (
 	"github.com/usechain/go-usechain/metrics"
 	"github.com/usechain/go-usechain/params"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
-	"github.com/usechain/go-usechain/contracts/manager"
 )
 
 const (
@@ -197,14 +197,14 @@ var DefaultTxPoolConfig = TxPoolConfig{
 	Journal:   "transactions.rlp",
 	Rejournal: time.Hour,
 
-	PriceLimit: 1,
+	PriceLimit: 1000000000,
 	PriceBump:  10,
 
 	AccountSlots: 16,
-	GlobalSlots:  4096*2,
+	GlobalSlots:  4096 * 2,
 	///TODO: need to get a suitable parameters, and avoid TX DDOS attack
-	AccountQueue: 64*32*4,
-	GlobalQueue:  1024*16,
+	AccountQueue: 64 * 32 * 4,
+	GlobalQueue:  1024 * 16,
 
 	Lifetime: 3 * time.Hour,
 }
@@ -781,7 +781,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 
 	// Drop non-local transactions under our own minimal accepted gas price
 	local = local || pool.locals.contains(from) // account may be local even if the transaction arrived from the network
-	if !local && pool.gasPrice.Cmp(tx.GasPrice()) > 0 && !tx.IsAuthentication() {
+	if !local && pool.gasPrice.Cmp(tx.GasPrice()) > 0 {
 		return ErrUnderpriced
 	}
 
@@ -815,7 +815,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 	// If the transaction is already known, discard it
 	hash := tx.Hash()
-	if pool.all[hash] != nil && tx.Flag() == 0{
+	if pool.all[hash] != nil && tx.Flag() == 0 {
 		log.Debug("Discarding already known transaction", "hash", hash)
 		return false, fmt.Errorf("known transaction: %x", hash)
 	}
@@ -826,7 +826,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 		return false, err
 	}
 	// If the transaction pool is full, discard underpriced transactions
-	if uint64(len(pool.all)) >= pool.config.GlobalSlots+pool.config.GlobalQueue && tx.Flag() != 1{
+	if uint64(len(pool.all)) >= pool.config.GlobalSlots + pool.config.GlobalQueue && tx.Flag() != 1 {
 		return false, ErrTxpoolFull
 	}
 	// If the transaction is replacing an already pending one, do directly

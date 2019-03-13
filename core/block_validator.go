@@ -18,8 +18,11 @@ package core
 
 import (
 	"fmt"
+	"math/big"
 
+	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/consensus"
+	"github.com/usechain/go-usechain/contracts/minerlist"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/params"
@@ -98,6 +101,51 @@ func (v *BlockValidator) ValidateState(block, parent *types.Block, statedb *stat
 	// an error if they don't match.
 	if root := statedb.IntermediateRoot(v.config.IsEIP158(header.Number)); header.Root != root {
 		return fmt.Errorf("invalid merkle root (remote: %x local: %x)", header.Root, root)
+	}
+	return nil
+}
+
+func (v *BlockValidator) ValidateMiner(block, parent *types.Block, statedb *state.StateDB) error {
+	header := block.Header()
+	tstampParent := parent.Time()
+	tstampHead := header.Time
+	tstampSub := new(big.Int).Sub(tstampHead, tstampParent)
+
+	if tstampSub.Int64() < int64(common.BlockInterval) {
+		return fmt.Errorf("Block time slot should be more than five seconds")
+	}
+
+	totalMinerNum := minerlist.ReadMinerNum(statedb)
+
+	if !minerlist.IsMiner(statedb, header.Coinbase, totalMinerNum) && totalMinerNum.Int64() > 1 {
+		return fmt.Errorf("Coinbase should be legal miner address, invalid miner")
+	}
+
+	// Verify block miner
+	preCoinbase := parent.Coinbase()
+	blockNumber := header.Number
+	preSignatureQr := parent.MinerQrSignature()
+	preDifficultyLevel := parent.DifficultyLevel()
+
+	if header.Number.Cmp(common.Big1) == 0 {
+		preDifficultyLevel = big.NewInt(0)
+		preSignatureQr = []byte(minerlist.GenesisQrSignature)
+	}
+
+	n := new(big.Int).Div(tstampSub, common.BlockSlot)
+
+	IsValidMiner, level := minerlist.IsValidMiner(statedb, header.Coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n, preDifficultyLevel)
+
+	if !IsValidMiner {
+		return fmt.Errorf("invalid miner")
+	}
+
+	if header.Number.Cmp(common.Big1) == 0 && header.DifficultyLevel.Int64() != 0 {
+		return fmt.Errorf("invalid difficultyLevel: have %v, want 0", header.DifficultyLevel)
+	}
+
+	if header.Number.Cmp(common.Big1) != 0 && level != header.DifficultyLevel.Int64() {
+		return fmt.Errorf("invalid difficultyLevel: have %v, want %v", header.DifficultyLevel, level)
 	}
 	return nil
 }

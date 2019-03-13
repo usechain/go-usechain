@@ -522,6 +522,8 @@ func (self *worker) commitNewWork() {
 
 		if totalMinerNum.Int64() != 0 {
 			header.PrimaryMiner = minerlist.ReadMinerAddress(self.current.state, minerlist.CalIdTarget(preCoinbase, preSignatureQr, blockNumber, totalMinerNum, self.current.state).Int64())
+		} else {
+			header.PrimaryMiner = self.coinbase.Bytes()
 		}
 		header.DifficultyLevel = big.NewInt(level)
 		if header.Number.Cmp(common.Big1) == 0 {

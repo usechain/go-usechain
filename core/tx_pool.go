@@ -767,7 +767,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 
 	// If it's vote transaction
 	if tx.Flag() == 1 {
-		return ValidatePbftTx(pool.currentState, pool.chain.CurrentBlock().Number(), (uint64(time.Now().Unix()) - pool.chain.CurrentBlock().Time().Uint64()) / 60, tx, from)
+		return ValidatePbftTx(pool.currentState, pool.chain.CurrentBlock().Number(), common.GetIndexForVote(time.Now().Unix(), pool.chain.CurrentBlock().Time().Int64()), tx, from)
 	}
 
 	//If the transaction is authentication, check txCert Signature
@@ -1348,7 +1348,7 @@ func (pool *TxPool) demoteUnexecutables() {
 			payload := tx.Data()
 			vote_h := common.BytesToUint64(payload[common.HashLength : common.HashLength + 8])
 			vote_index := common.BytesToUint64(payload[common.HashLength + 8 :])
-			if vote_h < curBlock.NumberU64() || vote_index < (uint64(time.Now().Unix()) - curBlock.Time().Uint64()) / 60 {
+			if vote_h < curBlock.NumberU64() || vote_index < common.GetIndexForVote(time.Now().Unix(), curBlock.Time().Int64()) {
 				list.txs.Remove(tx.Nonce())
 				hash := tx.Hash()
 				log.Trace("Removed overdue vote transaction", "hash", hash)

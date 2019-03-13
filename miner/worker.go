@@ -464,12 +464,7 @@ func (self *worker) commitNewWork() {
 		totalMinerNum := minerlist.ReadMinerNum(self.current.state)
 
 		if !minerlist.IsMiner(self.current.state, self.coinbase, totalMinerNum) {
-			log.Error("Coinbase should be legal miner address, please register for mining")
-			return
-		}
-
-		if minerlist.IsPunishMiner(self.current.state, self.coinbase, totalMinerNum) {
-			log.Error("The miner was punished, invalid miner")
+			log.Error("Coinbase should be legal miner address, invalid miner")
 			return
 		}
 
@@ -508,7 +503,7 @@ func (self *worker) commitNewWork() {
 			header.MinerQrSignature = minerQrSignature[:20]
 		}
 
-		IsValidMiner, level, preMiner := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n, preDifficultyLevel)
+		IsValidMiner, level := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n, preDifficultyLevel)
 
 		if !IsValidMiner {
 		DONE1:
@@ -525,7 +520,9 @@ func (self *worker) commitNewWork() {
 			return
 		}
 
-		header.PrimaryMiner = preMiner
+		if totalMinerNum.Int64() != 0 {
+			header.PrimaryMiner = minerlist.ReadMinerAddress(self.current.state, minerlist.CalIdTarget(preCoinbase, preSignatureQr, blockNumber, totalMinerNum, self.current.state).Int64())
+		}
 		header.DifficultyLevel = big.NewInt(level)
 		if header.Number.Cmp(common.Big1) == 0 {
 			header.DifficultyLevel = big.NewInt(0)

@@ -125,6 +125,9 @@ var (
 
 	// ErrOverduePbftHeight is returned if vote height is less than current chain height
 	ErrOverduePbftHeight = errors.New("overdue vote height in a pbft transaction")
+
+	// ErrPbftIndex is returned if vote index is error
+	ErrPbftIndex = errors.New("invalid vote index in a pbft transaction")
 )
 
 var (
@@ -653,7 +656,7 @@ func (pool *TxPool) Pbft() (map[common.Address]types.Transactions, error) {
 // GetValidPbft retrieves all suitable pbft transactions, groupped by origin
 // account. The returned transaction set is a copy and can be
 // freely modified by calling code.
-func (pool *TxPool) GetValidPbft(number uint64) (map[common.Address]types.Transactions, error) {
+func (pool *TxPool) GetValidPbft(number uint64, index uint64) (map[common.Address]types.Transactions, error) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
@@ -668,9 +671,10 @@ func (pool *TxPool) GetValidPbft(number uint64) (map[common.Address]types.Transa
 			}
 
 			payload := tx.Data()
-			len := len(payload)
-			vote_h := new(big.Int).SetBytes(payload[common.HashLength:len]).Uint64()
-			if vote_h != number { // filter unsuitable vote height
+			if number != common.BytesToUint64(payload[common.HashLength : common.HashLength + 8]) { // filter unsuitable vote height
+				continue
+			}
+			if index != common.BytesToUint64(payload[common.HashLength + 8 :]) { // filter unsuitable vote index
 				continue
 			}
 
@@ -700,7 +704,7 @@ func (pool *TxPool) local() map[common.Address]types.Transactions {
 }
 
 // validatePbftTx checks whether a pbft transaction is valid
-func ValidatePbftTx(state *state.StateDB, h *big.Int, tx *types.Transaction, from common.Address) error {
+func ValidatePbftTx(state *state.StateDB, h *big.Int, index uint64, tx *types.Transaction, from common.Address) error {
 	if *tx.To() != common.HexToAddress("0x0000000000000000000000000000000000000000") {
 		return ErrPbftTo
 	}
@@ -720,17 +724,18 @@ func ValidatePbftTx(state *state.StateDB, h *big.Int, tx *types.Transaction, fro
 
 	payload := tx.Data()
 	len := len(payload)
-	if len <= common.HashLength {
+	if len != common.HashLength + 16 {
 		return ErrPbftPayloadLen
 	}
-	number := new(big.Int).SetBytes(payload[common.HashLength:len]).Uint64()
-
-	if number%common.VoteSlot.Uint64() != common.VoteSlot.Uint64()-1 {
+	number := common.BytesToUint64(payload[common.HashLength : common.HashLength + 8])
+	if number % common.VoteSlot.Uint64() != common.VoteSlot.Uint64()-1 {
 		return ErrPbftHeight
 	}
-
 	if number < h.Uint64() {
 		return ErrOverduePbftHeight
+	}
+	if index != common.BytesToUint64(payload[common.HashLength + 8 :]) {
+		return ErrPbftIndex
 	}
 	return nil
 }
@@ -762,9 +767,9 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 
 	// If it's vote transaction
 	if tx.Flag() == 1 {
-		return ValidatePbftTx(pool.currentState, pool.chain.CurrentBlock().Number(), tx, from)
+		return ValidatePbftTx(pool.currentState, pool.chain.CurrentBlock().Number(), (uint64(time.Now().Unix()) - pool.chain.CurrentBlock().Time().Uint64()) / 60, tx, from)
 	}
-	
+
 	//If the transaction is authentication, check txCert Signature
 	//If the transaction isn't, check the address legality
 	if tx.IsRegisterTransaction() {
@@ -1331,7 +1336,7 @@ func (pool *TxPool) demoteUnexecutables() {
 	}
 
 	// Drop all pbft transactions that different from current height(such as: 9, 19, ..., 109, etc)
-	height := pool.chain.CurrentBlock().NumberU64()
+	curBlock := pool.chain.CurrentBlock()
 	for addr, list := range pool.pending {
 		txs := list.Flatten()
 		for i := 0; i < txs.Len(); i++ {
@@ -1341,9 +1346,9 @@ func (pool *TxPool) demoteUnexecutables() {
 			}
 
 			payload := tx.Data()
-			vote_h := new(big.Int).SetBytes(payload[common.HashLength:]).Uint64()
-
-			if vote_h < height {
+			vote_h := common.BytesToUint64(payload[common.HashLength : common.HashLength + 8])
+			vote_index := common.BytesToUint64(payload[common.HashLength + 8 :])
+			if vote_h < curBlock.NumberU64() || vote_index < (uint64(time.Now().Unix()) - curBlock.Time().Uint64()) / 60 {
 				list.txs.Remove(tx.Nonce())
 				hash := tx.Hash()
 				log.Trace("Removed overdue vote transaction", "hash", hash)

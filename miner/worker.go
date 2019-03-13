@@ -548,7 +548,7 @@ func (self *worker) commitNewWork() {
 	committeeCnt := self.chain.GetCommitteeCount()
 	var pending map[common.Address]types.Transactions
 	if header.IsCheckPoint.Cmp(common.Big1) == 0 {
-		pending, err = self.eth.TxPool().GetValidPbft(blockNumber.Uint64() - 1)
+		pending, err = self.eth.TxPool().GetValidPbft(blockNumber.Uint64() - 1, (uint64(time.Now().Unix()) - parent.Time().Uint64()) / 60)
 		gen, targetHash, _ := CanGenBlockInCheckPoint(pending, committeeCnt)
 		if !gen {
 		DONE2:

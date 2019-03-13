@@ -56,9 +56,28 @@ func IsMiner(statedb *state.StateDB, miner common.Address, totalMinerNum *big.In
 	keyIndex = hash.Sum(keyIndex)
 
 	for i := int64(0); i < totalMinerNum.Int64(); i++ {
-		if checkAddress(statedb, miner, keyIndex, i) {
+		if checkAddress(statedb, miner, keyIndex, i, totalMinerNum) {
 			return true
 		}
+	}
+	return false
+}
+
+func IsPunishMiner(statedb *state.StateDB, miner common.Address, totalMinerNum *big.Int) bool {
+	if totalMinerNum.Cmp(common.Big1) < 1 {
+		return false
+	}
+
+	web3key := paramIndex + miner.String()
+	hash := sha3.NewKeccak256()
+	hash.Write(hexutil.MustDecode(web3key))
+	var keyIndex []byte
+	keyIndex = hash.Sum(keyIndex)
+
+	res := statedb.GetState(common.HexToAddress(MinerListContract), common.HexToHash(string(keyIndex)))
+
+	if res.Big().Cmp(common.PunishMinerThreshold) >= 0 {
+		return true
 	}
 	return false
 }
@@ -78,7 +97,7 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 		return true, 0, nil
 	}
 	if totalMinerNum.Cmp(common.Big1) == 0 {
-		return checkAddress(state, miner, keyIndex, 0), 0, nil
+		return checkAddress(state, miner, keyIndex, 0, totalMinerNum), 0, nil
 	}
 
 	minerlist := genRandomMinerList(preSignatureQr, offset, totalMinerNum)
@@ -99,7 +118,7 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 		if preDifficultyLevel.Int64() != 0 && idTargetfloat > (float64(0.618)-level)*totalminernum {
 			return false, 0, nil
 		}
-		return checkAddress(state, miner, keyIndex, minerlist[idTarget.Int64()]), 0, nil
+		return checkAddress(state, miner, keyIndex, minerlist[idTarget.Int64()], totalMinerNum), 0, nil
 	} else {
 		id := calId(idTarget, preSignatureQr, totalMinerNum, offset)
 		idfloat, _ := strconv.ParseFloat(id.String(), 64)
@@ -107,7 +126,7 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 			return false, offset.Int64(), nil
 		}
 
-		return checkAddress(state, miner, keyIndex, minerlist[id.Int64()]), offset.Int64(), readMinerAddress(state, idTarget.Int64())
+		return checkAddress(state, miner, keyIndex, minerlist[id.Int64()], totalMinerNum), offset.Int64(), readMinerAddress(state, idTarget.Int64())
 	}
 }
 
@@ -162,8 +181,17 @@ DONE:
 	return id
 }
 
-func checkAddress(statedb *state.StateDB, miner common.Address, keyIndex []byte, offset int64) bool {
-	res := statedb.GetState(common.HexToAddress(MinerListContract), common.HexToHash(common.IncreaseHexByNum(keyIndex, offset)))
+func checkAddress(statedb *state.StateDB, miner common.Address, keyIndex []byte, offset int64, totalMinerNum *big.Int) bool {
+	var res common.Hash
+	for {
+		res = statedb.GetState(common.HexToAddress(MinerListContract), common.HexToHash(common.IncreaseHexByNum(keyIndex, offset)))
+		if IsPunishMiner(statedb, common.StringToAddress(res.String()[26:]), totalMinerNum) {
+			offset += 1
+		} else {
+			break
+		}
+	}
+
 	if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
 		return true
 	}

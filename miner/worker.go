@@ -468,6 +468,11 @@ func (self *worker) commitNewWork() {
 			return
 		}
 
+		if minerlist.IsPunishMiner(self.current.state, self.coinbase, totalMinerNum) {
+			log.Error("The miner was punished, invalid miner")
+			return
+		}
+
 		// Look up the wallet containing the requested signer
 		account := accounts.Account{Address: self.coinbase}
 		wallet, err := self.eth.AccountManager().Find(account)

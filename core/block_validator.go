@@ -122,6 +122,10 @@ func (v *BlockValidator) ValidateMiner(block, parent *types.Block, statedb *stat
 		return fmt.Errorf("Coinbase should be legal miner address, invalid miner")
 	}
 
+	if minerlist.IsPunishMiner(statedb, header.Coinbase, totalMinerNum) {
+		return fmt.Errorf("The miner was punished, invalid miner")
+	}
+
 	// Verify block miner
 	preCoinbase := parent.Coinbase()
 	blockNumber := header.Number

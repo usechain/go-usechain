@@ -503,7 +503,7 @@ func (self *worker) commitNewWork() {
 			header.MinerQrSignature = minerQrSignature[:20]
 		}
 
-		IsValidMiner, level := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n, preDifficultyLevel)
+		IsValidMiner, level, preMiner := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n, preDifficultyLevel)
 
 		if !IsValidMiner {
 		DONE1:
@@ -520,6 +520,7 @@ func (self *worker) commitNewWork() {
 			return
 		}
 
+		header.PrimaryMiner = preMiner
 		header.DifficultyLevel = big.NewInt(level)
 		if header.Number.Cmp(common.Big1) == 0 {
 			header.DifficultyLevel = big.NewInt(0)

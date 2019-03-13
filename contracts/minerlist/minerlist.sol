@@ -114,6 +114,4 @@ contract MinerList {
         }
         return true;
     }
-
-
 }

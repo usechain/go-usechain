@@ -18,16 +18,13 @@ package core
 
 import (
 	"errors"
-	"math"
-	"math/big"
-	"os"
-
 	"github.com/usechain/go-usechain/common"
-	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/core/vm"
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/params"
+	"math"
+	"math/big"
 )
 
 var (
@@ -206,27 +203,6 @@ func (st *StateTransition) preCheck() (err error) {
 			return ErrNonceTooLow
 		}
 	}
-
-	// Check whether a valid pdft or credit register tx
-	transactionFormat := msgToTransaction(msg)
-	db, ok := (st.state).(*state.StateDB)
-	if !ok {
-		log.Error("vm state assert failed")
-		os.Exit(1)
-	}
-	///TODO:all transaction should be identified by Tx.flag, with switch
-	if transactionFormat.Flag() == 1 {
-		err = ValidatePbftTx(db, st.evm.Context.BlockNumber, transactionFormat, common.Address(sender))
-		if err != nil {
-			return err
-		}
-	} else if transactionFormat.IsRegisterTransaction() {
-		err = transactionFormat.CheckCertLegality(common.Address(sender))
-		if err != nil {
-			return vm.ErrInvalidAuthenticationsig
-		}
-	}
-
 	return st.buyGas()
 }
 

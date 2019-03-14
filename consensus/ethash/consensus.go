@@ -422,7 +422,6 @@ func recordMisconduct(state *state.StateDB, address common.Address, reward bool)
 
 	// get data from the contract statedb
 	res := state.GetState(common.HexToAddress(minerlist.MinerListContract), common.BytesToHash(keyIndex))
-
 	if reward {
 		// add reward to the address with -1
 		if res.Big().Cmp(common.Big0) > 0 {
@@ -432,7 +431,4 @@ func recordMisconduct(state *state.StateDB, address common.Address, reward bool)
 		// add publish to the address with +5
 		state.SetState(common.HexToAddress(minerlist.MinerListContract), common.BytesToHash(keyIndex), res.IncreaseHex(big.NewInt(5)))
 	}
-
-	// get data from the contract statedb
-	res = state.GetState(common.HexToAddress(minerlist.MinerListContract), common.BytesToHash(keyIndex))
 }

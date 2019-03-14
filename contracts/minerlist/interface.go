@@ -191,7 +191,7 @@ func isPunishMiner(statedb *state.StateDB, miner common.Address, totalMinerNum *
 		return false
 	}
 
-	web3key := "000000000000000000000000" + miner.Hex()[2:] + common.BigToHash(big.NewInt(2)).Hex()[2:]
+	web3key := "000000000000000000000000" + miner.Hex()[2:] + common.BigToHash(big.NewInt(4)).Hex()[2:]
 	hash := sha3.NewKeccak256()
 
 	var keyIndex []byte

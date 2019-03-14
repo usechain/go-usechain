@@ -412,7 +412,7 @@ func handleMisconducts(state *state.StateDB, header *types.Header) {
 // recordMisconduct will read & make the misconduct count +5
 // correct primary miner will decrease the misconduct count -1
 func recordMisconduct(state *state.StateDB, address common.Address, reward bool) {
-	web3key := "000000000000000000000000" + address.Hex()[2:] + common.BigToHash(big.NewInt(2)).Hex()[2:]
+	web3key := "000000000000000000000000" + address.Hex()[2:] + common.BigToHash(big.NewInt(4)).Hex()[2:]
 	hash := sha3.NewKeccak256()
 
 	var keyIndex []byte

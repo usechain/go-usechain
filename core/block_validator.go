@@ -17,6 +17,7 @@
 package core
 
 import (
+	"bytes"
 	"fmt"
 	"math/big"
 
@@ -134,10 +135,18 @@ func (v *BlockValidator) ValidateMiner(block, parent *types.Block, statedb *stat
 
 	n := new(big.Int).Div(tstampSub, common.BlockSlot)
 
-	IsValidMiner, level := minerlist.IsValidMiner(statedb, header.Coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n, preDifficultyLevel)
+	IsValidMiner, level, preMinerid := minerlist.IsValidMiner(statedb, header.Coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n, preDifficultyLevel)
 
 	if !IsValidMiner {
 		return fmt.Errorf("invalid miner")
+	}
+
+	var preMiner common.Address
+	if totalMinerNum.Int64() != 0 {
+		preMiner = common.BytesToAddress(minerlist.ReadMinerAddress(statedb, preMinerid))
+	}
+	if bytes.Compare(header.PrimaryMiner.Bytes(), preMiner.Bytes()) != 0 && totalMinerNum.Int64() != 0 {
+		return fmt.Errorf("invalid primaryMiner: have %s, want %s", preMiner.String(), header.PrimaryMiner.String())
 	}
 
 	if header.Number.Cmp(common.Big1) == 0 && header.DifficultyLevel.Int64() != 0 {

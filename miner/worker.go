@@ -459,12 +459,19 @@ func (self *worker) commitNewWork() {
 		header.IsCheckPoint = big.NewInt(0)
 	}
 
+	// Could potentially happen if starting to mine in an odd state.
+	err := self.makeCurrent(parent, header)
+	if err != nil {
+		log.Error("Failed to create mining context", "err", err)
+		return
+	}
+
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&self.mining) == 1 {
 		totalMinerNum := minerlist.ReadMinerNum(self.current.state)
 
 		if !minerlist.IsMiner(self.current.state, self.coinbase, totalMinerNum) {
-			log.Error("Coinbase should be legal miner address, please register for mining")
+			log.Error("Coinbase should be legal miner address, invalid miner")
 			return
 		}
 
@@ -503,7 +510,7 @@ func (self *worker) commitNewWork() {
 			header.MinerQrSignature = minerQrSignature[:20]
 		}
 
-		IsValidMiner, level := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n, preDifficultyLevel)
+		IsValidMiner, level, preMinerid := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n, preDifficultyLevel)
 
 		if !IsValidMiner {
 		DONE1:
@@ -520,6 +527,13 @@ func (self *worker) commitNewWork() {
 			return
 		}
 
+		if totalMinerNum.Int64() != 0 {
+			header.PrimaryMiner = common.BytesToAddress(minerlist.ReadMinerAddress(self.current.state, preMinerid))
+			fmt.Println("preMinerid", preMinerid)
+			fmt.Println("header.PrimaryMiner", header.PrimaryMiner)
+		} else {
+			header.PrimaryMiner = self.coinbase
+		}
 		header.DifficultyLevel = big.NewInt(level)
 		if header.Number.Cmp(common.Big1) == 0 {
 			header.DifficultyLevel = big.NewInt(0)
@@ -537,12 +551,6 @@ func (self *worker) commitNewWork() {
 		}
 	}
 
-	// Could potentially happen if starting to mine in an odd state.
-	err := self.makeCurrent(parent, header)
-	if err != nil {
-		log.Error("Failed to create mining context", "err", err)
-		return
-	}
 	// Create the current work task and check any fork transitions needed
 	work := self.current
 	committeeCnt := self.chain.GetCommitteeCount()

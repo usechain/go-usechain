@@ -468,23 +468,23 @@ func (s *Service) reportLatency(conn *websocket.Conn) error {
 
 // blockStats is the information to report about individual blocks.
 type blockStats struct {
-	Number     *big.Int       `json:"number"`
-	Hash       common.Hash    `json:"hash"`
-	ParentHash common.Hash    `json:"parentHash"`
-	Timestamp  *big.Int       `json:"timestamp"`
-	Miner      common.Address `json:"miner"`
-	IsCheckPoint   *big.Int		  `json:"isCheckPoint"`
-	MinerQrSignature string   `json:"minerQrSignature"`
-	DifficultyLevel   *big.Int		  `json:"difficultyLevel"`
-	PrimaryMiner string   `json:"primaryMiner"`
-	GasUsed    uint64         `json:"gasUsed"`
-	GasLimit   uint64         `json:"gasLimit"`
-	Diff       string         `json:"difficulty"`
-	TotalDiff  string         `json:"totalDifficulty"`
-	Txs        []txStats      `json:"transactions"`
-	TxHash     common.Hash    `json:"transactionsRoot"`
-	Root       common.Hash    `json:"stateRoot"`
-	Uncles     uncleStats     `json:"uncles"`
+	Number           *big.Int       `json:"number"`
+	Hash             common.Hash    `json:"hash"`
+	ParentHash       common.Hash    `json:"parentHash"`
+	Timestamp        *big.Int       `json:"timestamp"`
+	Miner            common.Address `json:"miner"`
+	IsCheckPoint     *big.Int       `json:"isCheckPoint"`
+	MinerQrSignature string         `json:"minerQrSignature"`
+	DifficultyLevel  *big.Int       `json:"difficultyLevel"`
+	PrimaryMiner     common.Address `json:"primaryMiner"`
+	GasUsed          uint64         `json:"gasUsed"`
+	GasLimit         uint64         `json:"gasLimit"`
+	Diff             string         `json:"difficulty"`
+	TotalDiff        string         `json:"totalDifficulty"`
+	Txs              []txStats      `json:"transactions"`
+	TxHash           common.Hash    `json:"transactionsRoot"`
+	Root             common.Hash    `json:"stateRoot"`
+	Uncles           uncleStats     `json:"uncles"`
 }
 
 // txStats is the information to report about individual transactions.
@@ -558,23 +558,23 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 	author, _ := s.engine.Author(header)
 
 	return &blockStats{
-		Number:     header.Number,
-		Hash:       header.Hash(),
-		ParentHash: header.ParentHash,
-		Timestamp:  header.Time,
-		Miner:      author,
-		IsCheckPoint:	header.IsCheckPoint,
+		Number:           header.Number,
+		Hash:             header.Hash(),
+		ParentHash:       header.ParentHash,
+		Timestamp:        header.Time,
+		Miner:            author,
+		IsCheckPoint:     header.IsCheckPoint,
 		MinerQrSignature: string((header.MinerQrSignature)),
-		DifficultyLevel:	header.DifficultyLevel,
-		PrimaryMiner: string((header.PrimaryMiner)),
-		GasUsed:    header.GasUsed,
-		GasLimit:   header.GasLimit,
-		Diff:       header.Difficulty.String(),
-		TotalDiff:  td.String(),
-		Txs:        txs,
-		TxHash:     header.TxHash,
-		Root:       header.Root,
-		Uncles:     uncles,
+		DifficultyLevel:  header.DifficultyLevel,
+		PrimaryMiner:     header.PrimaryMiner,
+		GasUsed:          header.GasUsed,
+		GasLimit:         header.GasLimit,
+		Diff:             header.Difficulty.String(),
+		TotalDiff:        td.String(),
+		Txs:              txs,
+		TxHash:           header.TxHash,
+		Root:             header.Root,
+		Uncles:           uncles,
 	}
 }
 

@@ -77,6 +77,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		return nil, nil, 0, err
 	}
 
+	// check the txs
 	for i, tx := range block.Transactions() {
 		if header.IsCheckPoint.Int64() == 1 && tx.Flag() == 0 {
 			err := errors.New("checkpoint block can't package common transactions")

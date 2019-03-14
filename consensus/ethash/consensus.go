@@ -19,18 +19,25 @@ package ethash
 import (
 	"errors"
 	"fmt"
-	"math/big"
-	"runtime"
-	"time"
-
 	"github.com/usechain/go-usechain/common"
+	//"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/common/math"
 	"github.com/usechain/go-usechain/consensus"
 	"github.com/usechain/go-usechain/consensus/misc"
+	//"github.com/usechain/go-usechain/contracts/minerlist"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
+	"github.com/usechain/go-usechain/crypto/sha3"
 	"github.com/usechain/go-usechain/params"
 	"gopkg.in/fatih/set.v0"
+	"math/big"
+	"runtime"
+	//"strings"
+	"encoding/hex"
+	"github.com/usechain/go-usechain/contracts/minerlist"
+	//"strings"
+	"strings"
+	"time"
 )
 
 // Ethash proof-of-work protocol constants.
@@ -352,6 +359,7 @@ func (ethash *Ethash) Prepare(chain consensus.ChainReader, header *types.Header,
 func (ethash *Ethash) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 	// Accumulate any block and uncle rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header, uncles)
+	handleMisconducts(state, header)
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 
 	// Header seems complete, assemble into a block and return
@@ -385,4 +393,42 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 		reward.Add(reward, r)
 	}
 	state.AddBalance(header.Coinbase, reward)
+}
+
+// handleMisconducts will check the block whether be mined by PrimaryMiner
+// if does, the PrimaryMiner's misconduct count recorded in minelist contract will -1
+// if not, the PrimaryMiner's misconduct count recorded in minelist contract will +5
+// when the misconduct count reached the MisconductLimit which record in contract
+// with default 100, the miner will lose mining right
+func handleMisconducts(state *state.StateDB, header *types.Header) {
+	priAddr := header.PrimaryMiner
+	if !strings.EqualFold(priAddr.String(), header.Coinbase.String()) {
+		recordMisconduct(state, priAddr, false)
+	} else {
+		recordMisconduct(state, priAddr, true)
+	}
+}
+
+// recordMisconduct will read & make the misconduct count +5
+// correct primary miner will decrease the misconduct count -1
+func recordMisconduct(state *state.StateDB, address common.Address, reward bool) {
+	web3key := "000000000000000000000000" + address.Hex()[2:] + common.BigToHash(big.NewInt(2)).Hex()[2:]
+	hash := sha3.NewKeccak256()
+
+	var keyIndex []byte
+	b, _ := hex.DecodeString(web3key)
+	hash.Write(b)
+	keyIndex = hash.Sum(keyIndex)
+
+	// get data from the contract statedb
+	res := state.GetState(common.HexToAddress(minerlist.MinerListContract), common.BytesToHash(keyIndex))
+	if reward {
+		// add reward to the address with -1
+		if res.Big().Cmp(common.Big0) > 0 {
+			state.SetState(common.HexToAddress(minerlist.MinerListContract), common.BytesToHash(keyIndex), res.DecreaseHex(big.NewInt(1)))
+		}
+	} else {
+		// add publish to the address with +5
+		state.SetState(common.HexToAddress(minerlist.MinerListContract), common.BytesToHash(keyIndex), res.IncreaseHex(big.NewInt(5)))
+	}
 }

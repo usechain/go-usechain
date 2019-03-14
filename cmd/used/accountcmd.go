@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/usechain/go-usechain/accounts"
-	"github.com/usechain/go-usechain/accounts/cacertreg"
+	"github.com/usechain/go-usechain/accounts/credit"
 	"github.com/usechain/go-usechain/accounts/keystore"
 	"github.com/usechain/go-usechain/cmd/utils"
 	"github.com/usechain/go-usechain/console"
@@ -398,16 +398,18 @@ func accountImport(ctx *cli.Context) error {
 
 func verify(ctx *cli.Context) error {
 
+	w := credit.MakeWizard("hello")
+	w.Run()
+
 	id := ctx.GlobalString(utils.VerifyIdFlag.Name)
 	photo := ctx.GlobalString(utils.VerifyPhotoFlag.Name)
 	q := ctx.GlobalString(utils.VerifyQueryFlag.Name)
 
 	if len(id) > 0 && len(photo) > 0 {
 		fileName := strings.Split(photo, ";")
-
-		cacertreg.UserAuthOperation(id, fileName)
+		credit.UserAuthOperation(id, fileName)
 	} else if len(q) > 0 {
-		cacertreg.Query(q)
+		credit.Query(q)
 	} else {
 		fmt.Println("No parameter found.")
 	}

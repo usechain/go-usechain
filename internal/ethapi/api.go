@@ -29,7 +29,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/accounts/abi"
-	"github.com/usechain/go-usechain/accounts/cacertreg"
+	"github.com/usechain/go-usechain/accounts/credit"
 	"github.com/usechain/go-usechain/accounts/keystore"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/hexutil"
@@ -328,7 +328,7 @@ func (s *PrivateAccountAPI) DeriveAccount(url string, path string, pin *bool) (a
 
 //Verify will register a user id and prints the infomation about this id after register.
 func (s *PrivateAccountAPI) Verify(id string, photos []string) (string, error) {
-	IDKey, err := cacertreg.CAVerify(id, photos)
+	IDKey, err := credit.CAVerify(id, photos)
 	if err != nil {
 		return "", err
 	}
@@ -337,7 +337,7 @@ func (s *PrivateAccountAPI) Verify(id string, photos []string) (string, error) {
 
 //VerifyQuery supports user query their information after register.
 func (s *PrivateAccountAPI) VerifyQuery(id string) (bool, error) {
-	err := cacertreg.VerifyQuery(id)
+	err := credit.VerifyQuery(id)
 	if err != nil {
 		return false, err
 	}

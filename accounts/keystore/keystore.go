@@ -554,6 +554,18 @@ func ECDSAPKCompression(p *ecdsa.PublicKey) []byte {
 	return b
 }
 
+func (ks *KeyStore) NewSubAccount(mainacc accounts.Account, passphrase string) (accounts.Account, error) {
+	_, account, err := storeNewKey(ks.storage, crand.Reader, passphrase)
+	if err != nil {
+		return accounts.Account{}, err
+	}
+	// Add the account to the cache immediately rather
+	// than waiting for file system notifications to pick it up.
+	ks.cache.add(account)
+	ks.refreshWallets()
+	return account, nil
+}
+
 // NewABaccount generates a new key and stores it into the key directory, encrypting it with the passphrase.
 func (ks *KeyStore) NewABaccount(A accounts.Account, passphrase string) (accounts.Account, common.ABaddress, error) {
 

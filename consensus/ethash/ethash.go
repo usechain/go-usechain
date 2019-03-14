@@ -24,7 +24,6 @@ import (
 
 	"github.com/usechain/go-usechain/consensus"
 	"github.com/usechain/go-usechain/log"
-	"github.com/usechain/go-usechain/metrics"
 	"github.com/usechain/go-usechain/rpc"
 
 	"github.com/usechain/go-usechain/ethdb"
@@ -62,7 +61,6 @@ type Ethash struct {
 	rand     *rand.Rand    // Properly seeded random source for nonces
 	threads  int           // Number of threads to mine on if mining
 	update   chan struct{} // Notification channel to update mining parameters
-	hashrate metrics.Meter // Meter tracking the average hashrate
 
 	// The fields below are hooks for testing
 	shared    *Ethash       // Shared PoW verifier to avoid cache regeneration
@@ -89,7 +87,6 @@ func New(config Config) *Ethash {
 	return &Ethash{
 		config:   config,
 		update:   make(chan struct{}),
-		hashrate: metrics.NewMeter(),
 	}
 }
 
@@ -103,7 +100,6 @@ func NewTesterUse(db ethdb.Database) *Ethash {
 	return &Ethash{
 		config:Config{ CachesInMem: 1,PowMode: ModeFake},
 		update:      make(chan struct{}),
-		hashrate:    metrics.NewMeter(),
 		db:          db,
 	}
 
@@ -207,12 +203,6 @@ func (ethash *Ethash) SetThreads(threads int) {
 	case ethash.update <- struct{}{}:
 	default:
 	}
-}
-
-// Hashrate implements PoW, returning the measured rate of the search invocations
-// per second over the last minute.
-func (ethash *Ethash) Hashrate() float64 {
-	return ethash.hashrate.Rate1()
 }
 
 // APIs implements consensus.Engine, returning the user facing RPC APIs. Currently

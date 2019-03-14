@@ -59,11 +59,6 @@ func (api *PublicEthereumAPI) Coinbase() (common.Address, error) {
 	return api.Usebase()
 }
 
-// Hashrate returns the POW hashrate
-func (api *PublicEthereumAPI) Hashrate() hexutil.Uint64 {
-	return hexutil.Uint64(api.e.Miner().HashRate())
-}
-
 // PublicMinerAPI provides an API to control the miner.
 // It offers only methods that operate on data that pose no security risk when it is publicly accessible.
 type PublicMinerAPI struct {
@@ -105,14 +100,6 @@ func (api *PublicMinerAPI) GetWork() ([3]string, error) {
 		return work, fmt.Errorf("mining not ready: %v", err)
 	}
 	return work, nil
-}
-
-// SubmitHashrate can be used for remote miners to submit their hash rate. This enables the node to report the combined
-// hash rate of all miners which submit work through this node. It accepts the miner hash rate and an identifier which
-// must be unique between nodes.
-func (api *PublicMinerAPI) SubmitHashrate(hashrate hexutil.Uint64, id common.Hash) bool {
-	api.agent.SubmitHashrate(id, uint64(hashrate))
-	return true
 }
 
 // PrivateMinerAPI provides private RPC methods to control the miner.
@@ -191,11 +178,6 @@ func (api *PrivateMinerAPI) SetGasPrice(gasPrice hexutil.Big) bool {
 func (api *PrivateMinerAPI) SetUsebase(usebase common.Address) bool {
 	api.e.SetUsebase(usebase)
 	return true
-}
-
-// GetHashrate returns the current hashrate of the miner.
-func (api *PrivateMinerAPI) GetHashrate() uint64 {
-	return uint64(api.e.miner.HashRate())
 }
 
 // PrivateVoterAPI provides private RPC methods to control the voter.

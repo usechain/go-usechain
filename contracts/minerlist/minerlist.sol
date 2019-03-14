@@ -16,6 +16,18 @@
 
 pragma solidity ^0.4.20;
 
+contract Committee {
+    /// @notice Whether the msg.sender is committee or not.
+    /// @return Whether the transfer was successful or not
+    function IsOndutyCommittee(address _user) public view returns(bool);
+}
+
+contract Credit {
+    /// @notice Whether the address is main account or not
+    /// @return true or false
+    function isMainAccount(address _user) public view returns(bool);
+}
+
 contract MinerList {
 
     address[] public Miner;
@@ -23,10 +35,15 @@ contract MinerList {
     // the mining ticket should be 10000 USE
     uint256 ticket = 1e22;
 
+    /// @notice Committee contract address
+    address public CommitteeAddr = address(0xffFFFfFFffFfffffFffFFfFFFFFFFFFff0000003);
+    address public CreditAddr = address(0xfFffffffffFfFFffFffFfFFfFfffFfFff0000001);
+
     // missed block mining chance for miners
     uint256 constant public MisconductLimits = 100;
     mapping (address => uint256) public Misconducts;
 
+    /// @notice only miner can call
     modifier onlyMiner(address _miner) {
         bool isMiner = false;
         uint len=Miner.length;
@@ -53,9 +70,13 @@ contract MinerList {
         _;
     }
 
-    modifier onlyCommitteer(address _miner) {
-        bool isCommittee = true;
-        require (isCommittee == true);
+    modifier onlyCommittee(address _user) {
+        require (Committee(CommitteeAddr).IsOndutyCommittee(_user) == true);
+        _;
+    }
+
+    modifier onlyMainAccount(address _user) {
+        require (Credit(CreditAddr).isMainAccount(_user) == true);
         _;
     }
 
@@ -74,8 +95,13 @@ contract MinerList {
     //     return true;
     // }
 
-    ///add miner
-    function addMiner() public payable onlyNotMiner(msg.sender) returns(bool) {
+    /// @notice add miner
+    function addMiner()
+    public
+    payable
+    onlyNotMiner(msg.sender)
+    onlyMainAccount(msg.sender)
+    returns(bool) {
         require(msg.value >= ticket);
         if (msg.value > ticket) {
             uint256 refundFee = msg.value - ticket;
@@ -85,9 +111,8 @@ contract MinerList {
         return true;
     }
 
-    ///del miner
+    /// @dev del miner
     function delMinerBySelf() public payable onlyMiner(msg.sender) returns(bool) {
-        // clear misconduct count if the miner deal by self
         uint len=Miner.length;
         for (uint i = 0; i<len; i++){
             if(msg.sender == Miner[i]){
@@ -101,8 +126,8 @@ contract MinerList {
         return true;
     }
 
-    function delMinerByCommittee(address _miner) public payable onlyMiner(_miner) onlyCommitteer(msg.sender) returns(bool) {
-        // will not clear misconduct count if the dealing is handled by committee
+    /// @notice only committee can del miner
+    function delMinerByCommittee(address _miner) public payable onlyMiner(_miner) onlyCommittee(msg.sender) returns(bool) {
         uint len=Miner.length;
         for (uint i = 0; i<len; i++){
             if(_miner == Miner[i]){

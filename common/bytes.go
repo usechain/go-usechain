@@ -17,7 +17,10 @@
 // Package common contains various helper functions.
 package common
 
-import "encoding/hex"
+import (
+	"encoding/binary"
+	"encoding/hex"
+)
 
 const (
 	zero  = byte('0')
@@ -199,4 +202,14 @@ func appendBinaryString(bs []byte, b byte) []byte {
 		b <<= 1
 	}
 	return bs
+}
+
+func Uint64ToBytes(num uint64) []byte {
+	var buf = make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, num)
+	return buf
+}
+
+func BytesToUint64(buf []byte) uint64 {
+	return binary.BigEndian.Uint64(buf)
 }

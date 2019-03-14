@@ -35,3 +35,11 @@ var (
 	MaxCommitteemanCount = 5
 	BlockInterval        = 5
 )
+
+func GetIndexForVote(t1 int64, t2 int64) uint64 {
+	index := uint64(0)
+	if t1 > t2 {
+		index = uint64(t1 - t2) / 60
+	}
+	return index
+}

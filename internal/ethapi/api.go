@@ -179,8 +179,9 @@ func (s *PublicTxPoolAPI) Inspect() map[string]map[string]map[string]string {
 		if tx.Flag() == 1 {
 			payload := tx.Data()
 			blockHash := payload[:common.HashLength]
-			number := payload[common.HashLength:]
-			return fmt.Sprintf("pbft vote: block %v, height %v", common.BytesToHash(blockHash).String(), new(big.Int).SetBytes(number).Uint64())
+			number := common.BytesToUint64(payload[common.HashLength : common.HashLength + 8])
+			index := common.BytesToUint64(payload[common.HashLength + 8 :])
+			return fmt.Sprintf("pbft vote: block %v, height %v, index %v", common.BytesToHash(blockHash).String(), number, index)
 		}
 		if to := tx.To(); to != nil {
 			return fmt.Sprintf("%s: %v hui + %v gas × %v hui", tx.To().Hex(), tx.Value(), tx.Gas(), tx.GasPrice())

@@ -452,7 +452,7 @@ func (self *worker) commitNewWork() {
 		Time:     big.NewInt(tstamp),
 	}
 	blockNumber := header.Number
-	if int64(new(big.Int).Mod(num, common.VoteSlot).Cmp(common.Big0)) == 0 {
+	if header.Number.Int64() >= common.VoteSlotForGenesis && int64(new(big.Int).Mod(header.Number, common.VoteSlot).Cmp(common.Big0)) == 0 {
 		header.IsCheckPoint = big.NewInt(1)
 	} else {
 		header.IsCheckPoint = big.NewInt(0)

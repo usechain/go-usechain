@@ -30,6 +30,7 @@ var (
 
 	BlockSlot            = big.NewInt(25)
 	VoteSlot             = big.NewInt(10)
+	VoteSlotForGenesis   = int64(1000)
 	PunishMinerThreshold = big.NewInt(100)
 	MaxCommitteemanCount = 5
 	BlockInterval        = 5

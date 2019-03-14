@@ -18,6 +18,8 @@ package core
 
 import (
 	"errors"
+	"math"
+
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/consensus"
 	"github.com/usechain/go-usechain/consensus/misc"
@@ -27,7 +29,6 @@ import (
 	"github.com/usechain/go-usechain/core/vm"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/params"
-	"math"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning

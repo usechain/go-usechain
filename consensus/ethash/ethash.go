@@ -23,11 +23,8 @@ import (
 	"time"
 
 	"github.com/usechain/go-usechain/consensus"
-	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/rpc"
-
 	"github.com/usechain/go-usechain/ethdb"
-
 )
 
 // Mode defines the type and amount of PoW verification an ethash engine makes.
@@ -43,12 +40,6 @@ const (
 
 // Config are the configuration parameters of the ethash.
 type Config struct {
-	CacheDir       string
-	CachesInMem    int
-	CachesOnDisk   int
-	DatasetDir     string
-	DatasetsInMem  int
-	DatasetsOnDisk int
 	PowMode        Mode
 }
 
@@ -74,16 +65,6 @@ type Ethash struct {
 
 // New creates a full sized ethash PoW scheme.
 func New(config Config) *Ethash {
-	if config.CachesInMem <= 0 {
-		log.Warn("One ethash cache must always be in memory", "requested", config.CachesInMem)
-		config.CachesInMem = 1
-	}
-	if config.CacheDir != "" && config.CachesOnDisk > 0 {
-		log.Info("Disk storage enabled for ethash caches", "dir", config.CacheDir, "count", config.CachesOnDisk)
-	}
-	if config.DatasetDir != "" && config.DatasetsOnDisk > 0 {
-		log.Info("Disk storage enabled for ethash DAGs", "dir", config.DatasetDir, "count", config.DatasetsOnDisk)
-	}
 	return &Ethash{
 		config:   config,
 		update:   make(chan struct{}),
@@ -93,12 +74,12 @@ func New(config Config) *Ethash {
 // NewTester creates a small sized ethash PoW scheme useful only for testing
 // purposes.
 func NewTester() *Ethash {
-	return New(Config{CachesInMem: 1, PowMode: ModeTest})
+	return New(Config{PowMode: ModeTest})
 }
 
 func NewTesterUse(db ethdb.Database) *Ethash {
 	return &Ethash{
-		config:Config{ CachesInMem: 1,PowMode: ModeFake},
+		config:Config{PowMode: ModeFake},
 		update:      make(chan struct{}),
 		db:          db,
 	}

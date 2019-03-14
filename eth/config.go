@@ -18,10 +18,6 @@ package eth
 
 import (
 	"math/big"
-	"os"
-	"os/user"
-	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/usechain/go-usechain/common"
@@ -36,13 +32,7 @@ import (
 // DefaultConfig contains default settings for use on the Ethereum main net.
 var DefaultConfig = Config{
 	SyncMode: downloader.FastSync,
-	Ethash: ethash.Config{
-		CacheDir:       "ethash",
-		CachesInMem:    2,
-		CachesOnDisk:   3,
-		DatasetsInMem:  1,
-		DatasetsOnDisk: 2,
-	},
+	Ethash: ethash.Config{},
 	NetworkId:     1,
 	LightPeers:    100,
 	DatabaseCache: 768,
@@ -55,20 +45,6 @@ var DefaultConfig = Config{
 		Blocks:     20,
 		Percentile: 60,
 	},
-}
-
-func init() {
-	home := os.Getenv("HOME")
-	if home == "" {
-		if user, err := user.Current(); err == nil {
-			home = user.HomeDir
-		}
-	}
-	if runtime.GOOS == "windows" {
-		DefaultConfig.Ethash.DatasetDir = filepath.Join(home, "AppData", "Ethash")
-	} else {
-		DefaultConfig.Ethash.DatasetDir = filepath.Join(home, ".ethash")
-	}
 }
 
 //go:generate gencodec -type Config -field-override configMarshaling -formats toml -out gen_config.go

@@ -919,7 +919,7 @@ func (s *PublicBlockChainAPI) rpcOutputBlock(b *types.Block, inclTx bool, fullTx
 		"isCheckPoint":     head.IsCheckPoint,
 		"minerQrSignature": head.MinerQrSignature,
 		"difficultyLevel":  head.DifficultyLevel,
-		"primaryMiner": head.PrimaryMiner,
+		"primaryMiner":     head.PrimaryMiner,
 		"difficulty":       (*hexutil.Big)(head.Difficulty),
 		"totalDifficulty":  (*hexutil.Big)(s.b.GetTd(b.Hash())),
 		"extraData":        hexutil.Bytes(head.Extra),

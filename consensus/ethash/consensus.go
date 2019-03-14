@@ -35,6 +35,7 @@ import (
 	//"strings"
 	"encoding/hex"
 	"github.com/usechain/go-usechain/contracts/minerlist"
+	//"strings"
 	"strings"
 	"time"
 )
@@ -400,15 +401,11 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 // when the misconduct count reached the MisconductLimit which record in contract
 // with default 100, the miner will lose mining right
 func handleMisconducts(state *state.StateDB, header *types.Header) {
-	if header.PrimaryMiner != nil {
-		priAddr := common.BytesToAddress(header.PrimaryMiner)
-		//priAddr := common.HexToAddress("0xa5c6ce7eeecb3deca034a92514d065999ca6eb13")
-		//recordMisconduct(state, priAddr, true)
-		if !strings.EqualFold(priAddr.String(), header.Coinbase.String()) {
-			recordMisconduct(state, priAddr, false)
-		} else {
-			recordMisconduct(state, priAddr, true)
-		}
+	priAddr := header.PrimaryMiner
+	if !strings.EqualFold(priAddr.String(), header.Coinbase.String()) {
+		recordMisconduct(state, priAddr, false)
+	} else {
+		recordMisconduct(state, priAddr, true)
 	}
 }
 
@@ -419,16 +416,12 @@ func recordMisconduct(state *state.StateDB, address common.Address, reward bool)
 	hash := sha3.NewKeccak256()
 
 	var keyIndex []byte
-	fmt.Println(web3key)
-
 	b, _ := hex.DecodeString(web3key)
 	hash.Write(b)
 	keyIndex = hash.Sum(keyIndex)
 
 	// get data from the contract statedb
 	res := state.GetState(common.HexToAddress(minerlist.MinerListContract), common.BytesToHash(keyIndex))
-	fmt.Printf("keyIndex %x\n", keyIndex)
-	fmt.Println("res", res)
 
 	if reward {
 		// add reward to the address with -1
@@ -442,5 +435,4 @@ func recordMisconduct(state *state.StateDB, address common.Address, reward bool)
 
 	// get data from the contract statedb
 	res = state.GetState(common.HexToAddress(minerlist.MinerListContract), common.BytesToHash(keyIndex))
-	fmt.Println("res", res)
 }

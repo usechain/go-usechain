@@ -19,9 +19,9 @@ package minerlist
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"math/big"
 	"math/rand"
-	"strconv"
 	"strings"
 
 	"github.com/usechain/go-usechain/common"
@@ -67,7 +67,8 @@ func CalQr(base []byte, number *big.Int, preQrSignature []byte) common.Hash {
 	return crypto.Keccak256Hash(bytes.Join([][]byte{base, number.Bytes(), preQrSignature}, []byte("")))
 }
 
-func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common.Address, preSignatureQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, offset *big.Int, preDifficultyLevel *big.Int) (bool, int64) {
+func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common.Address, preSignatureQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, offset *big.Int, preDifficultyLevel *big.Int) (bool, int64, int64) {
+	//TODO: add time penalty mechanism
 	hash := sha3.NewKeccak256()
 	hash.Write(hexutil.MustDecode(paramIndex))
 	var keyIndex []byte
@@ -75,39 +76,22 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 
 	// add for test solo mining
 	if totalMinerNum.Cmp(common.Big0) == 0 {
-		return true, 0
+		return true, 0, 0
 	}
 	if totalMinerNum.Cmp(common.Big1) == 0 {
-		return checkAddress(state, miner, keyIndex, 0), 0
+		return checkAddress(state, miner, keyIndex, 0), 0, 0
 	}
 
 	minerlist := genRandomMinerList(preSignatureQr, offset, totalMinerNum)
-	preLevel, _ := strconv.ParseFloat(preDifficultyLevel.String(), 64)
-	totalminernum, _ := strconv.ParseFloat(totalMinerNum.String(), 64)
 	idTarget := CalIdTarget(preCoinbase, preSignatureQr, blockNumber, totalMinerNum, state)
 	var oldNode []int64
 	oldNode = append(oldNode, idTarget.Int64())
-	var level float64
-	if preLevel > 3 {
-		level = 0.3
-	} else {
-		level = 0.1 * preLevel
-	}
 
 	if offset.Int64() == 0 {
-		idTargetfloat, _ := strconv.ParseFloat(idTarget.String(), 64)
-		if preDifficultyLevel.Int64() != 0 && idTargetfloat > (float64(0.618)-level)*totalminernum {
-			return false, 0
-		}
-		return checkAddress(state, miner, keyIndex, minerlist[idTarget.Int64()]), 0
+		return checkAddress(state, miner, keyIndex, minerlist[idTarget.Int64()]), 0, minerlist[idTarget.Int64()]
 	} else {
 		id := calId(idTarget, preSignatureQr, totalMinerNum, offset, state, keyIndex)
-		idfloat, _ := strconv.ParseFloat(id.String(), 64)
-		if preDifficultyLevel.Int64() != 0 && idfloat > (float64(0.618)-level)*totalminernum {
-			return false, offset.Int64()
-		}
-
-		return checkAddress(state, miner, keyIndex, minerlist[id.Int64()]), offset.Int64()
+		return checkAddress(state, miner, keyIndex, minerlist[id.Int64()]), offset.Int64(), genRandomMinerList(preSignatureQr, common.Big0, totalMinerNum)[idTarget.Int64()]
 	}
 }
 
@@ -207,13 +191,16 @@ func isPunishMiner(statedb *state.StateDB, miner common.Address, totalMinerNum *
 		return false
 	}
 
-	web3key := paramIndex + miner.String()[2:]
+	web3key := "000000000000000000000000" + miner.Hex()[2:] + common.BigToHash(big.NewInt(2)).Hex()[2:]
 	hash := sha3.NewKeccak256()
-	hash.Write(hexutil.MustDecode(web3key))
+
 	var keyIndex []byte
+	b, _ := hex.DecodeString(web3key)
+	hash.Write(b)
 	keyIndex = hash.Sum(keyIndex)
 
-	res := statedb.GetState(common.HexToAddress(MinerListContract), common.HexToHash(string(keyIndex)))
+	// get data from the contract statedb
+	res := statedb.GetState(common.HexToAddress(MinerListContract), common.BytesToHash(keyIndex))
 
 	if res.Big().Cmp(common.PunishMinerThreshold) >= 0 {
 		return true

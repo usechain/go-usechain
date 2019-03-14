@@ -94,7 +94,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		}
 		sender := msg.From()
 		if tx.Flag() == 1 {
-			err := ValidatePbftTx(statedb, big.NewInt(block.Number().Int64() - 1), (block.Time().Uint64() - p.bc.GetBlockByNumber(block.NumberU64() - 1).Time().Uint64()) / 60, tx, common.Address(sender))
+			err := ValidatePbftTx(statedb, big.NewInt(block.Number().Int64() - 1), common.GetIndexForVote(block.Time().Int64(), p.bc.GetBlockByNumber(block.NumberU64() - 1).Time().Int64()), tx, common.Address(sender))
 			if err != nil {
 				return nil, nil, 0, err
 			}

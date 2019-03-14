@@ -146,7 +146,7 @@ func (v *BlockValidator) ValidateMiner(block, parent *types.Block, statedb *stat
 		preMiner = common.BytesToAddress(minerlist.ReadMinerAddress(statedb, preMinerid))
 	}
 	if bytes.Compare(header.PrimaryMiner.Bytes(), preMiner.Bytes()) != 0 && totalMinerNum.Int64() != 0 {
-		return fmt.Errorf("invalid primaryMiner: have %s, want %s", preMiner, header.PrimaryMiner)
+		return fmt.Errorf("invalid primaryMiner: have %s, want %s", preMiner.String(), header.PrimaryMiner.String())
 	}
 
 	if header.Number.Cmp(common.Big1) == 0 && header.DifficultyLevel.Int64() != 0 {

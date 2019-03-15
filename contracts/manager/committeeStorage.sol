@@ -251,7 +251,7 @@ contract committeeStorage {
 
     /// @notice whether a committes now
     function getCommitteeIndex()
-    internal
+    public
     view
     returns(int)
     {

@@ -31,7 +31,7 @@ var (
 	BlockSlot            = big.NewInt(25)
 	VoteSlot             = big.NewInt(10)
 	VoteSlotForGenesis   = int64(1000)
-	PunishMinerThreshold = big.NewInt(100)
+	MisconductLimits     = big.NewInt(100)
 	MaxCommitteemanCount = 5
 	BlockInterval        = 5
 )
@@ -39,7 +39,7 @@ var (
 func GetIndexForVote(t1 int64, t2 int64) uint64 {
 	index := uint64(0)
 	if t1 > t2 {
-		index = uint64(t1 - t2) / 60
+		index = uint64(t1-t2) / 60
 	}
 	return index
 }

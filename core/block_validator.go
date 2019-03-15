@@ -128,6 +128,11 @@ func (v *BlockValidator) ValidateMiner(block, parent *types.Block, statedb *stat
 	preSignatureQr := parent.MinerQrSignature()
 	n := new(big.Int).Div(tstampSub, common.BlockSlot)
 
+	qr := minerlist.CalQrOrIdNext(preCoinbase.Bytes(), blockNumber, preSignatureQr)
+	if bytes.Compare(header.MinerQrSignature, qr.Bytes()) == 0 {
+		return fmt.Errorf("invalid minerQrSignature: have %s, want %s", header.MinerQrSignature, qr.String())
+	}
+
 	IsValidMiner, level, preMinerid := minerlist.IsValidMiner(statedb, header.Coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n)
 
 	if !IsValidMiner {
@@ -139,7 +144,7 @@ func (v *BlockValidator) ValidateMiner(block, parent *types.Block, statedb *stat
 		preMiner = common.BytesToAddress(minerlist.ReadMinerAddress(statedb, preMinerid))
 	}
 	if bytes.Compare(header.PrimaryMiner.Bytes(), preMiner.Bytes()) != 0 && totalMinerNum.Int64() != 0 {
-		return fmt.Errorf("invalid primaryMiner: have %s, want %s", preMiner.String(), header.PrimaryMiner.String())
+		return fmt.Errorf("invalid primaryMiner: have %s, want %s", header.PrimaryMiner.String(), preMiner.String())
 	}
 
 	if header.Number.Cmp(common.Big1) == 0 {

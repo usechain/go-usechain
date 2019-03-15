@@ -222,7 +222,7 @@ func CreateConsensusEngine(ctx *node.ServiceContext, config *rpow.Config, chainC
 	if chainConfig.Clique != nil {
 		return clique.New(chainConfig.Clique, db)
 	}
-	// Otherwise assume proof-of-work
+	// Otherwise assume random-proof-of-work
 	switch {
 	case config.RpowMode == rpow.ModeFake:
 		log.Warn("Rpow used in fake mode")

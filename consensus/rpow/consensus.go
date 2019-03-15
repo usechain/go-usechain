@@ -33,7 +33,7 @@ import (
 	"gopkg.in/fatih/set.v0"
 )
 
-// Rpow proof-of-work protocol constants.
+// random-proof-of-work protocol constants.
 var (
 	// Block reward in hui for successfully mining a block upward from Sapphir
 	SapphireBlockReward *big.Int = big.NewInt(0).Mul(big.NewInt(1e+18), big.NewInt(15))

@@ -116,7 +116,7 @@ func (h *Header) Hash() common.Hash {
 	return rlpHash(h)
 }
 
-// HashNoNonce returns the hash which is used as input for the proof-of-work search.
+// HashNoNonce returns the hash which is used as input for the random-proof-of-work search.
 func (h *Header) HashNoNonce() common.Hash {
 	return rlpHash([]interface{}{
 		h.ParentHash,

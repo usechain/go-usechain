@@ -42,7 +42,7 @@ type Backend interface {
 	ChainDb() ethdb.Database
 }
 
-// Miner creates blocks and searches for proof-of-work values.
+// Miner creates blocks and searches for random-proof-of-work values.
 type Miner struct {
 	mux *event.TypeMux
 

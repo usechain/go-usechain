@@ -133,11 +133,11 @@ var (
 	}
 	TestnetFlag = cli.BoolFlag{
 		Name:  "testnet",
-		Usage: "test network: pre-configured random proof-of-work test network",
+		Usage: "test network: pre-configured random-proof-of-work test network",
 	}
 	MoonetFlag = cli.BoolFlag{
 		Name:  "moonet",
-		Usage: "moonet network: pre-configured random proof-of-work test network",
+		Usage: "moonet network: pre-configured random-proof-of-work test network",
 	}
 	DeveloperFlag = cli.BoolFlag{
 		Name:  "dev",
@@ -358,7 +358,7 @@ var (
 	}
 	FakePoWFlag = cli.BoolFlag{
 		Name:  "fakepow",
-		Usage: "Disables proof-of-work verification",
+		Usage: "Disables random-proof-of-work verification",
 	}
 	NoCompactionFlag = cli.BoolFlag{
 		Name:  "nocompaction",

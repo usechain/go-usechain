@@ -176,7 +176,7 @@ func (info *nodeInfos) Report() map[string]string {
 		report["Gas price (minimum accepted)"] = fmt.Sprintf("%0.3f GHui", info.gasPrice)
 
 		if info.usebase != "" {
-			// Rpow miner
+			// random-proof-of-work miner
 			report["Miner account"] = info.usebase
 		}
 		if info.keyJSON != "" {

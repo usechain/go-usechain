@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package rpow implements the rpow proof-of-work consensus engine.
+// Package rpow implements the random-proof-of-work consensus engine.
 package rpow
 
 import (

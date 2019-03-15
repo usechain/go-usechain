@@ -126,16 +126,9 @@ func (v *BlockValidator) ValidateMiner(block, parent *types.Block, statedb *stat
 	preCoinbase := parent.Coinbase()
 	blockNumber := header.Number
 	preSignatureQr := parent.MinerQrSignature()
-	preDifficultyLevel := parent.DifficultyLevel()
-
-	if header.Number.Cmp(common.Big1) == 0 {
-		preDifficultyLevel = big.NewInt(0)
-		preSignatureQr = []byte(minerlist.GenesisQrSignature)
-	}
-
 	n := new(big.Int).Div(tstampSub, common.BlockSlot)
 
-	IsValidMiner, level, preMinerid := minerlist.IsValidMiner(statedb, header.Coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n, preDifficultyLevel)
+	IsValidMiner, level, preMinerid := minerlist.IsValidMiner(statedb, header.Coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n)
 
 	if !IsValidMiner {
 		return fmt.Errorf("invalid miner")
@@ -149,13 +142,16 @@ func (v *BlockValidator) ValidateMiner(block, parent *types.Block, statedb *stat
 		return fmt.Errorf("invalid primaryMiner: have %s, want %s", preMiner.String(), header.PrimaryMiner.String())
 	}
 
-	if header.Number.Cmp(common.Big1) == 0 && header.DifficultyLevel.Int64() != 0 {
-		return fmt.Errorf("invalid difficultyLevel: have %v, want 0", header.DifficultyLevel)
+	if header.Number.Cmp(common.Big1) == 0 {
+		if header.DifficultyLevel.Int64() != 0 {
+			return fmt.Errorf("invalid difficultyLevel: have %v, want 0", header.DifficultyLevel)
+		}
+	} else {
+		if level != header.DifficultyLevel.Int64() {
+			return fmt.Errorf("invalid difficultyLevel: have %v, want %v", header.DifficultyLevel, level)
+		}
 	}
 
-	if header.Number.Cmp(common.Big1) != 0 && level != header.DifficultyLevel.Int64() {
-		return fmt.Errorf("invalid difficultyLevel: have %v, want %v", header.DifficultyLevel, level)
-	}
 	return nil
 }
 

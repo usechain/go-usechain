@@ -17,17 +17,17 @@
 package vote
 
 import (
-	"math/big"
-	"sync/atomic"
-	"sync"
-	"time"
 	"github.com/usechain/go-usechain/accounts"
-	"github.com/usechain/go-usechain/core"
-	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/contracts/manager"
+	"github.com/usechain/go-usechain/core"
+	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/event"
 	"github.com/usechain/go-usechain/log"
+	"math/big"
+	"sync"
+	"sync/atomic"
+	"time"
 )
 
 var (
@@ -48,27 +48,27 @@ type Voter struct {
 	chainHeadCh  chan core.ChainHeadEvent
 	chainHeadSub event.Subscription
 
-	chainID 	 *big.Int
-	blockchain   *core.BlockChain
-	txpool		 *core.TxPool
-	manager		 *accounts.Manager
-	t            *time.Timer
+	chainID    *big.Int
+	blockchain *core.BlockChain
+	txpool     *core.TxPool
+	manager    *accounts.Manager
+	t          *time.Timer
 
 	mu sync.Mutex
 
-	voting   	 int32
-	votebase	 common.Address
+	voting   int32
+	votebase common.Address
 }
 
 // NewVoter creates a new voter
-func NewVoter(eth Backend, coinbase common.Address) *Voter{
+func NewVoter(eth Backend, coinbase common.Address) *Voter {
 	voter := &Voter{
-		chainHeadCh: 	make(chan core.ChainHeadEvent, chainHeadChanSize),
-		chainID:		eth.ChainID(),
-		blockchain:		eth.BlockChain(),
-		votebase:		coinbase,
-		txpool:			eth.TxPool(),
-		manager:		eth.AccountManager(),
+		chainHeadCh: make(chan core.ChainHeadEvent, chainHeadChanSize),
+		chainID:     eth.ChainID(),
+		blockchain:  eth.BlockChain(),
+		votebase:    coinbase,
+		txpool:      eth.TxPool(),
+		manager:     eth.AccountManager(),
 	}
 	// Subscribe events for blockchain
 	voter.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(voter.chainHeadCh)
@@ -85,7 +85,7 @@ func (self *Voter) Start(coinbase common.Address) {
 
 	header := self.blockchain.CurrentHeader()
 	mod := big.NewInt(0).Mod(header.Number, common.VoteSlot).Int64()
-	if mod == common.VoteSlot.Int64() - 1 {
+	if mod == common.VoteSlot.Int64()-1 && header.Number.Int64() >= common.VoteSlotForGenesis-1 {
 		self.voteChain()
 		self.t.Reset(time.Second * 60)
 	}
@@ -104,7 +104,7 @@ func (self *Voter) Voting() bool {
 
 //Voting loop
 func (self *Voter) VoteLoop() {
-	for  {
+	for {
 		select {
 		//get new block head event
 		case <-self.chainHeadCh:
@@ -136,7 +136,7 @@ func (self *Voter) vote() {
 		log.Trace("Voting CurrentHeader", "height", header.Number)
 
 		//meet the checkpoint, vote
-		if mod == common.VoteSlot.Int64() - 1 {
+		if mod == common.VoteSlot.Int64()-1 && header.Number.Int64() >= common.VoteSlotForGenesis-1 {
 			self.voteChain()
 			self.t.Reset(time.Second * 60)
 		} else if mod == common.VoteSlot.Int64() {
@@ -152,13 +152,13 @@ func (self *Voter) voteChain() {
 	account := accounts.Account{Address: self.votebase}
 	wallet, err := self.manager.Find(account)
 	if err != nil {
-		log.Error("To be a committee of usechain, need local account","err", err)
+		log.Error("To be a committee of usechain, need local account", "err", err)
 		return
 	}
 
 	//check the votebase whether a committee
 	//get the nonce from current header to ensure the tx be packed in the next block
-	if !manager.IsCommittee(self.txpool.StateDB(),self.votebase) {
+	if !manager.IsCommittee(self.txpool.StateDB(), self.votebase) {
 		log.Error("Not a committee, can't vote")
 		return
 	}
@@ -181,7 +181,7 @@ func (self *Voter) voteChain() {
 }
 
 //Fill the vote info
-func (self *Voter) writeVoteInfo() []byte{
+func (self *Voter) writeVoteInfo() []byte {
 	header := self.blockchain.CurrentHeader()
 	index := common.GetIndexForVote(time.Now().Unix(), header.Time.Int64())
 	buf := append(header.Hash().Bytes(), common.Uint64ToBytes(header.Number.Uint64())...)

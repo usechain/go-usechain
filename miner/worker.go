@@ -18,7 +18,6 @@ package miner
 
 import (
 	"fmt"
-	"github.com/usechain/go-usechain/crypto"
 	"math"
 	"math/big"
 	"sync"
@@ -33,6 +32,7 @@ import (
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/core/vm"
+	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/ethdb"
 	"github.com/usechain/go-usechain/event"
 	"github.com/usechain/go-usechain/log"
@@ -419,7 +419,6 @@ func (self *worker) commitNewWork() {
 
 	tstart := time.Now()
 	parent := self.chain.CurrentBlock()
-
 	tstamp := tstart.Unix()
 
 	// this will ensure we're not going off too far in the future
@@ -453,7 +452,7 @@ func (self *worker) commitNewWork() {
 		Time:     big.NewInt(tstamp),
 	}
 	blockNumber := header.Number
-	if int64(new(big.Int).Mod(num, common.VoteSlot).Cmp(common.Big0)) == 0 {
+	if header.Number.Int64() >= common.VoteSlotForGenesis && int64(new(big.Int).Mod(header.Number, common.VoteSlot).Cmp(common.Big0)) == 0 {
 		header.IsCheckPoint = big.NewInt(1)
 	} else {
 		header.IsCheckPoint = big.NewInt(0)
@@ -492,25 +491,16 @@ func (self *worker) commitNewWork() {
 		}
 
 		preSignatureQr := parent.MinerQrSignature()
-
 		preCoinbase := parent.Coinbase()
-		qr := minerlist.CalQr(preCoinbase.Bytes(), blockNumber, preSignatureQr)
+		qr := minerlist.CalQrOrIdNext(preCoinbase.Bytes(), blockNumber, preSignatureQr)
 
 		tstampSub := header.Time.Int64() - parent.Time().Int64()
 		n := big.NewInt(tstampSub / common.BlockSlot.Int64())
 
-		preDifficultyLevel := parent.DifficultyLevel()
+		minerQrSignature, _ := wallet.SignHash(account, qr.Bytes())
+		header.MinerQrSignature = minerQrSignature[:20]
 
-		if header.Number.Cmp(common.Big1) == 0 {
-			header.MinerQrSignature = []byte(genesisQrSignature)
-			preDifficultyLevel = big.NewInt(0)
-			preSignatureQr = []byte(genesisQrSignature)
-		} else {
-			minerQrSignature, _ := wallet.SignHash(account, qr.Bytes())
-			header.MinerQrSignature = minerQrSignature[:20]
-		}
-
-		IsValidMiner, level, preMinerid := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n, preDifficultyLevel)
+		IsValidMiner, level, preMinerid := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n)
 
 		if !IsValidMiner {
 		DONE1:
@@ -529,8 +519,6 @@ func (self *worker) commitNewWork() {
 
 		if totalMinerNum.Int64() != 0 {
 			header.PrimaryMiner = common.BytesToAddress(minerlist.ReadMinerAddress(self.current.state, preMinerid))
-			fmt.Println("preMinerid", preMinerid)
-			fmt.Println("header.PrimaryMiner", header.PrimaryMiner)
 		} else {
 			header.PrimaryMiner = self.coinbase
 		}
@@ -557,7 +545,7 @@ func (self *worker) commitNewWork() {
 	var pending map[common.Address]types.Transactions
 	if header.IsCheckPoint.Cmp(common.Big1) == 0 {
 		pending, err = self.eth.TxPool().GetValidPbft(blockNumber.Uint64() - 1, common.GetIndexForVote(time.Now().Unix(), parent.Time().Int64()))
-		gen, targetHash, _ := CanGenBlockInCheckPoint(pending, committeeCnt)
+		gen, targetHash, _ := canGenBlockInCheckPoint(pending, committeeCnt)
 		if !gen {
 		DONE2:
 			for {
@@ -614,7 +602,7 @@ func (self *worker) commitNewWork() {
 	self.push(work)
 }
 
-func CanGenBlockInCheckPoint(txs map[common.Address]types.Transactions, cnt int32) (bool, common.Hash, uint32) {
+func canGenBlockInCheckPoint(txs map[common.Address]types.Transactions, cnt int32) (bool, common.Hash, uint32) {
 	if float64(len(txs)) < math.Ceil(float64(cnt)*2/3) {
 		return false, common.Hash{}, 0
 	}

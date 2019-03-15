@@ -5,8 +5,8 @@ contract committeeStorage {
     uint constant public MAX_COMMITTEEMAN_COUNT = 5;
     uint constant public Requirement = 3;
 
-    uint constant public Election_cycle = 2628000;
-    uint constant public Election_duration = 50000;
+    uint constant public Election_cycle = 5256000;
+    uint constant public Election_duration = 432000;
 
     /// @notice Signle Mode, Multi Mode or Product Mode
     // 0: Product Mode, full check
@@ -58,6 +58,26 @@ contract committeeStorage {
         _;
     }
 
+    /****************initial*********************/
+    /// @notice in first 1000 blocks
+    modifier inFirst1000Blocks() {
+        require(block.number <= 1000);
+        _;
+    }
+
+    /// @notice initial member set
+    // only can do in first 1000 block, just for committee initial
+    function initial(address[] _candidate)
+    inFirst1000Blocks
+    public
+    {
+        require(_candidate.length == MAX_COMMITTEEMAN_COUNT);
+        rounds[0].selected = true;
+        for(uint i=0; i<MAX_COMMITTEEMAN_COUNT;i++){
+        rounds[0].committees[i].addr = _candidate[i];
+    }
+    }
+
     /****************voting*********************/
     /// @notice voting now?
     modifier isVoting() {
@@ -103,12 +123,10 @@ contract committeeStorage {
     returns(bool){
         // which round
         uint roundIndex = whichRound();
-
         if(rounds[roundIndex].votes[_candidate] == 0) {
             rounds[roundIndex].candidate.push(_candidate);
         }
         rounds[roundIndex].votes[_candidate]++;
-
         rounds[roundIndex].voted[msg.sender] = true;
 
         // check whether candidate in committee list or not
@@ -116,7 +134,6 @@ contract committeeStorage {
             if(rounds[roundIndex].committees[i].addr == _candidate) {
                 return true;
             }
-
             if(rounds[roundIndex].committees[i].addr == address(0)) {
                 rounds[roundIndex].committees[i].addr = _candidate;
                 return true;
@@ -215,10 +232,10 @@ contract committeeStorage {
     returns(bool)
     {
         for (uint i=0; i<MAX_COMMITTEEMAN_COUNT; i++) {
-            if (committeeOnDuty[i] == _user) {
-                return true;
-            }
+        if (committeeOnDuty[i] == _user) {
+            return true;
         }
+    }
         return false;
     }
 
@@ -239,11 +256,11 @@ contract committeeStorage {
     returns(int)
     {
         for(uint i = 0; i < MAX_COMMITTEEMAN_COUNT; i++) {
-            // if(committeeOnDuty[i] == msg.sender) {
-                if (rounds[whichRound()].committees[i].addr == msg.sender) {
-                return int(i);
-            }
+        // if(committeeOnDuty[i] == msg.sender) {
+        if (rounds[whichRound()].committees[i].addr == msg.sender) {
+            return int(i);
         }
+    }
         return -1;
     }
 
@@ -294,10 +311,10 @@ contract committeeStorage {
     {
         uint roundIndex = whichRound();
         for(uint i = 0; i < MAX_COMMITTEEMAN_COUNT; i++) {
-            if (rounds[roundIndex].committees[i].confirmed == false) {
-                return false;
-            }
+        if (rounds[roundIndex].committees[i].confirmed == false) {
+            return false;
         }
+    }
         return true;
     }
 
@@ -316,7 +333,7 @@ contract committeeStorage {
         // rounds[roundIndex].pubKeyConfirmed[msg.sender] = true;
         // rounds[roundIndex].confirmCount == 1;
     }
-    
+
     /// @dev confirm the committee public key
     /// TODO: Not used yet
     function confirmCommitteePubkey(string memory _pubkey)

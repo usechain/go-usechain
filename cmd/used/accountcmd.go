@@ -70,10 +70,11 @@ passwordfile as argument containing the wallet password in plaintext.`,
 	verifyCommand = cli.Command{
 		Name:      "verify",
 		Usage:     "Verify address",
-		ArgsUsage: "Verify --id=<id> --photo=<photo> --query=<q>",
+		ArgsUsage: "Verify --info=<info> --id=<id> --photo=<photo> --query=<q>",
 		Action:    utils.MigrateFlags(verify),
 
 		Flags: []cli.Flag{
+			utils.VerifyInfoFlag,
 			utils.VerifyIdFlag,
 			utils.VerifyPhotoFlag,
 			utils.VerifyQueryFlag,
@@ -398,16 +399,20 @@ func accountImport(ctx *cli.Context) error {
 
 func verify(ctx *cli.Context) error {
 
-	w := credit.MakeWizard("hello")
-	w.Run()
+	infoFile := ctx.GlobalString(utils.VerifyInfoFlag.Name)
+	fmt.Println("infoFile: ", infoFile)
+	if infoFile == "" {
+		w := credit.MakeWizard("")
+		w.Run()
+	}
 
 	id := ctx.GlobalString(utils.VerifyIdFlag.Name)
-	photo := ctx.GlobalString(utils.VerifyPhotoFlag.Name)
+	photos := ctx.GlobalString(utils.VerifyPhotoFlag.Name)
 	q := ctx.GlobalString(utils.VerifyQueryFlag.Name)
 
-	if len(id) > 0 && len(photo) > 0 {
-		fileName := strings.Split(photo, ";")
-		credit.UserAuthOperation(id, fileName)
+	if len(id) > 0 && len(photos) > 0 {
+		p := strings.Split(photos, ";")
+		credit.UserAuthOperation(id, p)
 	} else if len(q) > 0 {
 		credit.Query(q)
 	} else {

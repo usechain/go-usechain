@@ -79,14 +79,16 @@ func (w *wizard) MakeUserInfo() {
 
 		fmt.Println(w.info)
 		fmt.Println()
-		fmt.Println("Please specify a file name to store your information.")
-		for {
-			w.filename = w.readString()
-			if !strings.Contains(w.filename, " ") && !strings.Contains(w.filename, "-") {
-				fmt.Printf("\nNow the file name is set to %s!\n\n", w.filename)
-				break
+		if w.filename == "" {
+			fmt.Println("Please specify a file name to store your information.")
+			for {
+				w.filename = w.readString()
+				if !strings.Contains(w.filename, " ") && !strings.Contains(w.filename, "-") {
+					fmt.Printf("\nNow the file name is set to %s!\n\n", w.filename)
+					break
+				}
+				log.Error("I also like to live dangerously, still no spaces or hyphens")
 			}
-			log.Error("I also like to live dangerously, still no spaces or hyphens")
 		}
 		out, _ := json.MarshalIndent(w.info, "", "  ")
 		if err := ioutil.WriteFile(w.readDefaultString(fmt.Sprintf("%s.json", w.filename)), out, 0644); err != nil {

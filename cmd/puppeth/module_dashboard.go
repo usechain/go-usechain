@@ -540,7 +540,7 @@ func deployDashboard(client *sshClient, network string, conf *config, config *da
 	})
 	files[filepath.Join(workdir, "index.html")] = indexfile.Bytes()
 
-	// Marshal the genesis spec files for go-ethereum and all the other clients
+	// Marshal the genesis spec files for go-usechain and all the other clients
 	genesis, _ := conf.Genesis.MarshalJSON()
 	files[filepath.Join(workdir, network+".json")] = genesis
 

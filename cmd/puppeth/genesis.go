@@ -88,7 +88,7 @@ type cppEthereumGenesisSpecLinearPricing struct {
 // newCppEthereumGenesisSpec converts a go-ethereum genesis block into a Parity specific
 // chain specification format.
 func newCppEthereumGenesisSpec(network string, genesis *core.Genesis) (*cppEthereumGenesisSpec, error) {
-	// Only rpow is currently supported between go-ethereum and cpp-ethereum
+	// Only rpow is currently supported go-usechain
 	if genesis.Config.Rpow == nil {
 		return nil, errors.New("unsupported consensus engine")
 	}
@@ -259,7 +259,7 @@ type parityChainSpecAltBnPairingPricing struct {
 // newParityChainSpec converts a go-ethereum genesis block into a Parity specific
 // chain specification format.
 func newParityChainSpec(network string, genesis *core.Genesis, bootnodes []string) (*parityChainSpec, error) {
-	// Only rpow is currently supported between go-ethereum and Parity
+	// Only rpow is currently supported go-usechain and Parity
 	if genesis.Config.Rpow == nil {
 		return nil, errors.New("unsupported consensus engine")
 	}
@@ -358,7 +358,7 @@ type pyEthereumGenesisSpec struct {
 // newPyEthereumGenesisSpec converts a go-ethereum genesis block into a Parity specific
 // chain specification format.
 func newPyEthereumGenesisSpec(network string, genesis *core.Genesis) (*pyEthereumGenesisSpec, error) {
-	// Only rpow is currently supported between go-ethereum and pyethereum
+	// Only rpow is currently supported go-usechain
 	if genesis.Config.Rpow == nil {
 		return nil, errors.New("unsupported consensus engine")
 	}

@@ -22,7 +22,7 @@ import (
 
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/hexutil"
-	"github.com/usechain/go-usechain/consensus/ethash"
+	"github.com/usechain/go-usechain/consensus/rpow"
 	"github.com/usechain/go-usechain/core"
 	"github.com/usechain/go-usechain/eth/downloader"
 	"github.com/usechain/go-usechain/eth/gasprice"
@@ -32,7 +32,7 @@ import (
 // DefaultConfig contains default settings for use on the Ethereum main net.
 var DefaultConfig = Config{
 	SyncMode: downloader.FastSync,
-	Ethash: ethash.Config{},
+	Rpow: rpow.Config{},
 	NetworkId:     1,
 	LightPeers:    100,
 	DatabaseCache: 768,
@@ -76,8 +76,8 @@ type Config struct {
 	ExtraData    []byte         `toml:",omitempty"`
 	GasPrice     *big.Int
 
-	// Ethash options
-	Ethash ethash.Config
+	// Rpow options
+	Rpow rpow.Config
 
 	// Transaction pool options
 	TxPool core.TxPoolConfig

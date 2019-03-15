@@ -93,7 +93,7 @@ var AppHelpFlagGroups = []flagGroup{
 		},
 	},
 	{
-		Name: "ETHASH",
+		Name: "RPOW",
 		Flags: []cli.Flag{},
 	},
 	//{

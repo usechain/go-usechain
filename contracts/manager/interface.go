@@ -1,8 +1,12 @@
 package manager
 
 import (
+	"bytes"
+	"encoding/hex"
+	"fmt"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/core/state"
+	"github.com/usechain/go-usechain/crypto/sha3"
 	"math/big"
 	"strings"
 )
@@ -50,4 +54,42 @@ func IsCommittee(statedb *state.StateDB, addr common.Address) bool {
 		}
 	}
 	return false
+}
+
+// read the committee public key from contract
+func GetCommitteePublicKey(statedb *state.StateDB) (res string, err error) {
+	//read the committee public key length
+	resIndex := statedb.GetState(common.HexToAddress(ManagerContract), common.BigToHash(big.NewInt(7)))
+
+	// get data from the contract statedb
+	eachPublicKeyLen := resIndex.Big().Int64()
+	if eachPublicKeyLen == 0 {
+		return "", fmt.Errorf("the committee public key haven't been load yet")
+	}
+	if eachPublicKeyLen < common.HashLength {
+		return hex.EncodeToString(resIndex[:eachPublicKeyLen]), nil
+	}
+	forLen := eachPublicKeyLen / (int64(common.HashLength) * 2)
+
+	// init query data hash
+	newKeyIndex := CalculateStateDbIndex(big.NewInt(7))
+	var buff bytes.Buffer
+	for j := int64(0); j <= forLen; j++ {
+		newKeyIndexString := common.IncreaseHexByNum(newKeyIndex, j)
+		result := statedb.GetState(common.HexToAddress(ManagerContract), common.HexToHash(newKeyIndexString))
+		buff.Write(result[:])
+		//res += BytesToString(result[:])
+	}
+	res += buff.String()[:eachPublicKeyLen/2]
+	return res, nil
+}
+
+// calculate the statedb index from key and parameter
+func CalculateStateDbIndex(key *big.Int) []byte {
+	web3key := common.BigToHash(key).Bytes()
+	hash := sha3.NewKeccak256()
+	var keyIndex []byte
+	hash.Write(web3key)
+	keyIndex = hash.Sum(keyIndex)
+	return keyIndex
 }

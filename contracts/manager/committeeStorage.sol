@@ -18,6 +18,7 @@ contract committeeStorage {
 
     /// @notice Committee On Duty
     address[MAX_COMMITTEEMAN_COUNT] public committeeOnDuty;
+    string public committeeOnDutyPublicKey;
 
     /// @dev Committee
     struct Committee {
@@ -328,6 +329,7 @@ contract committeeStorage {
         uint roundIndex = whichRound();
         require(isEntireConfirmed() == true);
         rounds[roundIndex].committeePublicKey = _pubkey;
+        committeeOnDutyPublicKey = _pubkey;
         // uint roundIndex = whichRound();
         // rounds[roundIndex].committeePublicKey_candidate = _pubkey;
         // rounds[roundIndex].pubKeyConfirmed[msg.sender] = true;

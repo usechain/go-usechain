@@ -35,6 +35,7 @@ import (
 	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/common/math"
 	"github.com/usechain/go-usechain/consensus/ethash"
+	"github.com/usechain/go-usechain/contracts/manager"
 	"github.com/usechain/go-usechain/contracts/minerlist"
 	"github.com/usechain/go-usechain/core"
 	"github.com/usechain/go-usechain/core/types"
@@ -179,8 +180,8 @@ func (s *PublicTxPoolAPI) Inspect() map[string]map[string]map[string]string {
 		if tx.Flag() == 1 {
 			payload := tx.Data()
 			blockHash := payload[:common.HashLength]
-			number := common.BytesToUint64(payload[common.HashLength : common.HashLength + 8])
-			index := common.BytesToUint64(payload[common.HashLength + 8 :])
+			number := common.BytesToUint64(payload[common.HashLength : common.HashLength+8])
+			index := common.BytesToUint64(payload[common.HashLength+8:])
 			return fmt.Sprintf("pbft vote: block %v, height %v, index %v", common.BytesToHash(blockHash).String(), number, index)
 		}
 		if to := tx.To(); to != nil {
@@ -1607,10 +1608,9 @@ func (s *PrivateAccountAPI) GenerateRSAKeypair() error {
 	return err
 }
 
-var B = "0x043b470fd13cfb408c4a4131aa96224dd701432808816025f852d9315e59e08f63a6f324c510f3ba0e226a7dcf1c44233a333b069efdafe532c69b3430b5db57f5"
+//var B = "0x043b470fd13cfb408c4a4131aa96224dd701432808816025f852d9315e59e08f63a6f324c510f3ba0e226a7dcf1c44233a333b069efdafe532c69b3430b5db57f5"
 
 func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
-
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: args.From}
 
@@ -1645,8 +1645,18 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 	if err != nil {
 		return common.Hash{}, err
 	}
-	committeePub := crypto.GenerateCreditPubKey(B, priv)
-	// committeePriv := crypto.GenerateCreditPrivKey(b, crypto.ToECDSAPub(common.FromHex(pub)))
+
+	// Get the statDb
+	blockHeight := s.b.CurrentBlock().Number()
+	stateDb, _, err := s.b.StateAndHeaderByNumber(ctx, rpc.BlockNumber(blockHeight.Int64()))
+	if stateDb == nil || err != nil {
+		return common.Hash{}, err
+	}
+	pubStr, err := manager.GetCommitteePublicKey(stateDb)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	committeePub := crypto.GenerateCreditPubKey(pubStr, priv)
 
 	key := crypto.Keccak256Hash([]byte(ud.CertType + "-" + ud.Id)).Bytes()
 	hashKey := [32]byte{}

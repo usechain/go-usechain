@@ -19,6 +19,7 @@ package core
 import (
 	"bytes"
 	"fmt"
+	"github.com/usechain/go-usechain/log"
 	"math/big"
 
 	"github.com/usechain/go-usechain/common"
@@ -26,6 +27,7 @@ import (
 	"github.com/usechain/go-usechain/contracts/minerlist"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
+	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/params"
 )
 
@@ -122,18 +124,21 @@ func (v *BlockValidator) ValidateMiner(block, parent *types.Block, statedb *stat
 		return fmt.Errorf("Coinbase should be legal miner address, invalid miner")
 	}
 
-	// Verify block miner
+	// Verify block miner && verify the qrSignature legality
 	preCoinbase := parent.Coinbase()
 	blockNumber := header.Number
-	preSignatureQr := parent.MinerQrSignature()
+	preQrSignature := parent.MinerQrSignature()
+	minerQrSignature := header.MinerQrSignature
+	if header.Number.Cmp(common.Big1) == 0 {
+		preQrSignature = []byte("qwertyuioplkjhgfdsazxcvbnm")
+	}
 	n := new(big.Int).Div(tstampSub, common.BlockSlot)
-
-	qr := minerlist.CalQrOrIdNext(preCoinbase.Bytes(), blockNumber, preSignatureQr)
-	if bytes.Compare(header.MinerQrSignature, qr.Bytes()) == 0 {
-		return fmt.Errorf("invalid minerQrSignature: have %s, want %s", header.MinerQrSignature, qr.String())
+	qr := minerlist.CalQrOrIdNext(preCoinbase.Bytes(), blockNumber, preQrSignature)
+	if header.Number.Int64() > 1 && !VerifySig(minerQrSignature, qr, header.Coinbase) {
+		return fmt.Errorf("invalid minerQrSignature")
 	}
 
-	IsValidMiner, level, preMinerid := minerlist.IsValidMiner(statedb, header.Coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n)
+	IsValidMiner, level, preMinerid := minerlist.IsValidMiner(statedb, header.Coinbase, preCoinbase, preQrSignature, blockNumber, totalMinerNum, n)
 
 	if !IsValidMiner {
 		return fmt.Errorf("invalid miner")
@@ -189,4 +194,16 @@ func CalcGasLimit(parent *types.Block) uint64 {
 		}
 	}
 	return limit
+}
+
+// verify the qrSignature legality
+// need to verify the sig legality and singer must equal to miner
+func VerifySig(sig []byte, hash common.Hash, miner common.Address) bool {
+	pub, err := crypto.Ecrecover(hash.Bytes(), sig)
+	if err != nil {
+		log.Error("retrieve public key failed")
+		return false
+	}
+	pubKey := crypto.ToECDSAPub(pub)
+	return crypto.VerifySignature(pub, hash.Bytes(), sig[:64]) && (crypto.PubkeyToAddress(*pubKey) == miner)
 }

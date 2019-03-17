@@ -474,7 +474,7 @@ type blockStats struct {
 	Timestamp        *big.Int       `json:"timestamp"`
 	Miner            common.Address `json:"miner"`
 	IsCheckPoint     *big.Int       `json:"isCheckPoint"`
-	MinerQrSignature string         `json:"minerQrSignature"`
+	MinerQrSignature []byte         `json:"minerQrSignature"`
 	DifficultyLevel  *big.Int       `json:"difficultyLevel"`
 	PrimaryMiner     common.Address `json:"primaryMiner"`
 	GasUsed          uint64         `json:"gasUsed"`
@@ -564,7 +564,7 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 		Timestamp:        header.Time,
 		Miner:            author,
 		IsCheckPoint:     header.IsCheckPoint,
-		MinerQrSignature: string((header.MinerQrSignature)),
+		MinerQrSignature: header.MinerQrSignature,
 		DifficultyLevel:  header.DifficultyLevel,
 		PrimaryMiner:     header.PrimaryMiner,
 		GasUsed:          header.GasUsed,

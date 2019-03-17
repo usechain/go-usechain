@@ -193,6 +193,17 @@ func ValidateSignatureValues(v byte, r, s *big.Int, homestead bool) bool {
 	return r.Cmp(secp256k1_N) < 0 && s.Cmp(secp256k1_N) < 0 && (v == 0 || v == 1)
 }
 
+// VerifySig recover the pubkey from signature
+// And verifies whether the signature values are valid
+func VerifySig(sig []byte, hash common.Hash) bool {
+	pub, err := Ecrecover(hash.Bytes(), sig)
+	if err != nil {
+		log.Error("retrieve public key failed")
+		return false
+	}
+	return VerifySignature(pub, hash.Bytes(), sig[:64])
+}
+
 func PubkeyToAddress(p ecdsa.PublicKey) common.Address {
 	pubBytes := FromECDSAPub(&p)
 	return common.BytesToAddress(Keccak256(pubBytes[1:])[12:])

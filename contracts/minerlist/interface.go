@@ -106,11 +106,15 @@ func calId(idTarget *big.Int, preSignatureQr []byte, totalMinerNum *big.Int, off
 
 	//id can't be the same as ignoreSlot before
 	var oldNode []int64
-	for i := ignoreSlot; i > 0; i-- {
-		idNextTemp := CalQrOrIdNext(idTarget.Bytes(), new(big.Int).Sub(offset, big.NewInt(i)), preSignatureQr)
-		idTemp := new(big.Int).Mod(idNextTemp.Big(), totalMinerNum)
-		idTemp = checkIdTargetOrId(state, id, totalMinerNum)
-		oldNode = append(oldNode, idTemp.Int64())
+	if offset.Int64()-1 == 0 {
+		oldNode = append(oldNode, idTarget.Int64())
+	} else {
+		for i := ignoreSlot; i > 0; i-- {
+			idNextTemp := CalQrOrIdNext(idTarget.Bytes(), new(big.Int).Sub(offset, big.NewInt(i)), preSignatureQr)
+			idTemp := new(big.Int).Mod(idNextTemp.Big(), totalMinerNum)
+			idTemp = checkIdTargetOrId(state, id, totalMinerNum)
+			oldNode = append(oldNode, idTemp.Int64())
+		}
 	}
 DONE:
 	for {
@@ -148,7 +152,7 @@ func checkIdTargetOrId(statedb *state.StateDB, idOriginal *big.Int, totalMinerNu
 	var res common.Hash
 	for {
 		res = statedb.GetState(common.HexToAddress(MinerListContract), common.HexToHash(common.IncreaseHexByNum(keyIndex, idOriginal.Int64())))
-		if isPunishMiner(statedb, common.StringToAddress("0x"+res.String()[26:]), totalMinerNum) {
+		if isPunishMiner(statedb, common.HexToAddress("0x"+res.String()[26:]), totalMinerNum) {
 			idOriginal.Add(idOriginal, common.Big1)
 			idOriginal.Mod(idOriginal, totalMinerNum)
 		} else {
@@ -162,8 +166,7 @@ func isPunishMiner(statedb *state.StateDB, miner common.Address, totalMinerNum *
 	if totalMinerNum.Cmp(common.Big1) < 1 {
 		return false
 	}
-
-	web3key := paramIndexaHead + miner.Hex()[2:] + common.BigToHash(big.NewInt(2)).Hex()[2:]
+	web3key := paramIndexaHead + miner.Hex()[2:] + common.BigToHash(big.NewInt(4)).Hex()[2:]
 	hash := sha3.NewKeccak256()
 	var keyIndex []byte
 	b, _ := hex.DecodeString(web3key)
@@ -172,7 +175,6 @@ func isPunishMiner(statedb *state.StateDB, miner common.Address, totalMinerNum *
 
 	// get data from the contract statedb
 	res := statedb.GetState(common.HexToAddress(MinerListContract), common.BytesToHash(keyIndex))
-
 	if res.Big().Cmp(common.MisconductLimits) >= 0 {
 		return true
 	}

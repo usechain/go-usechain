@@ -1,4 +1,4 @@
-package cacertreg
+package credit
 
 import (
 	"bytes"

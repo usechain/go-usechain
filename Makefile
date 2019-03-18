@@ -39,7 +39,7 @@ test: all
 # build/env.sh go run build/ci.go test
 	build/env.sh go test -v ./crypto
 	build/env.sh go test -v ./accounts/keystore
-	build/env.sh go test -v ./accounts/cacertreg
+	build/env.sh go test -v ./accounts/credit
 
 clean:
 	rm -fr build/_workspace/pkg/ $(GOBIN)/*

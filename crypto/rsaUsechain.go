@@ -13,29 +13,29 @@
 //
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-usechain library. If not, see <http://www.gnu.org/licenses/>.
+
 package crypto
 
 import (
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/log"
 	"io/ioutil"
+	"math/big"
 	"os"
 	"os/user"
 	"path/filepath"
 	"runtime"
-
-	"crypto/ecdsa"
-	"crypto/x509/pkix"
-	"github.com/usechain/go-usechain/common"
-	"github.com/usechain/go-usechain/log"
-	"math/big"
 	"time"
 )
 
@@ -204,8 +204,7 @@ type rsaPrivateKey struct {
 func Hash(data []byte) {
 	h := sha256.New()
 	h.Write(data)
-	d := h.Sum(nil)
-	fmt.Printf("%x\n", d)
+	h.Sum(nil)
 	return
 }
 
@@ -234,7 +233,7 @@ func RSA_Sign(message string) (string, error) {
 	BaseDir := DefaultDataDir()
 	signer, err := loadPrivateKey(BaseDir + "/userrsa.prv")
 	if err != nil {
-		fmt.Printf("RSA is not found: %v\n", err)
+		log.Error("RSA is not found:", "error", err)
 		return "", err
 	}
 
@@ -253,7 +252,7 @@ func RSA_Verify(message string, sig string) bool {
 	BaseDir := DefaultDataDir()
 	parser, err := loadPublicKey(BaseDir + "/userrsa.pub")
 	if err != nil {
-		fmt.Printf("public could not sign request: %v\n", err)
+		log.Error("public could not sign request:", "error", err)
 		return false
 	}
 
@@ -284,7 +283,7 @@ func RSA_Verify_Pub(message string, sig string, pub *rsa.PublicKey) bool {
 func RSA_Verify_Standard(message string, sig string, pubKey interface{}) error {
 	parser, err := newUnsignerFromKey(pubKey)
 	if err != nil {
-		fmt.Printf("public could not sign request: %v\n", err)
+		log.Error("public could not sign request:", "error", err)
 		return err
 	}
 
@@ -386,7 +385,6 @@ func ReadUserCert() string {
 ///TODO:add error check
 func parseRcaRsa() (*x509.Certificate, error) {
 	BaseDir := DefaultDataDir()
-	//fmt.Println("BaseDir: ", BaseDir)
 	rcaFile, err := ioutil.ReadFile(BaseDir + "/rca.crt")
 	if err != nil {
 		log.Error("ReadFile err:", "err", err)

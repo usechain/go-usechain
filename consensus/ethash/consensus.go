@@ -17,14 +17,14 @@
 package ethash
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/usechain/go-usechain/common"
-	//"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/common/math"
 	"github.com/usechain/go-usechain/consensus"
 	"github.com/usechain/go-usechain/consensus/misc"
-	//"github.com/usechain/go-usechain/contracts/minerlist"
+	"github.com/usechain/go-usechain/contracts/minerlist"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/crypto/sha3"
@@ -32,10 +32,6 @@ import (
 	"gopkg.in/fatih/set.v0"
 	"math/big"
 	"runtime"
-	//"strings"
-	"encoding/hex"
-	"github.com/usechain/go-usechain/contracts/minerlist"
-	//"strings"
 	"strings"
 	"time"
 )
@@ -70,8 +66,6 @@ var (
 	errInvalidMixDigest  = errors.New("invalid mix digest")
 	errInvalidPoW        = errors.New("invalid proof-of-work")
 )
-
-const genesisQrSignature = "8287dbe2b47bcc884dce4b9ea1a0dc76"
 
 // Author implements consensus.Engine, returning the header's coinbase as the
 // proof-of-work verified author of the block.

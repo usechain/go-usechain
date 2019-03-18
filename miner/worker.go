@@ -50,10 +50,8 @@ const (
 	chainHeadChanSize = 10
 	// chainSideChanSize is the size of channel listening to ChainSideEvent.
 	chainSideChanSize = 10
-
+	// chainRpowChanSize is the size of channel listening to rpow mining event
 	chainRpowChanSize = 10
-
-	genesisQrSignature = "8287dbe2b47bcc884dce4b9ea1a0dc76"
 )
 
 // Agent can register themself with the worker

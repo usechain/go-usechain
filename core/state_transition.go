@@ -265,7 +265,9 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		if transactionFormat.IsCommitteeTransaction() {
 			addr := transactionFormat.GetVerifiedAddress()
 			// Points for the identity verification.
-			st.state.AddCertifications(addr, common.IDVerified)
+			if !st.state.IsCertificationVerified(addr, common.IDVerified) {
+				st.state.AddCertifications(addr, common.IDVerified)
+			}
 		}
 	}
 

@@ -7,7 +7,6 @@ if [ ! -f "build/env.sh" ]; then
     exit 2
 fi
 
-#!/bin/sh
 checkGoVersion()
 {
     #Recommended Version 1.10.1

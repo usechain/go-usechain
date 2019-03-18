@@ -17,14 +17,14 @@
 package ethash
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/usechain/go-usechain/common"
-	//"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/common/math"
 	"github.com/usechain/go-usechain/consensus"
 	"github.com/usechain/go-usechain/consensus/misc"
-	//"github.com/usechain/go-usechain/contracts/minerlist"
+	"github.com/usechain/go-usechain/contracts/minerlist"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/crypto/sha3"
@@ -32,10 +32,6 @@ import (
 	"gopkg.in/fatih/set.v0"
 	"math/big"
 	"runtime"
-	//"strings"
-	"encoding/hex"
-	"github.com/usechain/go-usechain/contracts/minerlist"
-	//"strings"
 	"strings"
 	"time"
 )
@@ -45,9 +41,11 @@ var (
 	// Block reward in hui for successfully mining a block upward from Sapphir
 	SapphireBlockReward *big.Int = big.NewInt(0).Mul(big.NewInt(1e+18), big.NewInt(15))
 	// Maximum number of uncles allowed in a single block
-	maxUncles = 2
+	maxUncles = 0
 	// Max time from current time allowed for blocks, before they're considered future blocks
 	allowedFutureBlockTime = 15 * time.Second
+	// paramIndex Head
+	paramIndexHead = "000000000000000000000000"
 )
 
 // Genesis difficulty
@@ -70,8 +68,6 @@ var (
 	errInvalidMixDigest  = errors.New("invalid mix digest")
 	errInvalidPoW        = errors.New("invalid proof-of-work")
 )
-
-const genesisQrSignature = "8287dbe2b47bcc884dce4b9ea1a0dc76"
 
 // Author implements consensus.Engine, returning the header's coinbase as the
 // proof-of-work verified author of the block.
@@ -412,7 +408,7 @@ func handleMisconducts(state *state.StateDB, header *types.Header) {
 // recordMisconduct will read & make the misconduct count +5
 // correct primary miner will decrease the misconduct count -1
 func recordMisconduct(state *state.StateDB, address common.Address, reward bool) {
-	web3key := "000000000000000000000000" + address.Hex()[2:] + common.BigToHash(big.NewInt(4)).Hex()[2:]
+	web3key := paramIndexHead + address.Hex()[2:] + common.BigToHash(big.NewInt(4)).Hex()[2:]
 	hash := sha3.NewKeccak256()
 
 	var keyIndex []byte

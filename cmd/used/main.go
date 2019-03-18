@@ -54,6 +54,7 @@ var (
 	nodeFlags = []cli.Flag{
 		utils.IdentityFlag,
 		utils.VerifyIdFlag,
+		utils.VerifyInfoFlag,
 		utils.VerifyPhotoFlag,
 		utils.VerifyQueryFlag,
 		utils.UnlockedAccountFlag,

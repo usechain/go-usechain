@@ -120,30 +120,28 @@ func (v *BlockValidator) ValidateMiner(block, parent *types.Block, statedb *stat
 
 	totalMinerNum := minerlist.ReadMinerNum(statedb)
 
+	// Verify block miner && verify the minerQrSignature legality
 	if !minerlist.IsMiner(statedb, header.Coinbase, totalMinerNum) && totalMinerNum.Int64() > 1 {
 		return fmt.Errorf("Coinbase should be legal miner address, invalid miner")
 	}
-
-	// Verify block miner && verify the qrSignature legality
 	preCoinbase := parent.Coinbase()
 	blockNumber := header.Number
 	preQrSignature := parent.MinerQrSignature()
 	minerQrSignature := header.MinerQrSignature
 	if header.Number.Cmp(common.Big1) == 0 {
-		preQrSignature = []byte("qwertyuioplkjhgfdsazxcvbnm")
+		preQrSignature = common.GenesisMinerQrSignature
 	}
 	n := new(big.Int).Div(tstampSub, common.BlockSlot)
 	qr := minerlist.CalQrOrIdNext(preCoinbase.Bytes(), blockNumber, preQrSignature)
 	if header.Number.Int64() > 1 && !VerifySig(minerQrSignature, qr, header.Coinbase) {
 		return fmt.Errorf("invalid minerQrSignature")
 	}
-
 	IsValidMiner, level, preMinerid := minerlist.IsValidMiner(statedb, header.Coinbase, preCoinbase, preQrSignature, blockNumber, totalMinerNum, n)
-
 	if !IsValidMiner {
 		return fmt.Errorf("invalid miner")
 	}
 
+	// Verify PrimaryMiner and DifficultyLevel
 	var preMiner common.Address
 	if totalMinerNum.Int64() != 0 {
 		preMiner = common.BytesToAddress(minerlist.ReadMinerAddress(statedb, preMinerid))

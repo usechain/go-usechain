@@ -481,27 +481,17 @@ func (self *worker) commitNewWork() {
 			return
 		}
 
-		// collect pre block info and calculate QrSignature for current block
-		preQrSignature := parent.MinerQrSignature()
+		// collect pre block info and calculate whether the miner is correct for current block
+		var preQrSignature []byte
 		if header.Number.Cmp(common.Big1) == 0 {
-			preQrSignature = []byte("qwertyuioplkjhgfdsazxcvbnm")
+			preQrSignature = common.GenesisMinerQrSignature
+		} else {
+			preQrSignature = parent.MinerQrSignature()
 		}
 		preCoinbase := parent.Coinbase()
-		qr := minerlist.CalQrOrIdNext(preCoinbase.Bytes(), blockNumber, preQrSignature)
 		tstampSub := header.Time.Int64() - parent.Time().Int64()
 		n := big.NewInt(tstampSub / common.BlockSlot.Int64())
-
-		minerQrSignature, err := wallet.SignHash(account, qr.Bytes())
-
-		if err != nil {
-			log.Error("Failed to unlock the coinbase account", "err", err)
-			return
-		}
-
-		header.MinerQrSignature = minerQrSignature
-
 		IsValidMiner, level, preMinerid := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preQrSignature, blockNumber, totalMinerNum, n)
-
 		if !IsValidMiner {
 		DONE1:
 			for {
@@ -517,6 +507,16 @@ func (self *worker) commitNewWork() {
 			return
 		}
 
+		// calculate minerQrSignature for current block
+		qr := minerlist.CalQrOrIdNext(preCoinbase.Bytes(), blockNumber, preQrSignature)
+		minerQrSignature, err := wallet.SignHash(account, qr.Bytes())
+		if err != nil {
+			log.Error("Failed to unlock the coinbase account", "err", err)
+			return
+		}
+		header.MinerQrSignature = minerQrSignature
+
+		// calculate PrimaryMiner and  DifficultyLevel for current block
 		if totalMinerNum.Int64() != 0 {
 			header.PrimaryMiner = common.BytesToAddress(minerlist.ReadMinerAddress(self.current.state, preMinerid))
 		} else {

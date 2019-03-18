@@ -28,12 +28,13 @@ var (
 	Big256 = big.NewInt(256)
 	Big257 = big.NewInt(257)
 
-	BlockSlot            = big.NewInt(25)
-	VoteSlot             = big.NewInt(10)
-	VoteSlotForGenesis   = int64(1000)
-	MisconductLimits     = big.NewInt(100)
-	MaxCommitteemanCount = 5
-	BlockInterval        = 5
+	BlockSlot               = big.NewInt(25)
+	VoteSlot                = big.NewInt(10)
+	VoteSlotForGenesis      = int64(1000)
+	MisconductLimits        = big.NewInt(100)
+	MaxCommitteemanCount    = 5
+	BlockInterval           = 5
+	GenesisMinerQrSignature = []byte("qwertyuioplkjhgfdsazxcvbnm")
 )
 
 func GetIndexForVote(t1 int64, t2 int64) uint64 {

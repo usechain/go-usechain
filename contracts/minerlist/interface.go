@@ -148,6 +148,7 @@ func checkIdTargetOrId(statedb *state.StateDB, idOriginal *big.Int, totalMinerNu
 	var res common.Hash
 	for {
 		res = statedb.GetState(common.HexToAddress(MinerListContract), common.HexToHash(common.IncreaseHexByNum(keyIndex, idOriginal.Int64())))
+
 		if isPunishMiner(statedb, common.StringToAddress("0x"+res.String()[26:]), totalMinerNum) {
 			idOriginal.Add(idOriginal, common.Big1)
 			idOriginal.Mod(idOriginal, totalMinerNum)

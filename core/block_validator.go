@@ -19,6 +19,7 @@ package core
 import (
 	"bytes"
 	"fmt"
+	"github.com/usechain/go-usechain/log"
 	"math/big"
 
 	"github.com/usechain/go-usechain/common"
@@ -26,6 +27,7 @@ import (
 	"github.com/usechain/go-usechain/contracts/minerlist"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
+	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/params"
 )
 
@@ -118,28 +120,34 @@ func (v *BlockValidator) ValidateMiner(block, parent *types.Block, statedb *stat
 
 	totalMinerNum := minerlist.ReadMinerNum(statedb)
 
+	// Verify block miner && verify the minerQrSignature legality
 	if !minerlist.IsMiner(statedb, header.Coinbase, totalMinerNum) && totalMinerNum.Int64() > 1 {
 		return fmt.Errorf("Coinbase should be legal miner address, invalid miner")
 	}
-
-	// Verify block miner
 	preCoinbase := parent.Coinbase()
 	blockNumber := header.Number
-	preSignatureQr := parent.MinerQrSignature()
+	preQrSignature := parent.MinerQrSignature()
+	minerQrSignature := header.MinerQrSignature
+	if header.Number.Cmp(common.Big1) == 0 {
+		preQrSignature = common.GenesisMinerQrSignature
+	}
 	n := new(big.Int).Div(tstampSub, common.BlockSlot)
-
-	IsValidMiner, level, preMinerid := minerlist.IsValidMiner(statedb, header.Coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n)
-
+	qr := minerlist.CalQrOrIdNext(preCoinbase.Bytes(), blockNumber, preQrSignature)
+	if header.Number.Int64() > 1 && !VerifySig(minerQrSignature, qr, header.Coinbase) {
+		return fmt.Errorf("invalid minerQrSignature")
+	}
+	IsValidMiner, level, preMinerid := minerlist.IsValidMiner(statedb, header.Coinbase, preCoinbase, preQrSignature, blockNumber, totalMinerNum, n)
 	if !IsValidMiner {
 		return fmt.Errorf("invalid miner")
 	}
 
+	// Verify PrimaryMiner and DifficultyLevel
 	var preMiner common.Address
 	if totalMinerNum.Int64() != 0 {
 		preMiner = common.BytesToAddress(minerlist.ReadMinerAddress(statedb, preMinerid))
 	}
 	if bytes.Compare(header.PrimaryMiner.Bytes(), preMiner.Bytes()) != 0 && totalMinerNum.Int64() != 0 {
-		return fmt.Errorf("invalid primaryMiner: have %s, want %s", preMiner.String(), header.PrimaryMiner.String())
+		return fmt.Errorf("invalid primaryMiner: have %s, want %s", header.PrimaryMiner.String(), preMiner.String())
 	}
 
 	if header.Number.Cmp(common.Big1) == 0 {
@@ -184,4 +192,16 @@ func CalcGasLimit(parent *types.Block) uint64 {
 		}
 	}
 	return limit
+}
+
+// verify the qrSignature legality
+// need to verify the sig legality and singer must equal to miner
+func VerifySig(sig []byte, hash common.Hash, miner common.Address) bool {
+	pub, err := crypto.Ecrecover(hash.Bytes(), sig)
+	if err != nil {
+		log.Error("retrieve public key failed")
+		return false
+	}
+	pubKey := crypto.ToECDSAPub(pub)
+	return crypto.VerifySignature(pub, hash.Bytes(), sig[:64]) && (crypto.PubkeyToAddress(*pubKey) == miner)
 }

@@ -32,7 +32,6 @@ import (
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/core/vm"
-	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/ethdb"
 	"github.com/usechain/go-usechain/event"
 	"github.com/usechain/go-usechain/log"
@@ -482,26 +481,17 @@ func (self *worker) commitNewWork() {
 			return
 		}
 
-		minerHash := crypto.Keccak256Hash(append((parent.Coinbase()).Bytes(), header.Number.Bytes()...))
-		// Assemble sign the data with the wallet
-		_, err = wallet.SignHash(account, minerHash.Bytes())
-		if err != nil {
-			log.Error("Failed to unlock the coinbase account", "err", err)
-			return
+		// collect pre block info and calculate whether the miner is correct for current block
+		var preQrSignature []byte
+		if header.Number.Cmp(common.Big1) == 0 {
+			preQrSignature = common.GenesisMinerQrSignature
+		} else {
+			preQrSignature = parent.MinerQrSignature()
 		}
-
-		preSignatureQr := parent.MinerQrSignature()
 		preCoinbase := parent.Coinbase()
-		qr := minerlist.CalQrOrIdNext(preCoinbase.Bytes(), blockNumber, preSignatureQr)
-
 		tstampSub := header.Time.Int64() - parent.Time().Int64()
 		n := big.NewInt(tstampSub / common.BlockSlot.Int64())
-
-		minerQrSignature, _ := wallet.SignHash(account, qr.Bytes())
-		header.MinerQrSignature = minerQrSignature[:20]
-
-		IsValidMiner, level, preMinerid := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n)
-
+		IsValidMiner, level, preMinerid := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preQrSignature, blockNumber, totalMinerNum, n)
 		if !IsValidMiner {
 		DONE1:
 			for {
@@ -517,6 +507,16 @@ func (self *worker) commitNewWork() {
 			return
 		}
 
+		// calculate minerQrSignature for current block
+		qr := minerlist.CalQrOrIdNext(preCoinbase.Bytes(), blockNumber, preQrSignature)
+		minerQrSignature, err := wallet.SignHash(account, qr.Bytes())
+		if err != nil {
+			log.Error("Failed to unlock the coinbase account", "err", err)
+			return
+		}
+		header.MinerQrSignature = minerQrSignature
+
+		// calculate PrimaryMiner and  DifficultyLevel for current block
 		if totalMinerNum.Int64() != 0 {
 			header.PrimaryMiner = common.BytesToAddress(minerlist.ReadMinerAddress(self.current.state, preMinerid))
 		} else {
@@ -544,7 +544,7 @@ func (self *worker) commitNewWork() {
 	committeeCnt := self.chain.GetCommitteeCount()
 	var pending map[common.Address]types.Transactions
 	if header.IsCheckPoint.Cmp(common.Big1) == 0 {
-		pending, err = self.eth.TxPool().GetValidPbft(blockNumber.Uint64() - 1, common.GetIndexForVote(time.Now().Unix(), parent.Time().Int64()))
+		pending, err = self.eth.TxPool().GetValidPbft(blockNumber.Uint64()-1, common.GetIndexForVote(time.Now().Unix(), parent.Time().Int64()))
 		gen, targetHash, _ := canGenBlockInCheckPoint(pending, committeeCnt)
 		if !gen {
 		DONE2:

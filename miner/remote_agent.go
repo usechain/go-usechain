@@ -25,15 +25,10 @@ import (
 
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/consensus"
-	"github.com/usechain/go-usechain/consensus/ethash"
+	"github.com/usechain/go-usechain/consensus/rpow"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/log"
 )
-
-type hashrate struct {
-	ping time.Time
-	rate uint64
-}
 
 type RemoteAgent struct {
 	mu sync.Mutex
@@ -47,9 +42,6 @@ type RemoteAgent struct {
 	currentWork *Work
 	work        map[common.Hash]*Work
 
-	hashrateMu sync.RWMutex
-	hashrate   map[common.Hash]hashrate
-
 	running int32 // running indicates whether the agent is active. Call atomically
 }
 
@@ -58,15 +50,7 @@ func NewRemoteAgent(chain consensus.ChainReader, engine consensus.Engine) *Remot
 		chain:    chain,
 		engine:   engine,
 		work:     make(map[common.Hash]*Work),
-		hashrate: make(map[common.Hash]hashrate),
 	}
-}
-
-func (a *RemoteAgent) SubmitHashrate(id common.Hash, rate uint64) {
-	a.hashrateMu.Lock()
-	defer a.hashrateMu.Unlock()
-
-	a.hashrate[id] = hashrate{time.Now(), rate}
 }
 
 func (a *RemoteAgent) Work() chan<- *Work {
@@ -94,18 +78,6 @@ func (a *RemoteAgent) Stop() {
 	close(a.workCh)
 }
 
-// GetHashRate returns the accumulated hashrate of all identifier combined
-func (a *RemoteAgent) GetHashRate() (tot int64) {
-	a.hashrateMu.RLock()
-	defer a.hashrateMu.RUnlock()
-
-	// this could overflow
-	for _, hashrate := range a.hashrate {
-		tot += int64(hashrate.rate)
-	}
-	return
-}
-
 func (a *RemoteAgent) GetWork() ([3]string, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -116,7 +88,7 @@ func (a *RemoteAgent) GetWork() ([3]string, error) {
 		block := a.currentWork.Block
 
 		res[0] = block.HashNoNonce().Hex()
-		seedHash := ethash.SeedHash(block.NumberU64())
+		seedHash := rpow.SeedHash(block.NumberU64())
 		res[1] = common.BytesToHash(seedHash).Hex()
 		// Calculate the "target" to be returned to the external miner
 		n := big.NewInt(1)
@@ -150,7 +122,7 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 	result.MixDigest = mixDigest
 
 	if err := a.engine.VerifySeal(a.chain, result); err != nil {
-		log.Warn("Invalid proof-of-work submitted", "hash", hash, "err", err)
+		log.Warn("Invalid random-proof-of-work submitted", "hash", hash, "err", err)
 		return false
 	}
 	block := work.Block.WithSeal(result)
@@ -189,14 +161,6 @@ func (a *RemoteAgent) loop(workCh chan *Work, quitCh chan struct{}) {
 				}
 			}
 			a.mu.Unlock()
-
-			a.hashrateMu.Lock()
-			for id, hashrate := range a.hashrate {
-				if time.Since(hashrate.ping) > 10*time.Second {
-					delete(a.hashrate, id)
-				}
-			}
-			a.hashrateMu.Unlock()
 		}
 	}
 }

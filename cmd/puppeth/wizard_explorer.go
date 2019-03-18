@@ -35,8 +35,8 @@ func (w *wizard) deployExplorer() {
 		log.Error("No ethstats server configured")
 		return
 	}
-	if w.conf.Genesis.Config.Ethash == nil {
-		log.Error("Only ethash network supported")
+	if w.conf.Genesis.Config.Rpow == nil {
+		log.Error("Only rpow network supported")
 		return
 	}
 	// Select the server to interact with

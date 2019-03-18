@@ -495,10 +495,6 @@ web3._extend({
 			params: 1,
 			inputFormatter: [web3._extend.utils.fromDecimal]
 		}),
-		new web3._extend.Method({
-			name: 'getHashrate',
-			call: 'miner_getHashrate'
-		}),
 	],
 	properties: []
 });

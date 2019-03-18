@@ -21,7 +21,7 @@ import (
 
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/math"
-	//"github.com/usechain/go-usechain/consensus/ethash"
+	//"github.com/usechain/go-usechain/consensus/rpow"
 	//"github.com/usechain/go-usechain/core/types"
 	//"github.com/usechain/go-usechain/params"
 )
@@ -57,7 +57,7 @@ type difficultyTestMarshaling struct {
 //		UncleHash:  test.UncleHash,
 //	}
 //
-//	actual := ethash.CalcDifficulty(config, test.CurrentTimestamp.Uint64(), parent)
+//	actual := rpow.CalcDifficulty(config, test.CurrentTimestamp.Uint64(), parent)
 //	exp := test.CurrentDifficulty
 //
 //	if actual.Cmp(exp) != 0 {

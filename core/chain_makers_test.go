@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/usechain/go-usechain/consensus/ethash"
+	"github.com/usechain/go-usechain/consensus/rpow"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/ethdb"
@@ -43,14 +43,14 @@ func ExampleGenerateChain() {
 	)
 
 	// Ensure that key1 has some funds in the genesis block.
-	gspec := DefaultRPOWTestingGenesisBlock()
+	gspec := DefaultRpowTestingGenesisBlock()
 	gspec.Alloc = GenesisAlloc{addr1: {Balance: big.NewInt(1000000)}}
 	//gspec := &Genesis{
 	//	Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
 	//	Alloc:  GenesisAlloc{addr1: {Balance: big.NewInt(1000000)}},
 	//}
 	genesis := gspec.MustCommit(db)
-	engine := ethash.NewFakerUsechain(db)
+	engine := rpow.NewFakerUsechain(db)
 
 	// This call generates a chain of 5 blocks. The function runs for
 	// each block and adds different features to gen based on the

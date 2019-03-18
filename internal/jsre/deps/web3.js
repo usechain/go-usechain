@@ -5535,11 +5535,6 @@ var properties = function () {
             getter: 'eth_mining'
         }),
         new Property({
-            name: 'hashrate',
-            getter: 'eth_hashrate',
-            outputFormatter: utils.toDecimal
-        }),
-        new Property({
             name: 'syncing',
             getter: 'eth_syncing',
             outputFormatter: formatters.outputSyncingFormatter

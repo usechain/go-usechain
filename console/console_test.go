@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"github.com/usechain/go-usechain/common"
-	"github.com/usechain/go-usechain/consensus/ethash"
+	"github.com/usechain/go-usechain/consensus/rpow"
 	"github.com/usechain/go-usechain/core"
 	"github.com/usechain/go-usechain/eth"
 	"github.com/usechain/go-usechain/internal/jsre"
@@ -98,8 +98,8 @@ func newTester(t *testing.T, confOverride func(*eth.Config)) *tester {
 	ethConf := &eth.Config{
 		Genesis:   core.DeveloperGenesisBlock(15, common.Address{}),
 		Usebase: common.HexToAddress(testAddress),
-		Ethash: ethash.Config{
-			PowMode: ethash.ModeTest,
+		Rpow: rpow.Config{
+			RpowMode: rpow.ModeTest,
 		},
 	}
 	if confOverride != nil {

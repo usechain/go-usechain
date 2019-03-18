@@ -203,17 +203,6 @@ func (rpc *EthRPC) EthMining() (bool, error) {
 	return mining, err
 }
 
-// EthHashrate returns the number of hashes per second that the node is mining with.
-func (rpc *EthRPC) EthHashrate() (int, error) {
-	var response string
-
-	if err := rpc.call("eth_hashrate", &response); err != nil {
-		return 0, err
-	}
-
-	return ParseInt(response)
-}
-
 // EthGasPrice returns the current price per gas in wei.
 func (rpc *EthRPC) EthGasPrice() (big.Int, error) {
 	var response string

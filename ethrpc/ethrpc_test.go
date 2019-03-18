@@ -293,21 +293,6 @@ func (s *EthRPCTestSuite) TestEthMining() {
 	s.Require().False(mining)
 }
 
-func (s *EthRPCTestSuite) TestEthHashrate() {
-	s.registerResponseError(errors.New("Error"))
-	hashrate, err := s.rpc.EthHashrate()
-	s.Require().NotNil(err)
-
-	s.registerResponse(`"0x38a"`, func(body []byte) {
-		s.methodEqual(body, "eth_hashrate")
-		s.paramsEqual(body, "null")
-	})
-
-	hashrate, err = s.rpc.EthHashrate()
-	s.Require().Nil(err)
-	s.Require().Equal(906, hashrate)
-}
-
 func (s *EthRPCTestSuite) TestEthGasPrice() {
 	s.registerResponseError(errors.New("Error"))
 	gasPrice, err := s.rpc.EthGasPrice()

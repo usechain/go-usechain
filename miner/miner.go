@@ -42,7 +42,7 @@ type Backend interface {
 	ChainDb() ethdb.Database
 }
 
-// Miner creates blocks and searches for proof-of-work values.
+// Miner creates blocks and searches for random-proof-of-work values.
 type Miner struct {
 	mux *event.TypeMux
 
@@ -138,21 +138,6 @@ func (self *Miner) Unregister(agent Agent) {
 
 func (self *Miner) Mining() bool {
 	return atomic.LoadInt32(&self.mining) > 0
-}
-
-func (self *Miner) HashRate() (tot int64) {
-	if pow, ok := self.engine.(consensus.PoW); ok {
-		tot += int64(pow.Hashrate())
-	}
-	// do we care this might race? is it worth we're rewriting some
-	// aspects of the worker/locking up agents so we can get an accurate
-	// hashrate?
-	for agent := range self.worker.agents {
-		if _, ok := agent.(*CpuAgent); !ok {
-			tot += agent.GetHashRate()
-		}
-	}
-	return
 }
 
 func (self *Miner) SetExtra(extra []byte) error {

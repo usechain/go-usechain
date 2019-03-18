@@ -23,7 +23,7 @@ import (
 
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/hexutil"
-	"github.com/usechain/go-usechain/consensus/ethash"
+	"github.com/usechain/go-usechain/consensus/rpow"
 	"github.com/usechain/go-usechain/core"
 	"github.com/usechain/go-usechain/params"
 )
@@ -88,13 +88,13 @@ type cppEthereumGenesisSpecLinearPricing struct {
 // newCppEthereumGenesisSpec converts a go-ethereum genesis block into a Parity specific
 // chain specification format.
 func newCppEthereumGenesisSpec(network string, genesis *core.Genesis) (*cppEthereumGenesisSpec, error) {
-	// Only ethash is currently supported between go-ethereum and cpp-ethereum
-	if genesis.Config.Ethash == nil {
+	// Only rpow is currently supported go-usechain
+	if genesis.Config.Rpow == nil {
 		return nil, errors.New("unsupported consensus engine")
 	}
 	// Reconstruct the chain spec in Parity's format
 	spec := &cppEthereumGenesisSpec{
-		SealEngine: "Ethash",
+		SealEngine: "Rpow",
 	}
 	spec.Params.AccountStartNonce = 0
 	spec.Params.HomesteadForkBlock = (hexutil.Uint64)(genesis.Config.HomesteadBlock.Uint64())
@@ -113,7 +113,7 @@ func newCppEthereumGenesisSpec(network string, genesis *core.Genesis) (*cppEther
 	spec.Params.DifficultyBoundDivisor = (*hexutil.Big)(params.DifficultyBoundDivisor)
 	spec.Params.GasLimitBoundDivisor = (hexutil.Uint64)(params.GasLimitBoundDivisor)
 	spec.Params.DurationLimit = (*hexutil.Big)(params.DurationLimit)
-	//spec.Params.BlockReward = (*hexutil.Big)(ethash.FrontierBlockReward)
+	//spec.Params.BlockReward = (*hexutil.Big)(rpow.FrontierBlockReward)
 
 	spec.Genesis.Nonce = (hexutil.Bytes)(make([]byte, 8))
 	binary.LittleEndian.PutUint64(spec.Genesis.Nonce[:], genesis.Nonce)
@@ -166,7 +166,7 @@ func newCppEthereumGenesisSpec(network string, genesis *core.Genesis) (*cppEther
 type parityChainSpec struct {
 	Name   string `json:"name"`
 	Engine struct {
-		Ethash struct {
+		Rpow struct {
 			Params struct {
 				MinimumDifficulty      *hexutil.Big `json:"minimumDifficulty"`
 				DifficultyBoundDivisor *hexutil.Big `json:"difficultyBoundDivisor"`
@@ -181,7 +181,7 @@ type parityChainSpec struct {
 				EIP100bTransition      uint64       `json:"eip100bTransition"`
 				EIP649Transition       uint64       `json:"eip649Transition"`
 			} `json:"params"`
-		} `json:"Ethash"`
+		} `json:"Rpow"`
 	} `json:"engine"`
 
 	Params struct {
@@ -259,8 +259,8 @@ type parityChainSpecAltBnPairingPricing struct {
 // newParityChainSpec converts a go-ethereum genesis block into a Parity specific
 // chain specification format.
 func newParityChainSpec(network string, genesis *core.Genesis, bootnodes []string) (*parityChainSpec, error) {
-	// Only ethash is currently supported between go-ethereum and Parity
-	if genesis.Config.Ethash == nil {
+	// Only rpow is currently supported go-usechain and Parity
+	if genesis.Config.Rpow == nil {
 		return nil, errors.New("unsupported consensus engine")
 	}
 	// Reconstruct the chain spec in Parity's format
@@ -268,18 +268,18 @@ func newParityChainSpec(network string, genesis *core.Genesis, bootnodes []strin
 		Name:  network,
 		Nodes: bootnodes,
 	}
-	spec.Engine.Ethash.Params.MinimumDifficulty = (*hexutil.Big)(params.MinimumDifficulty)
-	spec.Engine.Ethash.Params.DifficultyBoundDivisor = (*hexutil.Big)(params.DifficultyBoundDivisor)
-	spec.Engine.Ethash.Params.DurationLimit = (*hexutil.Big)(params.DurationLimit)
-	//spec.Engine.Ethash.Params.BlockReward = (*hexutil.Big)(ethash.FrontierBlockReward)
-	spec.Engine.Ethash.Params.HomesteadTransition = genesis.Config.HomesteadBlock.Uint64()
-	spec.Engine.Ethash.Params.EIP150Transition = genesis.Config.EIP150Block.Uint64()
-	spec.Engine.Ethash.Params.EIP160Transition = genesis.Config.EIP155Block.Uint64()
-	spec.Engine.Ethash.Params.EIP161abcTransition = genesis.Config.EIP158Block.Uint64()
-	spec.Engine.Ethash.Params.EIP161dTransition = genesis.Config.EIP158Block.Uint64()
-	spec.Engine.Ethash.Params.EIP649Reward = (*hexutil.Big)(ethash.SapphireBlockReward)
-	spec.Engine.Ethash.Params.EIP100bTransition = genesis.Config.ByzantiumBlock.Uint64()
-	spec.Engine.Ethash.Params.EIP649Transition = genesis.Config.ByzantiumBlock.Uint64()
+	spec.Engine.Rpow.Params.MinimumDifficulty = (*hexutil.Big)(params.MinimumDifficulty)
+	spec.Engine.Rpow.Params.DifficultyBoundDivisor = (*hexutil.Big)(params.DifficultyBoundDivisor)
+	spec.Engine.Rpow.Params.DurationLimit = (*hexutil.Big)(params.DurationLimit)
+	//spec.Engine.Rpow.Params.BlockReward = (*hexutil.Big)(rpow.FrontierBlockReward)
+	spec.Engine.Rpow.Params.HomesteadTransition = genesis.Config.HomesteadBlock.Uint64()
+	spec.Engine.Rpow.Params.EIP150Transition = genesis.Config.EIP150Block.Uint64()
+	spec.Engine.Rpow.Params.EIP160Transition = genesis.Config.EIP155Block.Uint64()
+	spec.Engine.Rpow.Params.EIP161abcTransition = genesis.Config.EIP158Block.Uint64()
+	spec.Engine.Rpow.Params.EIP161dTransition = genesis.Config.EIP158Block.Uint64()
+	spec.Engine.Rpow.Params.EIP649Reward = (*hexutil.Big)(rpow.SapphireBlockReward)
+	spec.Engine.Rpow.Params.EIP100bTransition = genesis.Config.ByzantiumBlock.Uint64()
+	spec.Engine.Rpow.Params.EIP649Transition = genesis.Config.ByzantiumBlock.Uint64()
 
 	spec.Params.MaximumExtraDataSize = (hexutil.Uint64)(params.MaximumExtraDataSize)
 	spec.Params.MinGasLimit = (hexutil.Uint64)(params.MinGasLimit)
@@ -358,8 +358,8 @@ type pyEthereumGenesisSpec struct {
 // newPyEthereumGenesisSpec converts a go-ethereum genesis block into a Parity specific
 // chain specification format.
 func newPyEthereumGenesisSpec(network string, genesis *core.Genesis) (*pyEthereumGenesisSpec, error) {
-	// Only ethash is currently supported between go-ethereum and pyethereum
-	if genesis.Config.Ethash == nil {
+	// Only rpow is currently supported go-usechain
+	if genesis.Config.Rpow == nil {
 		return nil, errors.New("unsupported consensus engine")
 	}
 	spec := &pyEthereumGenesisSpec{

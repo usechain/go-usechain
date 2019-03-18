@@ -41,9 +41,11 @@ var (
 	// Block reward in hui for successfully mining a block upward from Sapphir
 	SapphireBlockReward *big.Int = big.NewInt(0).Mul(big.NewInt(1e+18), big.NewInt(15))
 	// Maximum number of uncles allowed in a single block
-	maxUncles = 2
+	maxUncles = 0
 	// Max time from current time allowed for blocks, before they're considered future blocks
 	allowedFutureBlockTime = 15 * time.Second
+	// paramIndex Head
+	paramIndexHead = "000000000000000000000000"
 )
 
 // Genesis difficulty
@@ -406,7 +408,7 @@ func handleMisconducts(state *state.StateDB, header *types.Header) {
 // recordMisconduct will read & make the misconduct count +5
 // correct primary miner will decrease the misconduct count -1
 func recordMisconduct(state *state.StateDB, address common.Address, reward bool) {
-	web3key := "000000000000000000000000" + address.Hex()[2:] + common.BigToHash(big.NewInt(4)).Hex()[2:]
+	web3key := paramIndexHead + address.Hex()[2:] + common.BigToHash(big.NewInt(4)).Hex()[2:]
 	hash := sha3.NewKeccak256()
 
 	var keyIndex []byte

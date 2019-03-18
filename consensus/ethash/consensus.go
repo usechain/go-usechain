@@ -17,21 +17,23 @@
 package ethash
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/usechain/go-usechain/contracts/minerlist"
-	"math/big"
-	"runtime"
-	"time"
-
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/math"
 	"github.com/usechain/go-usechain/consensus"
 	"github.com/usechain/go-usechain/consensus/misc"
+	"github.com/usechain/go-usechain/contracts/minerlist"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
+	"github.com/usechain/go-usechain/crypto/sha3"
 	"github.com/usechain/go-usechain/params"
 	"gopkg.in/fatih/set.v0"
+	"math/big"
+	"runtime"
+	"strings"
+	"time"
 )
 
 // Ethash proof-of-work protocol constants.
@@ -39,9 +41,11 @@ var (
 	// Block reward in hui for successfully mining a block upward from Sapphir
 	SapphireBlockReward *big.Int = big.NewInt(0).Mul(big.NewInt(1e+18), big.NewInt(15))
 	// Maximum number of uncles allowed in a single block
-	maxUncles = 2
+	maxUncles = 0
 	// Max time from current time allowed for blocks, before they're considered future blocks
 	allowedFutureBlockTime = 15 * time.Second
+	// paramIndex Head
+	paramIndexHead = "000000000000000000000000"
 )
 
 // Genesis difficulty
@@ -64,8 +68,6 @@ var (
 	errInvalidMixDigest  = errors.New("invalid mix digest")
 	errInvalidPoW        = errors.New("invalid proof-of-work")
 )
-
-const genesisQrSignature = "8287dbe2b47bcc884dce4b9ea1a0dc76"
 
 // Author implements consensus.Engine, returning the header's coinbase as the
 // proof-of-work verified author of the block.
@@ -230,19 +232,6 @@ func (ethash *Ethash) VerifyUncles(chain consensus.ChainReader, block *types.Blo
 // stock Ethereum ethash engine.
 // See YP section 4.3.4. "Block Header Validity"
 func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *types.Header, uncle bool, seal bool, state *state.StateDB) error {
-	///TODO: add miner filter, and when there is only one miner, doesn't needs registration
-	tstampParent := parent.Time
-	tstampHead := header.Time
-	tstampSub := new(big.Int).Sub(tstampHead, tstampParent)
-
-	if tstampSub.Int64() < int64(common.BlockInterval) {
-		return fmt.Errorf("Block time slot should be more than five seconds")
-	}
-
-	totalMinerNum := minerlist.ReadMinerNum(state)
-	if !minerlist.IsMiner(state, header.Coinbase) && totalMinerNum.Int64() > 1 {
-		return fmt.Errorf("Coinbase should be legal miner address, invalid miner")
-	}
 	// Ensure that the header's extra-data section is of a reasonable size
 	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
 		return fmt.Errorf("extra-data too long: %d > %d", len(header.Extra), params.MaximumExtraDataSize)
@@ -259,33 +248,6 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	}
 	if header.Time.Cmp(parent.Time) <= 0 {
 		return errZeroBlockTime
-	}
-
-	// Verify block miner
-	preCoinbase := parent.Coinbase
-	blockNumber := header.Number
-	preSignatureQr := parent.MinerQrSignature
-	preDifficultyLevel := parent.DifficultyLevel
-
-	if header.Number.Cmp(common.Big1) == 0 {
-		preDifficultyLevel = big.NewInt(0)
-		preSignatureQr = []byte(genesisQrSignature)
-	}
-
-	n := new(big.Int).Div(tstampSub, common.BlockSlot)
-
-	IsValidMiner, level := minerlist.IsValidMiner(state, header.Coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n, preDifficultyLevel)
-
-	if !IsValidMiner {
-		return fmt.Errorf("invalid miner")
-	}
-
-	if header.Number.Cmp(common.Big1) == 0 && header.DifficultyLevel.Int64() != 0 {
-		return fmt.Errorf("invalid difficultyLevel: have %v, want 0", header.DifficultyLevel)
-	}
-
-	if header.Number.Cmp(common.Big1) != 0 && level != header.DifficultyLevel.Int64() {
-		return fmt.Errorf("invalid difficultyLevel: have %v, want %v", header.DifficultyLevel, level)
 	}
 
 	// Verify the block's difficulty based in it's timestamp and parent's difficulty
@@ -393,6 +355,7 @@ func (ethash *Ethash) Prepare(chain consensus.ChainReader, header *types.Header,
 func (ethash *Ethash) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 	// Accumulate any block and uncle rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header, uncles)
+	handleMisconducts(state, header)
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 
 	// Header seems complete, assemble into a block and return
@@ -426,4 +389,42 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 		reward.Add(reward, r)
 	}
 	state.AddBalance(header.Coinbase, reward)
+}
+
+// handleMisconducts will check the block whether be mined by PrimaryMiner
+// if does, the PrimaryMiner's misconduct count recorded in minelist contract will -1
+// if not, the PrimaryMiner's misconduct count recorded in minelist contract will +5
+// when the misconduct count reached the MisconductLimit which record in contract
+// with default 100, the miner will lose mining right
+func handleMisconducts(state *state.StateDB, header *types.Header) {
+	priAddr := header.PrimaryMiner
+	if !strings.EqualFold(priAddr.String(), header.Coinbase.String()) {
+		recordMisconduct(state, priAddr, false)
+	} else {
+		recordMisconduct(state, priAddr, true)
+	}
+}
+
+// recordMisconduct will read & make the misconduct count +5
+// correct primary miner will decrease the misconduct count -1
+func recordMisconduct(state *state.StateDB, address common.Address, reward bool) {
+	web3key := paramIndexHead + address.Hex()[2:] + common.BigToHash(big.NewInt(4)).Hex()[2:]
+	hash := sha3.NewKeccak256()
+
+	var keyIndex []byte
+	b, _ := hex.DecodeString(web3key)
+	hash.Write(b)
+	keyIndex = hash.Sum(keyIndex)
+
+	// get data from the contract statedb
+	res := state.GetState(common.HexToAddress(minerlist.MinerListContract), common.BytesToHash(keyIndex))
+	if reward {
+		// add reward to the address with -1
+		if res.Big().Cmp(common.Big0) > 0 {
+			state.SetState(common.HexToAddress(minerlist.MinerListContract), common.BytesToHash(keyIndex), res.DecreaseHex(big.NewInt(1)))
+		}
+	} else {
+		// add publish to the address with +5
+		state.SetState(common.HexToAddress(minerlist.MinerListContract), common.BytesToHash(keyIndex), res.IncreaseHex(big.NewInt(5)))
+	}
 }

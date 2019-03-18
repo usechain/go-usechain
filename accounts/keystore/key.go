@@ -21,21 +21,21 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/btcsuite/btcd/btcec"
+	"github.com/pborman/uuid"
+	"github.com/usechain/go-usechain/accounts"
+	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/common/hexutil"
+	"github.com/usechain/go-usechain/crypto"
+	"github.com/usechain/go-usechain/log"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-	"errors"
-	"github.com/usechain/go-usechain/accounts"
-	"github.com/usechain/go-usechain/log"
-	"github.com/usechain/go-usechain/common"
-	"github.com/usechain/go-usechain/common/hexutil"
-	"github.com/usechain/go-usechain/crypto"
-	"github.com/pborman/uuid"
-	"github.com/btcsuite/btcd/btcec"
 )
 
 const (
@@ -51,7 +51,7 @@ type Key struct {
 	PrivateKey *ecdsa.PrivateKey
 
 	PrivateKey2 *ecdsa.PrivateKey
-	ABaddress common.ABaddress
+	ABaddress   common.ABaddress
 }
 
 type keyStore interface {
@@ -60,7 +60,6 @@ type keyStore interface {
 
 	// Loads an encrypted keyfile from disk
 	GetEncryptedKey(addr common.Address, filename string) (*Key, error)
-
 
 	// Writes and encrypts the key.
 	StoreKey(filename string, k *Key, auth string) error
@@ -76,10 +75,10 @@ type plainKeyJSON struct {
 }
 
 type encryptedKeyJSONV3 struct {
-	Address string     `json:"address"`
-	Crypto  cryptoJSON `json:"crypto"`
-	Id      string     `json:"id"`
-	Version int        `json:"version"`
+	Address   string     `json:"address"`
+	Crypto    cryptoJSON `json:"crypto"`
+	Id        string     `json:"id"`
+	Version   int        `json:"version"`
 	ABaddress string     `json:"ABaddress"`
 }
 
@@ -232,11 +231,9 @@ func toISO8601(t time.Time) string {
 	return fmt.Sprintf("%04d-%02d-%02dT%02d-%02d-%02d.%09d%s", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), tz)
 }
 
-
 // GeneratePKPairFromABddress represents the keystore to retrieve public key-pair from given Address
 func GeneratePKPairFromABaddress(w []byte) (*ecdsa.PublicKey, *ecdsa.PublicKey, error) {
 	if len(w) != common.ABaddressLength {
-		fmt.Println(len(w))
 		return nil, nil, ErrABaddressInvalid
 	}
 
@@ -254,8 +251,8 @@ func GeneratePKPairFromABaddress(w []byte) (*ecdsa.PublicKey, *ecdsa.PublicKey, 
 		return nil, nil, err
 	}
 
-	PK11:=(*ecdsa.PublicKey)(PK1)
-	PK22:=(*ecdsa.PublicKey)(PK2)
+	PK11 := (*ecdsa.PublicKey)(PK1)
+	PK22 := (*ecdsa.PublicKey)(PK2)
 	return PK11, PK22, nil
 }
 
@@ -280,9 +277,9 @@ func GenerateABaddressFromPK(A *ecdsa.PublicKey, B *ecdsa.PublicKey) *common.ABa
 }
 
 // storeNewABKey save AB account keystore file
-func storeNewABKey(ks keyStore,abBaseAddr common.ABaddress,AprivKey *ecdsa.PrivateKey, auth string) (*Key, accounts.Account, error) {
+func storeNewABKey(ks keyStore, abBaseAddr common.ABaddress, AprivKey *ecdsa.PrivateKey, auth string) (*Key, accounts.Account, error) {
 
-	key, err := newABKey(abBaseAddr,AprivKey)
+	key, err := newABKey(abBaseAddr, AprivKey)
 	if err != nil {
 		return nil, accounts.Account{}, err
 	}
@@ -302,14 +299,14 @@ func ABkeyFileName(keyAddr common.ABaddress) string {
 }
 
 // newABKey generate ABaccount Key
-func newABKey(abBaseAddr common.ABaddress,AprivKey *ecdsa.PrivateKey) (*Key, error) {
+func newABKey(abBaseAddr common.ABaddress, AprivKey *ecdsa.PrivateKey) (*Key, error) {
 	A, B, err := GeneratePKPairFromABaddress(abBaseAddr[:])
 	if err != nil {
 		return nil, err
 	}
 
 	PKPairStr := hexutil.PKPair2HexSlice(A, B)
-	SKOTA,s, err := crypto.GenerateABKey(PKPairStr[0], PKPairStr[1], PKPairStr[2], PKPairStr[3],AprivKey)
+	SKOTA, s, err := crypto.GenerateABKey(PKPairStr[0], PKPairStr[1], PKPairStr[2], PKPairStr[3], AprivKey)
 	if err != nil {
 		return nil, err
 	}
@@ -327,7 +324,7 @@ func newABKey(abBaseAddr common.ABaddress,AprivKey *ecdsa.PrivateKey) (*Key, err
 	}
 
 	// transform AB account key result to string
-	pk, err := ComputeABKeys(SKOTA[0], SKOTA[1],PKPairStr[2], PKPairStr[3],AprivKey,s)
+	pk, err := ComputeABKeys(SKOTA[0], SKOTA[1], PKPairStr[2], PKPairStr[3], AprivKey, s)
 	if err != nil {
 		return nil, err
 	}
@@ -346,11 +343,11 @@ func newABKey(abBaseAddr common.ABaddress,AprivKey *ecdsa.PrivateKey) (*Key, err
 
 	//caculate the address for replaced pub
 	copy(addr[:], crypto.Keccak256(pubkey[1:])[12:])
-	return newABKeyFromECDSA(privateKeyECDSA,s,addr), nil
+	return newABKeyFromECDSA(privateKeyECDSA, s, addr), nil
 }
 
 // ComputeABKeys genetate public key and private key of AB account
-func ComputeABKeys(AX, AY, BX, BY string,PrivateKey *ecdsa.PrivateKey, s *ecdsa.PrivateKey) ([]string, error) {
+func ComputeABKeys(AX, AY, BX, BY string, PrivateKey *ecdsa.PrivateKey, s *ecdsa.PrivateKey) ([]string, error) {
 	pub1, priv1, priv2, err := crypto.GenerteABPrivateKey(PrivateKey, s, AX, AY, BX, BY)
 	pub1X := hexutil.Encode(common.LeftPadBytes(pub1.X.Bytes(), 32))
 	pub1Y := hexutil.Encode(common.LeftPadBytes(pub1.Y.Bytes(), 32))
@@ -360,11 +357,11 @@ func ComputeABKeys(AX, AY, BX, BY string,PrivateKey *ecdsa.PrivateKey, s *ecdsa.
 }
 
 // newABKeyFromECDSA assign private key and address to Key
-func newABKeyFromECDSA(sk1 *ecdsa.PrivateKey,sk2 *ecdsa.PrivateKey,addr common.Address) *Key {
+func newABKeyFromECDSA(sk1 *ecdsa.PrivateKey, sk2 *ecdsa.PrivateKey, addr common.Address) *Key {
 	id := uuid.NewRandom()
 	key := &Key{
 		Id:          id,
-		Address:	addr,
+		Address:     addr,
 		PrivateKey:  sk1,
 		PrivateKey2: sk2,
 	}
@@ -374,5 +371,5 @@ func newABKeyFromECDSA(sk1 *ecdsa.PrivateKey,sk2 *ecdsa.PrivateKey,addr common.A
 
 func updateABaddress(k *Key) {
 	k.ABaddress = *GenerateABaddressFromPK(&k.PrivateKey.PublicKey, &k.PrivateKey2.PublicKey)
-	log.Info("newABaccount infomation","ABaddress",hexutil.Encode(k.ABaddress[:]))
+	log.Info("newABaccount infomation", "ABaddress", hexutil.Encode(k.ABaddress[:]))
 }

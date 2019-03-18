@@ -18,6 +18,9 @@ package core
 
 import (
 	"errors"
+	"math"
+	"math/big"
+
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/consensus"
 	"github.com/usechain/go-usechain/consensus/misc"
@@ -27,7 +30,6 @@ import (
 	"github.com/usechain/go-usechain/core/vm"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/params"
-	"math"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -76,6 +78,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		return nil, nil, 0, err
 	}
 
+	// check the txs
 	for i, tx := range block.Transactions() {
 		if header.IsCheckPoint.Int64() == 1 && tx.Flag() == 0 {
 			err := errors.New("checkpoint block can't package common transactions")
@@ -85,6 +88,26 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			err := errors.New("common block can't package checkpoint transactions")
 			return nil, nil, 0, err
 		}
+
+		///TODO:all transaction should be identified by Tx.flag, with switch
+		msg, err2 := tx.AsMessage(types.MakeSigner(p.config, header.Number))
+		if err2 != nil {
+			return nil, nil, 0, err2
+		}
+		sender := msg.From()
+		if tx.Flag() == 1 {
+			err := ValidatePbftTx(statedb, big.NewInt(block.Number().Int64()-1), common.GetIndexForVote(block.Time().Int64(), p.bc.GetBlockByNumber(block.NumberU64()-1).Time().Int64()), tx, common.Address(sender))
+			if err != nil {
+				return nil, nil, 0, err
+			}
+		} else if tx.IsRegisterTransaction() {
+			err := tx.CheckCertLegality(common.Address(sender))
+			if err != nil {
+				err = errors.New("invalid authentication signature")
+				return nil, nil, 0, err
+			}
+		}
+
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
 		receipt, _, err := ApplyTransaction(p.config, p.bc, nil, gp, statedb, header, tx, usedGas, cfg)
 		if err != nil {

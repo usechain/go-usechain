@@ -23,12 +23,25 @@ var (
 	Big1   = big.NewInt(1)
 	Big2   = big.NewInt(2)
 	Big3   = big.NewInt(3)
+	Big7   = big.NewInt(7)
 	Big0   = big.NewInt(0)
 	Big32  = big.NewInt(32)
 	Big256 = big.NewInt(256)
 	Big257 = big.NewInt(257)
-	BlockSlot   = big.NewInt(25)
-	VoteSlot  = big.NewInt(10)
-	MaxCommitteemanCount = 5
-	BlockInterval = 5
+
+	BlockSlot               = big.NewInt(25)
+	VoteSlot                = big.NewInt(10)
+	VoteSlotForGenesis      = int64(1000)
+	MisconductLimits        = big.NewInt(100)
+	MaxCommitteemanCount    = 5
+	BlockInterval           = 5
+	GenesisMinerQrSignature = []byte("qwertyuioplkjhgfdsazxcvbnm")
 )
+
+func GetIndexForVote(t1 int64, t2 int64) uint64 {
+	index := uint64(0)
+	if t1 > t2 {
+		index = uint64(t1-t2) / 60
+	}
+	return index
+}

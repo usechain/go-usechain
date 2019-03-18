@@ -28,9 +28,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/hashicorp/golang-lru"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/mclock"
 	"github.com/usechain/go-usechain/consensus"
+	"github.com/usechain/go-usechain/contracts/manager"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/core/vm"
@@ -42,9 +44,7 @@ import (
 	"github.com/usechain/go-usechain/params"
 	"github.com/usechain/go-usechain/rlp"
 	"github.com/usechain/go-usechain/trie"
-	"github.com/hashicorp/golang-lru"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
-	"github.com/usechain/go-usechain/contracts/manager"
 )
 
 var (
@@ -132,8 +132,8 @@ type BlockChain struct {
 
 	badBlocks *lru.Cache // Bad block cache
 
-	votedHash common.Hash // valid voted block hash
-	committeeCnt int32   // committee max number
+	votedHash    common.Hash // valid voted block hash
+	committeeCnt int32       // committee max number
 }
 
 // NewBlockChain returns a fully initialised block chain using information
@@ -857,7 +857,7 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 		}
 		// Check local voted block
 		tempBlock := bc.GetBlockByNumber(block.NumberU64())
-		if block.NumberU64() % common.VoteSlot.Uint64() == 0 && tempBlock != nil && tempBlock.Hash() != block.Hash() {
+		if block.NumberU64()%common.VoteSlot.Uint64() == 0 && tempBlock != nil && tempBlock.Hash() != block.Hash() {
 			return i, fmt.Errorf("refuse to cover local voted block: %v", tempBlock.Hash())
 		}
 		// Compute all the non-consensus fields of the receipts
@@ -1023,7 +1023,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	reorg := externTd.Cmp(localTd) > 0
 	currentBlock = bc.CurrentBlock()
 	if !reorg && externTd.Cmp(localTd) == 0 {
-		if block.NumberU64() % common.VoteSlot.Uint64() == common.VoteSlot.Uint64() - 1 {
+		if block.NumberU64()%common.VoteSlot.Uint64() == common.VoteSlot.Uint64()-1 {
 			// Split same-difficulty blocks by number, then by hash
 			reorg = block.NumberU64() < currentBlock.NumberU64() || (block.NumberU64() == currentBlock.NumberU64() && strings.Compare(block.Hash().Hex(), currentBlock.Hash().Hex()) < 0)
 		} else {
@@ -1073,8 +1073,6 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 	bc.PostChainEvents(events, logs)
 	return n, err
 }
-
-var Inserted_forked_block int
 
 // insertChain will execute the actual chain insertion and event aggregation. The
 // only reason this method exists as a separate one is to make locking cleaner
@@ -1136,7 +1134,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 
 		// Check local voted block
 		tempBlock := bc.GetBlockByNumber(block.NumberU64())
-		if block.NumberU64() % common.VoteSlot.Uint64() == 0 && tempBlock != nil && tempBlock.Hash() != block.Hash() {
+		if block.NumberU64()%common.VoteSlot.Uint64() == 0 && tempBlock != nil && tempBlock.Hash() != block.Hash() {
 			return i, events, coalescedLogs, fmt.Errorf("refuse to cover local voted block: %v", tempBlock.Hash().Hex())
 		}
 
@@ -1219,6 +1217,12 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			return i, events, coalescedLogs, err
 		}
 		// Process block using the parent state as reference point.
+		err = bc.Validator().ValidateMiner(block, parent, state)
+		if err != nil {
+			fmt.Errorf("Invalid miner")
+			return i, events, coalescedLogs, err
+		}
+
 		receipts, logs, usedGas, err := bc.processor.Process(block, state, bc.vmConfig)
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
@@ -1253,13 +1257,6 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		case SideStatTy:
 			log.Debug("Inserted forked block", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
 				common.PrettyDuration(time.Since(bstart)), "txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()))
-
-			Inserted_forked_block++
-			log.Info("Inserted forked block", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
-				common.PrettyDuration(time.Since(bstart)), "txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()))
-
-			fmt.Println("Inserted forked block", "number", block.Number(), "hash", block.Hash().String(), "diff", block.Difficulty(), "elapsed",
-				common.PrettyDuration(time.Since(bstart)), "txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()), "Inserted_forked_block", Inserted_forked_block)
 
 			blockInsertTimer.UpdateSince(bstart)
 			events = append(events, ChainSideEvent{block})

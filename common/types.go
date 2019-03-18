@@ -75,6 +75,22 @@ func (h Hash) String() string {
 	return h.Hex()
 }
 
+// Increase hash number in Hex
+func (h Hash) IncreaseHex(n *big.Int) Hash {
+	x := h.Big()
+	y := n
+	x.Add(x, y)
+	return BigToHash(x)
+}
+
+// Decrease hash number in Hex
+func (h Hash) DecreaseHex(n *big.Int) Hash {
+	x := h.Big()
+	y := n
+	x.Sub(x, y)
+	return BigToHash(x)
+}
+
 // Format implements fmt.Formatter, forcing the byte slice to be formatted as is,
 // without going through the stringer interface used for logging.
 func (h Hash) Format(s fmt.State, c rune) {

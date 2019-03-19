@@ -77,7 +77,7 @@ var landingPageTemplate = template.Must(template.New("landingPage").Parse(`
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" ww="chrome=1">
-    <meta name="description" content="Ethereum/Swarm Landing page">
+    <meta name="description" content="Usechain/Swarm Landing page">
     <meta property="og:url" content="https://swarm-gateways.net/bzz:/theswarm.eth">
 		<style>
 

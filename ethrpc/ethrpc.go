@@ -321,7 +321,7 @@ func (rpc *EthRPC) EthGetCode(address, block string) (string, error) {
 }
 
 // EthSign signs data with a given address.
-// Calculates an Ethereum specific signature with: sign(keccak256("\x19Ethereum Signed Message:\n" + len(message) + message)))
+// Calculates an Ethereum specific signature with: sign(keccak256("\x19Usechain Signed Message:\n" + len(message) + message)))
 func (rpc *EthRPC) EthSign(address, data string) (string, error) {
 	var signature string
 

@@ -4,15 +4,15 @@
                       http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>org.ethereum</groupId>
-  <artifactId>geth</artifactId>
+  <groupId>org.usechain</groupId>
+  <artifactId>used</artifactId>
   <version>{{.Version}}</version>
   <packaging>aar</packaging>
 
-  <name>Android Ethereum Client</name>
-  <description>Android port of the go-ethereum libraries and node</description>
+  <name>Android Usechain Client</name>
+  <description>Android port of the go-usechain libraries and node</description>
   <url>https://github.com/usechain/go-usechain</url>
-  <inceptionYear>2015</inceptionYear>
+  <inceptionYear>2018</inceptionYear>
 
   <licenses>
     <license>
@@ -23,19 +23,16 @@
   </licenses>
 
   <organization>
-    <name>Ethereum</name>
-    <url>https://ethereum.org</url>
+    <name>Usechain</name>
+    <url>https://usechain.net</url>
   </organization>
 
   <developers>
     <developer>
-      <id>karalabe</id>
-      <name>Péter Szilágyi</name>
-      <email>peterke@gmail.com</email>
-      <url>https://github.com/karalabe</url>
-      <properties>
-        <picUrl>https://www.gravatar.com/avatar/2ecbf0f5b4b79eebf8c193e5d324357f?s=256</picUrl>
-      </properties>
+      <id>yuemb</id>
+      <name>yuemb</name>
+      <email>yuemb@usechain.net</email>
+      <url>https://github.com/yuemb</url>
     </developer>
   </developers>
 

@@ -55,8 +55,8 @@ var _dashboardHtml = []byte(`<!DOCTYPE html>
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
-        <title>Go Ethereum Dashboard</title>
-        <link rel="shortcut icon" type="image/ico" href="https://ethereum.org/favicon.ico" />
+        <title>Go Usechain Dashboard</title>
+        <link rel="shortcut icon" type="image/ico" href="https://usechain.net/static/favicon.ico" />
         <style>
             ::-webkit-scrollbar {
                 width: 16px;
@@ -28579,7 +28579,7 @@ var _bundleJs = []byte((((((((((`!function(modules) {
                     color: "inherit",
                     noWrap: !0,
                     className: classes.title
-                }, "Go Ethereum Dashboard")));
+                }, "Go Usechain Dashboard")));
             }
         } ]), Header;
     }(_react.Component);

@@ -5589,7 +5589,7 @@ var properties = function () {
         }),
         new Property({
             name: 'mining',
-            getter: 'euse_mining'
+            getter: 'use_mining'
         }),
         new Property({
             name: 'syncing',

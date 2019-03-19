@@ -28,7 +28,7 @@ var TestnetBootnodes = []string{}
 // Moonet test network.
 var MoonetBootnodes = []string{
 	// Usechain Go moonet Bootnodes
-	"enode://30c197d4aa808713f9853a69ff8fffcf887497fdf727c49e6bb57d9c16336f472e6d7b31288feb389feeb5f5c5e9be108b8eb6bf88555c9aff438b577b631826@119.23.41.121:40404",
+	"enode://1de6d73d3b7a288de8f571b8b48a89970053f26beeba787c9f36044cb2d1e89c0c94e802e579798efcc39c48a5e23a160e1ab9ae8f0b752725c7ab8ea40b3194@119.23.41.121:40404",
 }
 
 // DiscoveryV5Bootnodes are the enode URLs of the P2P bootstrap nodes for the

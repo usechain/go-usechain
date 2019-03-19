@@ -1,18 +1,18 @@
-// Copyright 2014 The go-ethereum Authors
-// This file is part of the go-ethereum library.
+// Copyright 2018 The go-usechain Authors
+// This file is part of the go-usechain library.
 //
-// The go-ethereum library is free software: you can redistribute it and/or modify
+// The go-usechain library is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Lesser General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// The go-ethereum library is distributed in the hope that it will be useful,
+// The go-usechain library is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
 // You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
+// along with the go-usechain library. If not, see <http://www.gnu.org/licenses/>.
 
 package core
 
@@ -197,7 +197,7 @@ var DefaultTxPoolConfig = TxPoolConfig{
 	Journal:   "transactions.rlp",
 	Rejournal: time.Hour,
 
-	PriceLimit: 1000000000,
+	PriceLimit: 1000000,
 	PriceBump:  10,
 
 	AccountSlots: 16,
@@ -671,10 +671,10 @@ func (pool *TxPool) GetValidPbft(number uint64, index uint64) (map[common.Addres
 			}
 
 			payload := tx.Data()
-			if number != common.BytesToUint64(payload[common.HashLength : common.HashLength + 8]) { // filter unsuitable vote height
+			if number != common.BytesToUint64(payload[common.HashLength:common.HashLength+8]) { // filter unsuitable vote height
 				continue
 			}
-			if index != common.BytesToUint64(payload[common.HashLength + 8 :]) { // filter unsuitable vote index
+			if index != common.BytesToUint64(payload[common.HashLength+8:]) { // filter unsuitable vote index
 				continue
 			}
 
@@ -724,17 +724,17 @@ func ValidatePbftTx(state *state.StateDB, h *big.Int, index uint64, tx *types.Tr
 
 	payload := tx.Data()
 	len := len(payload)
-	if len != common.HashLength + 16 {
+	if len != common.HashLength+16 {
 		return ErrPbftPayloadLen
 	}
-	number := common.BytesToUint64(payload[common.HashLength : common.HashLength + 8])
-	if number % common.VoteSlot.Uint64() != common.VoteSlot.Uint64()-1 {
+	number := common.BytesToUint64(payload[common.HashLength : common.HashLength+8])
+	if number%common.VoteSlot.Uint64() != common.VoteSlot.Uint64()-1 {
 		return ErrPbftHeight
 	}
 	if number < h.Uint64() {
 		return ErrOverduePbftHeight
 	}
-	if index != common.BytesToUint64(payload[common.HashLength + 8 :]) {
+	if index != common.BytesToUint64(payload[common.HashLength+8:]) {
 		return ErrPbftIndex
 	}
 	return nil
@@ -826,7 +826,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 		return false, err
 	}
 	// If the transaction pool is full, discard underpriced transactions
-	if uint64(len(pool.all)) >= pool.config.GlobalSlots + pool.config.GlobalQueue && tx.Flag() != 1 {
+	if uint64(len(pool.all)) >= pool.config.GlobalSlots+pool.config.GlobalQueue && tx.Flag() != 1 {
 		return false, ErrTxpoolFull
 	}
 	// If the transaction is replacing an already pending one, do directly
@@ -1346,8 +1346,8 @@ func (pool *TxPool) demoteUnexecutables() {
 			}
 
 			payload := tx.Data()
-			vote_h := common.BytesToUint64(payload[common.HashLength : common.HashLength + 8])
-			vote_index := common.BytesToUint64(payload[common.HashLength + 8 :])
+			vote_h := common.BytesToUint64(payload[common.HashLength : common.HashLength+8])
+			vote_index := common.BytesToUint64(payload[common.HashLength+8:])
 			if vote_h < curBlock.NumberU64() || vote_index < common.GetIndexForVote(time.Now().Unix(), curBlock.Time().Int64()) {
 				list.txs.Remove(tx.Nonce())
 				hash := tx.Hash()

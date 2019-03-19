@@ -18,7 +18,6 @@ package miner
 
 import (
 	"fmt"
-	"github.com/usechain/go-usechain/crypto"
 	"math"
 	"math/big"
 	"sync"
@@ -51,10 +50,8 @@ const (
 	chainHeadChanSize = 10
 	// chainSideChanSize is the size of channel listening to ChainSideEvent.
 	chainSideChanSize = 10
-
+	// chainRpowChanSize is the size of channel listening to rpow mining event
 	chainRpowChanSize = 10
-
-	genesisQrSignature = "8287dbe2b47bcc884dce4b9ea1a0dc76"
 )
 
 // Agent can register themself with the worker
@@ -418,7 +415,6 @@ func (self *worker) commitNewWork() {
 
 	tstart := time.Now()
 	parent := self.chain.CurrentBlock()
-
 	tstamp := tstart.Unix()
 
 	// this will ensure we're not going off too far in the future
@@ -452,10 +448,17 @@ func (self *worker) commitNewWork() {
 		Time:     big.NewInt(tstamp),
 	}
 	blockNumber := header.Number
-	if int64(new(big.Int).Mod(num, common.VoteSlot).Cmp(common.Big0)) == 0 {
+	if header.Number.Int64() >= common.VoteSlotForGenesis && int64(new(big.Int).Mod(header.Number, common.VoteSlot).Cmp(common.Big0)) == 0 {
 		header.IsCheckPoint = big.NewInt(1)
 	} else {
 		header.IsCheckPoint = big.NewInt(0)
+	}
+
+	// Could potentially happen if starting to mine in an odd state.
+	err := self.makeCurrent(parent, header)
+	if err != nil {
+		log.Error("Failed to create mining context", "err", err)
+		return
 	}
 
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
@@ -463,7 +466,7 @@ func (self *worker) commitNewWork() {
 		totalMinerNum := minerlist.ReadMinerNum(self.current.state)
 
 		if !minerlist.IsMiner(self.current.state, self.coinbase, totalMinerNum) {
-			log.Error("Coinbase should be legal miner address, please register for mining")
+			log.Error("Coinbase should be legal miner address, invalid miner")
 			return
 		}
 
@@ -475,35 +478,17 @@ func (self *worker) commitNewWork() {
 			return
 		}
 
-		minerHash := crypto.Keccak256Hash(append((parent.Coinbase()).Bytes(), header.Number.Bytes()...))
-		// Assemble sign the data with the wallet
-		_, err = wallet.SignHash(account, minerHash.Bytes())
-		if err != nil {
-			log.Error("Failed to unlock the coinbase account", "err", err)
-			return
+		// collect pre block info and calculate whether the miner is correct for current block
+		var preQrSignature []byte
+		if header.Number.Cmp(common.Big1) == 0 {
+			preQrSignature = common.GenesisMinerQrSignature
+		} else {
+			preQrSignature = parent.MinerQrSignature()
 		}
-
-		preSignatureQr := parent.MinerQrSignature()
-
 		preCoinbase := parent.Coinbase()
-		qr := minerlist.CalQr(preCoinbase.Bytes(), blockNumber, preSignatureQr)
-
 		tstampSub := header.Time.Int64() - parent.Time().Int64()
 		n := big.NewInt(tstampSub / common.BlockSlot.Int64())
-
-		preDifficultyLevel := parent.DifficultyLevel()
-
-		if header.Number.Cmp(common.Big1) == 0 {
-			header.MinerQrSignature = []byte(genesisQrSignature)
-			preDifficultyLevel = big.NewInt(0)
-			preSignatureQr = []byte(genesisQrSignature)
-		} else {
-			minerQrSignature, _ := wallet.SignHash(account, qr.Bytes())
-			header.MinerQrSignature = minerQrSignature[:20]
-		}
-
-		IsValidMiner, level := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preSignatureQr, blockNumber, totalMinerNum, n, preDifficultyLevel)
-
+		IsValidMiner, level, preMinerid := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preQrSignature, blockNumber, totalMinerNum, n)
 		if !IsValidMiner {
 		DONE1:
 			for {
@@ -519,6 +504,21 @@ func (self *worker) commitNewWork() {
 			return
 		}
 
+		// calculate minerQrSignature for current block
+		qr := minerlist.CalQrOrIdNext(preCoinbase.Bytes(), blockNumber, preQrSignature)
+		minerQrSignature, err := wallet.SignHash(account, qr.Bytes())
+		if err != nil {
+			log.Error("Failed to unlock the coinbase account", "err", err)
+			return
+		}
+		header.MinerQrSignature = minerQrSignature
+
+		// calculate PrimaryMiner and  DifficultyLevel for current block
+		if totalMinerNum.Int64() != 0 {
+			header.PrimaryMiner = common.BytesToAddress(minerlist.ReadMinerAddress(self.current.state, preMinerid))
+		} else {
+			header.PrimaryMiner = self.coinbase
+		}
 		header.DifficultyLevel = big.NewInt(level)
 		if header.Number.Cmp(common.Big1) == 0 {
 			header.DifficultyLevel = big.NewInt(0)
@@ -536,19 +536,13 @@ func (self *worker) commitNewWork() {
 		}
 	}
 
-	// Could potentially happen if starting to mine in an odd state.
-	err := self.makeCurrent(parent, header)
-	if err != nil {
-		log.Error("Failed to create mining context", "err", err)
-		return
-	}
 	// Create the current work task and check any fork transitions needed
 	work := self.current
 	committeeCnt := self.chain.GetCommitteeCount()
 	var pending map[common.Address]types.Transactions
 	if header.IsCheckPoint.Cmp(common.Big1) == 0 {
-		pending, err = self.eth.TxPool().GetValidPbft(blockNumber.Uint64() - 1, common.GetIndexForVote(time.Now().Unix(), parent.Time().Int64()))
-		gen, targetHash, _ := CanGenBlockInCheckPoint(pending, committeeCnt)
+		pending, err = self.eth.TxPool().GetValidPbft(blockNumber.Uint64()-1, common.GetIndexForVote(time.Now().Unix(), parent.Time().Int64()))
+		gen, targetHash, _ := canGenBlockInCheckPoint(pending, committeeCnt)
 		if !gen {
 		DONE2:
 			for {
@@ -605,7 +599,7 @@ func (self *worker) commitNewWork() {
 	self.push(work)
 }
 
-func CanGenBlockInCheckPoint(txs map[common.Address]types.Transactions, cnt int32) (bool, common.Hash, uint32) {
+func canGenBlockInCheckPoint(txs map[common.Address]types.Transactions, cnt int32) (bool, common.Hash, uint32) {
 	if float64(len(txs)) < math.Ceil(float64(cnt)*2/3) {
 		return false, common.Hash{}, 0
 	}

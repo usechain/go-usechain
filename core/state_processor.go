@@ -18,6 +18,9 @@ package core
 
 import (
 	"errors"
+	"math"
+	"math/big"
+
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/consensus"
 	"github.com/usechain/go-usechain/consensus/misc"
@@ -27,8 +30,6 @@ import (
 	"github.com/usechain/go-usechain/core/vm"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/params"
-	"math"
-	"math/big"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -77,6 +78,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		return nil, nil, 0, err
 	}
 
+	// check the txs
 	for i, tx := range block.Transactions() {
 		if header.IsCheckPoint.Int64() == 1 && tx.Flag() == 0 {
 			err := errors.New("checkpoint block can't package common transactions")
@@ -94,7 +96,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		}
 		sender := msg.From()
 		if tx.Flag() == 1 {
-			err := ValidatePbftTx(statedb, big.NewInt(block.Number().Int64() - 1), common.GetIndexForVote(block.Time().Int64(), p.bc.GetBlockByNumber(block.NumberU64() - 1).Time().Int64()), tx, common.Address(sender))
+			err := ValidatePbftTx(statedb, big.NewInt(block.Number().Int64()-1), common.GetIndexForVote(block.Time().Int64(), p.bc.GetBlockByNumber(block.NumberU64()-1).Time().Int64()), tx, common.Address(sender))
 			if err != nil {
 				return nil, nil, 0, err
 			}

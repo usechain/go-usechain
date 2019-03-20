@@ -19,7 +19,6 @@ package types
 import (
 	"bytes"
 	"container/heap"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -278,13 +277,19 @@ func (tx *Transaction) CheckCertLegality(_from common.Address) error {
 	// identity := inputData[2]
 	issuerData := DecodeUint8(inputData[3].([]uint8))
 	issuer := NewIssuer()
-	i, _ := hexutil.Decode(issuerData)
+	i, err := hexutil.Decode(issuerData)
+	if err != nil {
+		return err
+	}
 	json.Unmarshal(i, issuer)
 
-	cert, _ := hex.DecodeString(issuer.Cert)
+	cert := []byte(issuer.Cert)
 	err = crypto.CheckUserRegisterCert(cert, hashKey)
+	if err != nil {
+		return err
+	}
 
-	return err
+	return nil
 }
 
 func Decode32Uint8(bs [32]uint8) string {

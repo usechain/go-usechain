@@ -203,17 +203,6 @@ func (rpc *EthRPC) EthMining() (bool, error) {
 	return mining, err
 }
 
-// EthHashrate returns the number of hashes per second that the node is mining with.
-func (rpc *EthRPC) EthHashrate() (int, error) {
-	var response string
-
-	if err := rpc.call("eth_hashrate", &response); err != nil {
-		return 0, err
-	}
-
-	return ParseInt(response)
-}
-
 // EthGasPrice returns the current price per gas in wei.
 func (rpc *EthRPC) EthGasPrice() (big.Int, error) {
 	var response string
@@ -332,7 +321,7 @@ func (rpc *EthRPC) EthGetCode(address, block string) (string, error) {
 }
 
 // EthSign signs data with a given address.
-// Calculates an Ethereum specific signature with: sign(keccak256("\x19Ethereum Signed Message:\n" + len(message) + message)))
+// Calculates an Ethereum specific signature with: sign(keccak256("\x19Usechain Signed Message:\n" + len(message) + message)))
 func (rpc *EthRPC) EthSign(address, data string) (string, error) {
 	var signature string
 

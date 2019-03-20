@@ -1,22 +1,22 @@
 Pod::Spec.new do |spec|
-  spec.name         = 'Geth'
+  spec.name         = 'Used'
   spec.version      = '{{.Version}}'
   spec.license      = { :type => 'GNU Lesser General Public License, Version 3.0' }
   spec.homepage     = 'https://github.com/usechain/go-usechain'
   spec.authors      = { {{range .Contributors}}
 		'{{.Name}}' => '{{.Email}}',{{end}}
 	}
-  spec.summary      = 'iOS Ethereum Client'
+  spec.summary      = 'iOS Usechain Client'
   spec.source       = { :git => 'https://github.com/usechain/go-usechain.git', :commit => '{{.Commit}}' }
 
 	spec.platform = :ios
   spec.ios.deployment_target  = '9.0'
-	spec.ios.vendored_frameworks = 'Frameworks/Geth.framework'
+	spec.ios.vendored_frameworks = 'Frameworks/Used.framework'
 
 	spec.prepare_command = <<-CMD
     curl https://gethstore.blob.core.windows.net/builds/{{.Archive}}.tar.gz | tar -xvz
     mkdir Frameworks
-    mv {{.Archive}}/Geth.framework Frameworks
+    mv {{.Archive}}/Used.framework Frameworks
     rm -rf {{.Archive}}
   CMD
 end

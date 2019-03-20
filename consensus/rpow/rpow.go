@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package ethash implements the ethash proof-of-work consensus engine.
-package ethash
+// Package rpow implements the random-proof-of-work consensus engine.
+package rpow
 
 import (
 	"math/rand"
@@ -23,15 +23,11 @@ import (
 	"time"
 
 	"github.com/usechain/go-usechain/consensus"
-	"github.com/usechain/go-usechain/log"
-	"github.com/usechain/go-usechain/metrics"
 	"github.com/usechain/go-usechain/rpc"
-
 	"github.com/usechain/go-usechain/ethdb"
-
 )
 
-// Mode defines the type and amount of PoW verification an ethash engine makes.
+// Mode defines the type and amount of PoW verification a rpow engine makes.
 type Mode uint
 
 const (
@@ -42,30 +38,23 @@ const (
 	ModeFullFake
 )
 
-// Config are the configuration parameters of the ethash.
+// Config are the configuration parameters of the rpow.
 type Config struct {
-	CacheDir       string
-	CachesInMem    int
-	CachesOnDisk   int
-	DatasetDir     string
-	DatasetsInMem  int
-	DatasetsOnDisk int
-	PowMode        Mode
+	RpowMode        Mode
 }
 
-// Ethash is a consensus engine based on proot-of-work implementing the ethash
+// Rpow is a consensus engine based on proot-of-work implementing the rpow
 // algorithm.
-type Ethash struct {
+type Rpow struct {
 	config Config
 
 	// Mining related fields
 	rand     *rand.Rand    // Properly seeded random source for nonces
 	threads  int           // Number of threads to mine on if mining
 	update   chan struct{} // Notification channel to update mining parameters
-	hashrate metrics.Meter // Meter tracking the average hashrate
 
 	// The fields below are hooks for testing
-	shared    *Ethash       // Shared PoW verifier to avoid cache regeneration
+	shared    *Rpow         // Shared RPoW verifier to avoid cache regeneration
 	fakeFail  uint64        // Block number which fails PoW check even in fake mode
 	fakeDelay time.Duration // Time delay to sleep for before returning from verify
 
@@ -74,105 +63,93 @@ type Ethash struct {
 	db      ethdb.Database
 }
 
-// New creates a full sized ethash PoW scheme.
-func New(config Config) *Ethash {
-	if config.CachesInMem <= 0 {
-		log.Warn("One ethash cache must always be in memory", "requested", config.CachesInMem)
-		config.CachesInMem = 1
-	}
-	if config.CacheDir != "" && config.CachesOnDisk > 0 {
-		log.Info("Disk storage enabled for ethash caches", "dir", config.CacheDir, "count", config.CachesOnDisk)
-	}
-	if config.DatasetDir != "" && config.DatasetsOnDisk > 0 {
-		log.Info("Disk storage enabled for ethash DAGs", "dir", config.DatasetDir, "count", config.DatasetsOnDisk)
-	}
-	return &Ethash{
+// New creates a full sized rpow scheme.
+func New(config Config) *Rpow {
+	return &Rpow{
 		config:   config,
 		update:   make(chan struct{}),
-		hashrate: metrics.NewMeter(),
 	}
 }
 
-// NewTester creates a small sized ethash PoW scheme useful only for testing
+// NewTester creates a small sized rpow scheme useful only for testing
 // purposes.
-func NewTester() *Ethash {
-	return New(Config{CachesInMem: 1, PowMode: ModeTest})
+func NewTester() *Rpow {
+	return New(Config{RpowMode: ModeTest})
 }
 
-func NewTesterUse(db ethdb.Database) *Ethash {
-	return &Ethash{
-		config:Config{ CachesInMem: 1,PowMode: ModeFake},
+func NewTesterUse(db ethdb.Database) *Rpow {
+	return &Rpow{
+		config:Config{RpowMode: ModeFake},
 		update:      make(chan struct{}),
-		hashrate:    metrics.NewMeter(),
 		db:          db,
 	}
 
-	//return NewWithCfg(Config{CachesInMem: 1, PowMode: ModeTest})
+	//return NewWithCfg(Config{CachesInMem: 1, RpowMode: ModeTest})
 }
 
-// NewFaker creates a ethash consensus engine with a fake PoW scheme that accepts
+// NewFaker creates a rpow consensus engine with a fake PoW scheme that accepts
 // all blocks' seal as valid, though they still have to conform to the Ethereum
 // consensus rules.
-func NewFaker() *Ethash {
-	return &Ethash{
+func NewFaker() *Rpow {
+	return &Rpow{
 		config: Config{
-			PowMode: ModeFake,
+			RpowMode: ModeFake,
 		},
 	}
 }
 
-// NewFakerUsechain creates a ethash consensus engine with a fake PoW scheme that accepts
+// NewFakerUsechain creates a rpow consensus engine with a fake PoW scheme that accepts
 // all blocks' seal as valid, though they still have to conform to the Ethereum
 // consensus rules.
-func NewFakerUsechain(db ethdb.Database) *Ethash {
-	return &Ethash{
+func NewFakerUsechain(db ethdb.Database) *Rpow {
+	return &Rpow{
 		config: Config{
-			PowMode: ModeFake,
+			RpowMode: ModeFake,
 		},
 		db:       db,
 	}
 }
 
-// NewFakeFailer creates a ethash consensus engine with a fake PoW scheme that
+// NewFakeFailer creates a rpow consensus engine with a fake PoW scheme that
 // accepts all blocks as valid apart from the single one specified, though they
 // still have to conform to the Ethereum consensus rules.
-func NewFakeFailer(fail uint64) *Ethash {
-	return &Ethash{
+func NewFakeFailer(fail uint64) *Rpow {
+	return &Rpow{
 		config: Config{
-			PowMode: ModeFake,
+			RpowMode: ModeFake,
 		},
 		fakeFail: fail,
 	}
 }
 
-// NewFakeDelayer creates a ethash consensus engine with a fake PoW scheme that
+// NewFakeDelayer creates a rpow consensus engine with a fake PoW scheme that
 // accepts all blocks as valid, but delays verifications by some time, though
 // they still have to conform to the Ethereum consensus rules.
-func NewFakeDelayer(delay time.Duration) *Ethash {
-	return &Ethash{
+func NewFakeDelayer(delay time.Duration) *Rpow {
+	return &Rpow{
 		config: Config{
-			PowMode: ModeFake,
+			RpowMode: ModeFake,
 		},
 		fakeDelay: delay,
 	}
 }
 
-// NewFullFaker creates an ethash consensus engine with a full fake scheme that
+// NewFullFaker creates a rpow consensus engine with a full fake scheme that
 // accepts all blocks as valid, without checking any consensus rules whatsoever.
-func NewFullFaker() *Ethash {
-	return &Ethash{
+func NewFullFaker() *Rpow {
+	return &Rpow{
 		config: Config{
-			PowMode: ModeFullFake,
+			RpowMode: ModeFullFake,
 		},
 	}
 }
 
-// NewFullFakerUse creates an ethash consensus engine with a full fake scheme that
+// NewFullFakerUse creates a rpow consensus engine with a full fake scheme that
 // accepts all blocks as valid, without checking any consensus rules whatsoever.
-func NewFullFakerUse(db ethdb.Database) *Ethash {
-	return &Ethash{
+func NewFullFakerUse(db ethdb.Database) *Rpow {
+	return &Rpow{
 		config: Config{
-			PowMode: ModeFullFake,
+			RpowMode: ModeFullFake,
 		},
 		db: db,
 	}
@@ -180,11 +157,11 @@ func NewFullFakerUse(db ethdb.Database) *Ethash {
 
 // Threads returns the number of mining threads currently enabled. This doesn't
 // necessarily mean that mining is running!
-func (ethash *Ethash) Threads() int {
-	ethash.lock.Lock()
-	defer ethash.lock.Unlock()
+func (rpow *Rpow) Threads() int {
+	rpow.lock.Lock()
+	defer rpow.lock.Unlock()
 
-	return ethash.threads
+	return rpow.threads
 }
 
 // SetThreads updates the number of mining threads currently enabled. Calling
@@ -192,32 +169,26 @@ func (ethash *Ethash) Threads() int {
 // specified, the miner will use all cores of the machine. Setting a thread
 // count below zero is allowed and will cause the miner to idle, without any
 // work being done.
-func (ethash *Ethash) SetThreads(threads int) {
-	ethash.lock.Lock()
-	defer ethash.lock.Unlock()
+func (rpow *Rpow) SetThreads(threads int) {
+	rpow.lock.Lock()
+	defer rpow.lock.Unlock()
 
 	// If we're running a shared PoW, set the thread count on that instead
-	if ethash.shared != nil {
-		ethash.shared.SetThreads(threads)
+	if rpow.shared != nil {
+		rpow.shared.SetThreads(threads)
 		return
 	}
 	// Update the threads and ping any running seal to pull in any changes
-	ethash.threads = threads
+	rpow.threads = threads
 	select {
-	case ethash.update <- struct{}{}:
+	case rpow.update <- struct{}{}:
 	default:
 	}
 }
 
-// Hashrate implements PoW, returning the measured rate of the search invocations
-// per second over the last minute.
-func (ethash *Ethash) Hashrate() float64 {
-	return ethash.hashrate.Rate1()
-}
-
 // APIs implements consensus.Engine, returning the user facing RPC APIs. Currently
 // that is empty.
-func (ethash *Ethash) APIs(chain consensus.ChainReader) []rpc.API {
+func (rpow *Rpow) APIs(chain consensus.ChainReader) []rpc.API {
 	return nil
 }
 

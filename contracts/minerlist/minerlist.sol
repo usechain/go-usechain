@@ -32,8 +32,8 @@ contract MinerList {
 
     address[] public Miner;
 
-    // the mining ticket should be 10000 USE
-    uint256 ticket = 1e22;
+    // the mining ticket should be 50 USE
+    uint256 ticket = 5e19;
 
     /// @notice Committee contract address
     address public CommitteeAddr = address(0xffFFFfFFffFfffffFffFFfFFFFFFFFFff0000003);

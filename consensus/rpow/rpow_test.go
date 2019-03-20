@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package ethash
+package rpow
 
 import (
 	"io/ioutil"
@@ -27,18 +27,18 @@ import (
 	"github.com/usechain/go-usechain/core/types"
 )
 
-// Tests that ethash works correctly in test mode.
+// Tests that rpow works correctly in test mode.
 func TestTestMode(t *testing.T) {
 	head := &types.Header{Number: big.NewInt(1), Difficulty: big.NewInt(100)}
 
-	ethash := NewTester()
-	block, err := ethash.Seal(nil, types.NewBlockWithHeader(head), nil)
+	rpow := NewTester()
+	block, err := rpow.Seal(nil, types.NewBlockWithHeader(head), nil)
 	if err != nil {
 		t.Fatalf("failed to seal block: %v", err)
 	}
 	head.Nonce = types.EncodeNonce(block.Nonce())
 	head.MixDigest = block.MixDigest()
-	if err := ethash.VerifySeal(nil, head); err != nil {
+	if err := rpow.VerifySeal(nil, head); err != nil {
 		t.Fatalf("unexpected verification error: %v", err)
 	}
 }
@@ -46,12 +46,12 @@ func TestTestMode(t *testing.T) {
 // This test checks that cache lru logic doesn't crash under load.
 // It reproduces https://github.com/usechain/go-usechain/issues/14943
 func TestCacheFileEvict(t *testing.T) {
-	tmpdir, err := ioutil.TempDir("", "ethash-test")
+	tmpdir, err := ioutil.TempDir("", "rpow-test")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmpdir)
-	e := New(Config{CachesInMem: 3, CachesOnDisk: 10, CacheDir: tmpdir, PowMode: ModeTest})
+	e := New(Config{CachesInMem: 3, CachesOnDisk: 10, CacheDir: tmpdir, RpowMode: ModeTest})
 
 	workers := 8
 	epochs := 100
@@ -63,7 +63,7 @@ func TestCacheFileEvict(t *testing.T) {
 	wg.Wait()
 }
 
-func verifyTest(wg *sync.WaitGroup, e *Ethash, workerIndex, epochs int) {
+func verifyTest(wg *sync.WaitGroup, rpow *Rpow, workerIndex, epochs int) {
 	defer wg.Done()
 
 	const wiggle = 4 * epochLength
@@ -74,6 +74,6 @@ func verifyTest(wg *sync.WaitGroup, e *Ethash, workerIndex, epochs int) {
 			block = 0
 		}
 		head := &types.Header{Number: big.NewInt(block), Difficulty: big.NewInt(100)}
-		e.VerifySeal(nil, head)
+		rpow.VerifySeal(nil, head)
 	}
 }

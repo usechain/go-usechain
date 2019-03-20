@@ -31,14 +31,14 @@ import (
 
 // DefaultConfig contains default settings for use on the Ethereum main net.
 var DefaultConfig = Config{
-	SyncMode: downloader.FastSync,
-	Rpow: rpow.Config{},
+	SyncMode:      downloader.FastSync,
+	Rpow:          rpow.Config{},
 	NetworkId:     1,
 	LightPeers:    100,
 	DatabaseCache: 768,
 	TrieCache:     256,
 	TrieTimeout:   5 * time.Minute,
-	GasPrice:      big.NewInt(18 * params.Shannon),
+	GasPrice:      big.NewInt(1 * params.Shannon),
 
 	TxPool: core.DefaultTxPoolConfig,
 	GPO: gasprice.Config{
@@ -71,7 +71,7 @@ type Config struct {
 	TrieTimeout        time.Duration
 
 	// Mining-related options
-	Usebase    common.Address `toml:",omitempty"`
+	Usebase      common.Address `toml:",omitempty"`
 	MinerThreads int            `toml:",omitempty"`
 	ExtraData    []byte         `toml:",omitempty"`
 	GasPrice     *big.Int

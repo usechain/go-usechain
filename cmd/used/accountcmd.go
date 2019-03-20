@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/usechain/go-usechain/accounts"
-	"github.com/usechain/go-usechain/accounts/credit"
+	"github.com/usechain/go-usechain/accounts/ca"
 	"github.com/usechain/go-usechain/accounts/keystore"
 	"github.com/usechain/go-usechain/cmd/utils"
 	"github.com/usechain/go-usechain/console"
@@ -400,21 +400,18 @@ func accountImport(ctx *cli.Context) error {
 func verify(ctx *cli.Context) error {
 
 	infoFile := ctx.GlobalString(utils.VerifyInfoFlag.Name)
-	fmt.Println("infoFile: ", infoFile)
-	if infoFile == "" {
-		w := credit.MakeWizard("")
-		w.Run()
-	}
-
-	id := ctx.GlobalString(utils.VerifyIdFlag.Name)
 	photos := ctx.GlobalString(utils.VerifyPhotoFlag.Name)
 	q := ctx.GlobalString(utils.VerifyQueryFlag.Name)
 
-	if len(id) > 0 && len(photos) > 0 {
+	if len(infoFile) > 0 && len(photos) > 0 {
 		p := strings.Split(photos, ";")
-		credit.UserAuthOperation(id, p)
+		ca.UserAuthOperation(infoFile, p)
 	} else if len(q) > 0 {
-		credit.Query(q)
+		ca.Query(q)
+	} else if len(infoFile) == 0 {
+		w := ca.MakeWizard("")
+		w.Run()
+		return nil
 	} else {
 		fmt.Println("No parameter found.")
 	}

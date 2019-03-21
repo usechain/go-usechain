@@ -775,7 +775,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if tx.IsRegisterTransaction() {
 		err = tx.CheckCertLegality(from)
 		if err != nil {
-			return ErrInvalidAuthenticationsig
+			return nil
 		}
 	}
 

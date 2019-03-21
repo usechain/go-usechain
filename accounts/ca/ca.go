@@ -1,4 +1,4 @@
-package credit
+package ca
 
 import (
 	"bytes"
@@ -17,11 +17,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 
 	"github.com/bitly/go-simplejson"
-	"github.com/usechain/go-usechain/crypto"
+	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/node"
 )
@@ -69,16 +70,17 @@ func CAVerify(id string, photos []string) (string, error) {
 }
 
 //UserAuthOperation use userID and photo to register ca cert.
-func UserAuthOperation(id string, photo []string) (string, error) {
+func UserAuthOperation(infofile string, photo []string) (string, error) {
 
-	IDKey, err := postVerifactionData(id, photo)
+	info := string(GetUserData(infofile))
+	IDKey, err := postVerifactionData(info, photo)
 	if err != nil {
 		log.Error("Failed to upload user info :", "err", err)
 		return "", err
 	}
 	return IDKey, nil
 }
-func postVerifactionData(userID string, filename []string) (string, error) {
+func postVerifactionData(info string, filename []string) (string, error) {
 	//Create form
 	buf := new(bytes.Buffer)
 	writer := multipart.NewWriter(buf)
@@ -109,16 +111,16 @@ func postVerifactionData(userID string, filename []string) (string, error) {
 
 	//add user data field
 	idField, err := writer.CreateFormField("data")
-	r := strings.NewReader(geneUserData(userID)) //only id and name for now
+	r := strings.NewReader(info) //only id and name for now
 	_, err = io.Copy(idField, r)
 
 	//add CSR field
-	idHex, err := geneKeyFromID(userID)
+	idHex, fpr, err := geneKeyFromInfo(info)
 	if err != nil {
 		return "", err
 	}
-	CSR := geneCSR(idHex)
-	CSRField, err := writer.CreateFormField("CSR")
+	CSR := geneCSR(idHex, fpr)
+	CSRField, err := writer.CreateFormField("csr")
 	r = strings.NewReader(CSR)
 	_, err = io.Copy(CSRField, r)
 
@@ -142,13 +144,14 @@ func postVerifactionData(userID string, filename []string) (string, error) {
 	return IDKey, nil
 }
 
-func geneUserData(userID string) string {
-	values := map[string]string{"userID": userID}
-	userData, _ := json.Marshal(values)
-	return string(userData)
-}
+// func geneUserData(userID string) string {
+// 	values := map[string]string{"userID": userID}
+// 	userData, _ := json.Marshal(values)
+// 	return string(userData)
+// }
 
-func geneCSR(idHex string) string {
+// TODO:generate rsa key pair remote
+func geneCSR(idHex string, fingerprint string) string {
 	keyBytes, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		fatalf("Generate RSA key pair error: %v", err)
@@ -159,7 +162,8 @@ func geneCSR(idHex string) string {
 	savePublicPEMKey(node.DefaultDataDir()+separator+"userrsa.pub", publicKey)
 
 	subj := pkix.Name{
-		CommonName: idHex,
+		CommonName:   idHex,
+		SerialNumber: fingerprint,
 		// Locality:   []string{idHex},
 	}
 	rawSubj := subj.ToRDNSequence()
@@ -176,14 +180,13 @@ func geneCSR(idHex string) string {
 	return csrBuf.String()
 }
 
-func geneKeyFromID(ID string) (string, error) {
-	if ID == "" {
+func geneKeyFromInfo(info string) (string, string, error) {
+	if info == "" {
 		log.Error("Could not use empty string as ID")
-		return "", errors.New("Could not use empty string as ID")
+		return "", "", errors.New("Could not use empty string as ID")
 	}
-	idHex := crypto.Keccak256Hash([]byte(ID)).Hex()
-	fmt.Printf("idHex: %v\n", idHex)
-	return idHex, nil
+	ud := types.JsonToStruct(info)
+	return ud.IdHex(), ud.FingerPrint(), nil
 }
 
 var CAurl = "http://usechain.cn:8548/UsechainService/cert/cerauth"
@@ -284,4 +287,26 @@ func queryID(CAserver string, idKey string) error {
 	log.Info("Verification successful, your CA file stored in " + userCert)
 
 	return nil
+}
+
+func GetUserData(filename string) []byte {
+	userDataPath := filepath.Join(node.DefaultDataDir(), filename)
+	dataBytes, _ := readData(userDataPath)
+	return dataBytes
+}
+
+// getCert will read user.crt and return certificate string
+func GetUserCert(filename string) ([]byte, error) {
+	certPath := filepath.Join(node.DefaultDataDir(), filename)
+	// parse user certificate
+	certBytes, err := readData(certPath)
+	return certBytes, err
+}
+
+func readData(filename string) ([]byte, error) {
+	userData, err := ioutil.ReadFile(filename)
+	if err != nil {
+		log.Error("Can not read user data", err)
+	}
+	return userData, err
 }

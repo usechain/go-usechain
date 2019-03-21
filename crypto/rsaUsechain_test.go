@@ -16,8 +16,6 @@
 package crypto
 
 import (
-	"github.com/usechain/go-usechain/common"
-	"github.com/usechain/go-usechain/common/hexutil"
 	"testing"
 )
 
@@ -35,31 +33,6 @@ func TestRSA_Sign(t *testing.T) {
 	res := RSA_Verify(message, sig)
 	if res != true {
 		t.Fatal("RSA sign message error")
-	}
-}
-
-func TestReadUserCert(t *testing.T) {
-	userCertString := ReadUserCert()
-
-	res := CheckUserCert(userCertString)
-	if res != true {
-		t.Fatal("User Cert illegal")
-	}
-}
-
-func TestUserCert(t *testing.T) {
-
-	cert := ReadUserCert()
-	addr := "0x2377eD6deE87FAD998d37b95c12a08A8d514D871"
-	sig, _ := RSA_Sign(addr)
-
-	var ContractAddr common.Address
-	ContractAddr2, _ := hexutil.Decode(addr)
-	copy(ContractAddr[:], ContractAddr2)
-
-	err := CheckUserCertStandard(cert, ContractAddr, []byte(sig))
-	if err != nil {
-		t.Fatal("User Cert not correct")
 	}
 }
 

@@ -1,34 +1,28 @@
-package credit
+package ca
 
 import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/log"
+	"github.com/usechain/go-usechain/node"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
-type UserInfo struct {
-	CertType string `json:"certtype"`
-	CertID   string `json:"certid"`
-	Name     string `json:"name"`
-	Country  string `json:"country"`
-	Gender   string `json:"gender"`
-	Address  string `json:"address"`
-}
-
 type wizard struct {
 	filename string
-	info     *UserInfo
+	info     *types.UserData
 	in       *bufio.Reader
 }
 
 func MakeWizard(filename string) *wizard {
 	return &wizard{
 		filename: filename,
-		info:     new(UserInfo),
+		info:     new(types.UserData),
 		in:       bufio.NewReader(os.Stdin),
 	}
 }
@@ -57,7 +51,7 @@ func (w *wizard) MakeUserInfo() {
 		w.info.CertType = "1"
 		fmt.Println()
 		fmt.Println("What is your ID number?")
-		w.info.CertID = w.readString()
+		w.info.Id = w.readString()
 
 		fmt.Println()
 		fmt.Println("What is your name?")
@@ -65,17 +59,18 @@ func (w *wizard) MakeUserInfo() {
 
 		fmt.Println()
 		fmt.Println("What is your gender?")
-		fmt.Println(" 1. Male")
-		fmt.Println(" 2. Female")
-		w.info.Gender = w.readString()
+		fmt.Println(" 0. Male")
+		fmt.Println(" 1. Female")
+		fmt.Println(" 2. Others")
+		w.info.Sex = w.readString()
 
 		fmt.Println()
 		fmt.Println("What is your country? Please refer to https://en.wikipedia.org/wiki/ISO_3166-1")
-		w.info.Country = w.readString()
+		w.info.Nation = w.readString()
 
 		fmt.Println()
 		fmt.Println("What is your address? (optional)")
-		w.info.Address = w.readDefaultString("")
+		w.info.Addr = w.readDefaultString("")
 
 		fmt.Println(w.info)
 		fmt.Println()
@@ -84,14 +79,14 @@ func (w *wizard) MakeUserInfo() {
 			for {
 				w.filename = w.readString()
 				if !strings.Contains(w.filename, " ") && !strings.Contains(w.filename, "-") {
-					fmt.Printf("\nNow the file name is set to %s!\n\n", w.filename)
+					fmt.Printf("\nNow the file name is set to %s.json!\n\n", w.filename)
 					break
 				}
 				log.Error("I also like to live dangerously, still no spaces or hyphens")
 			}
 		}
 		out, _ := json.MarshalIndent(w.info, "", "  ")
-		if err := ioutil.WriteFile(w.readDefaultString(fmt.Sprintf("%s.json", w.filename)), out, 0644); err != nil {
+		if err := ioutil.WriteFile(filepath.Join(node.DefaultDataDir(), fmt.Sprintf("%s.json", w.filename)), out, 0644); err != nil {
 			log.Error("Failed to save user info file", "err", err)
 		}
 		log.Info("Exported user info")

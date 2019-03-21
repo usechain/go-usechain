@@ -72,20 +72,24 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 		return checkAddress(state, miner, 0), 0, 0
 	}
 
+	// if there is only one valid miner
 	isOnlyOneMinerValid, index := isOnlyOneMinerValid(state, totalMinerNum)
-
 	if isOnlyOneMinerValid {
 		return checkAddress(state, miner, index), 0, 0
 	}
+
 	// calculate the miner  who should be the first out of blocks
 	idTarget := CalIdTarget(preCoinbase, preSignatureQr, blockNumber, totalMinerNum, state)
-
 	for i := int64(0); i <= offset.Int64(); i++ {
 		if i == 0 {
-			return checkAddress(state, miner, idTarget.Int64()), i, idTarget.Int64()
+			if checkAddress(state, miner, idTarget.Int64()) {
+				return true, i, idTarget.Int64()
+			}
 		} else {
 			id := calId(idTarget, preSignatureQr, totalMinerNum, big.NewInt(i), state)
-			return checkAddress(state, miner, id.Int64()), i, idTarget.Int64()
+			if checkAddress(state, miner, id.Int64()) {
+				return true, i, idTarget.Int64()
+			}
 		}
 	}
 	return false, 0, 0
@@ -106,7 +110,7 @@ func calId(idTarget *big.Int, preSignatureQr []byte, totalMinerNum *big.Int, off
 	id := new(big.Int).Mod(qrOffset.Big(), totalMinerNum)
 	id = checkIdTargetOrId(state, id, totalMinerNum)
 
-	//id can't be the same as ignoreSlot before
+	// cal oldNode
 	var oldNode []int64
 	if offset.Int64()-1 == 0 {
 		oldNode = append(oldNode, idTarget.Int64())
@@ -114,10 +118,11 @@ func calId(idTarget *big.Int, preSignatureQr []byte, totalMinerNum *big.Int, off
 		for i := ignoreSlot; i > 0; i-- {
 			idNextTemp := CalQrOrIdNext(idTarget.Bytes(), new(big.Int).Sub(offset, big.NewInt(i)), preSignatureQr)
 			idTemp := new(big.Int).Mod(idNextTemp.Big(), totalMinerNum)
-			idTemp = checkIdTargetOrId(state, id, totalMinerNum)
+			idTemp = checkIdTargetOrId(state, idTemp, totalMinerNum)
 			oldNode = append(oldNode, idTemp.Int64())
 		}
 	}
+	// id can't be the same as ignoreSlot before
 DONE:
 	for {
 		for index, value := range oldNode {

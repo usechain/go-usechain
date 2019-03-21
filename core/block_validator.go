@@ -155,7 +155,7 @@ func (v *BlockValidator) ValidateMiner(block, parent *types.Block, statedb *stat
 			return fmt.Errorf("invalid difficultyLevel: have %v, want 0", header.DifficultyLevel)
 		}
 	} else {
-		if level != header.DifficultyLevel.Int64() {
+		if level > header.DifficultyLevel.Int64() {
 			return fmt.Errorf("invalid difficultyLevel: have %v, want %v", header.DifficultyLevel, level)
 		}
 	}

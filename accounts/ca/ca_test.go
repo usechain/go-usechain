@@ -1,4 +1,4 @@
-package credit
+package ca
 
 import (
 	"fmt"

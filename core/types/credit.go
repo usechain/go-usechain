@@ -1,5 +1,10 @@
 package types
 
+import (
+	"encoding/json"
+	"github.com/usechain/go-usechain/crypto"
+)
+
 type Identity struct {
 	Data     string `json:"data"`
 	Nation   string `json:"nation"`
@@ -12,22 +17,51 @@ type Identity struct {
 }
 
 type Issuer struct {
-	Cert   string `json:"cert"`
-	Alg    string `json:"alg"`
-	UseId  string `json:"useid"`
-	PubKey string `json:"pubkey"`
-	Cdate  string `json:"cdate"`
-	Edate  string `json:"edate"`
+	Cert   string      `json:"cert"`
+	Alg    string      `json:"alg"`
+	UseId  string      `json:"useid"`
+	PubKey interface{} `json:"pubkey"`
+	Cdate  string      `json:"cdate"`
+	Edate  string      `json:"edate"`
 }
 
 type UserData struct {
-	Id        string `json:"id"`
-	CertType  string `json:"certtype"`
-	Name      string `json:"name"`
-	EName     string `json:"ename"`
-	Nation    string `json:"nation"`
-	Address   string `json:"address"`
-	BirthDate string `json:"birthdate"`
+	Id       string `json:"id"`
+	CertType string `json:"certtype"`
+	Sex      string `json:"sex"`
+	Name     string `json:"name"`
+	EName    string `json:"ename"`
+	Nation   string `json:"nation"`
+	Addr     string `json:"addr"`
+	BirthDay string `json:"birthday"`
+}
+
+func (ud *UserData) Marshal() ([]byte, error) {
+	bytes, err := json.Marshal(ud)
+	return bytes, err
+}
+
+func (ud *UserData) IdHex() string {
+	id := ud.CertType + "-" + ud.Id
+	idHex := crypto.Keccak256Hash([]byte(id)).Hex()
+	return idHex
+}
+
+func (ud *UserData) IdBytes() []byte {
+	id := ud.CertType + "-" + ud.Id
+	idbytes := crypto.Keccak256Hash([]byte(id)).Bytes()
+	return idbytes
+}
+
+func (ud *UserData) FingerPrint() string {
+	jsondata, _ := ud.Marshal()
+	return crypto.Keccak256Hash(jsondata).Hex()
+}
+
+func JsonToStruct(info string) *UserData {
+	ud := NewUserData()
+	json.Unmarshal([]byte(info), ud)
+	return ud
 }
 
 func NewUserData() *UserData {

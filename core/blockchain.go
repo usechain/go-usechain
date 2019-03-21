@@ -856,10 +856,22 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 			continue
 		}
 		// Check local voted block
-		tempBlock := bc.GetBlockByNumber(block.NumberU64())
-		if block.NumberU64()%common.VoteSlot.Uint64() == 0 && tempBlock != nil && tempBlock.Hash() != block.Hash() {
-			return i, fmt.Errorf("refuse to cover local voted block: %v", tempBlock.Hash())
+		if block.NumberU64()%common.VoteSlot.Uint64() == 0 {
+			tempBlock := bc.GetBlockByNumber(block.NumberU64())
+			if tempBlock != nil {
+				if block.Header().ParentHash != tempBlock.Header().ParentHash {
+					return i, fmt.Errorf("refuse to cover local voted block: %v", tempBlock.Hash())
+				}
+			}
 		}
+		//} else {
+		//	futureHeight := (block.NumberU64() / common.VoteSlot.Uint64() + 1) * common.VoteSlot.Uint64()
+		//	tempBlock := bc.GetBlockByNumber(futureHeight)
+		//	if tempBlock != nil {
+		//		return i, fmt.Errorf("refuse to cover local voted block: %v", tempBlock.Hash())
+		//	}
+		//}
+
 		// Compute all the non-consensus fields of the receipts
 		SetReceiptsData(bc.chainConfig, block, receipts)
 		// Write all the data out into the database
@@ -1133,10 +1145,22 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		bstart := time.Now()
 
 		// Check local voted block
-		tempBlock := bc.GetBlockByNumber(block.NumberU64())
-		if block.NumberU64()%common.VoteSlot.Uint64() == 0 && tempBlock != nil && tempBlock.Hash() != block.Hash() {
-			return i, events, coalescedLogs, fmt.Errorf("refuse to cover local voted block: %v", tempBlock.Hash().Hex())
+
+		if block.NumberU64()%common.VoteSlot.Uint64() == 0 {
+			tempBlock := bc.GetBlockByNumber(block.NumberU64())
+			if tempBlock != nil {
+				if block.Header().ParentHash != tempBlock.Header().ParentHash {
+					return i, events, coalescedLogs, fmt.Errorf("refuse to cover local voted block: %v", tempBlock.Hash().Hex())
+				}
+			}
 		}
+		//else {
+		//	futureHeight := (block.NumberU64() / common.VoteSlot.Uint64() + 1) * common.VoteSlot.Uint64()
+		//	tempBlock := bc.GetBlockByNumber(futureHeight)
+		//	if tempBlock != nil {
+		//		return i, events, coalescedLogs, fmt.Errorf("refuse to cover local voted block: %v", tempBlock.Hash().Hex())
+		//	}
+		//}
 
 		err := <-results
 		if err == nil {

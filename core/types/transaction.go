@@ -273,18 +273,17 @@ func (tx *Transaction) CheckCertLegality(_from common.Address) error {
 	}
 
 	// pubKey := inputData[0]
-	hashKey := Decode32Uint8(inputData[1].([32]uint8))
-	// identity := inputData[2]
+	idhex := Decode32Uint8(inputData[1].([32]uint8))
+	identity := DecodeUint8(inputData[2].([]uint8))
+	id := NewIdentity()
+	json.Unmarshal([]byte(identity), id)
+
 	issuerData := DecodeUint8(inputData[3].([]uint8))
 	issuer := NewIssuer()
-	i, err := hexutil.Decode(issuerData)
-	if err != nil {
-		return err
-	}
-	json.Unmarshal(i, issuer)
+	json.Unmarshal([]byte(issuerData), issuer)
 
 	cert := []byte(issuer.Cert)
-	err = crypto.CheckUserRegisterCert(cert, hashKey)
+	err = crypto.CheckUserRegisterCert(cert, idhex, id.Fpr)
 	if err != nil {
 		return err
 	}

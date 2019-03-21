@@ -405,7 +405,7 @@ func parseRcaRsa() (*x509.Certificate, error) {
 	return Cert, nil
 }
 
-func CheckUserRegisterCert(cert []byte, idhex string) error {
+func CheckUserRegisterCert(cert []byte, idhex string, fpr string) error {
 	rcaCert, err := parseRcaRsa()
 	certBlock, _ := pem.Decode(cert)
 	if certBlock == nil {
@@ -420,7 +420,7 @@ func CheckUserRegisterCert(cert []byte, idhex string) error {
 	}
 
 	subject := parsed.Subject.String()
-	if !strings.Contains(subject, idhex) {
+	if strings.Contains(subject, idhex) || !strings.Contains(subject, fpr) {
 		return errors.New("Not the right cert of this user")
 	}
 

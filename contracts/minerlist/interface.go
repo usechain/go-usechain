@@ -72,15 +72,27 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 		return checkAddress(state, miner, 0), 0, 0
 	}
 
+	// if there is only one valid miner
+	isOnlyOneMinerValid, index := isOnlyOneMinerValid(state, totalMinerNum)
+	if isOnlyOneMinerValid {
+		return checkAddress(state, miner, index), 0, 0
+	}
+
 	// calculate the miner  who should be the first out of blocks
 	idTarget := CalIdTarget(preCoinbase, preSignatureQr, blockNumber, totalMinerNum, state)
-
-	if offset.Int64() == 0 {
-		return checkAddress(state, miner, idTarget.Int64()), offset.Int64(), idTarget.Int64()
-	} else {
-		id := calId(idTarget, preSignatureQr, totalMinerNum, offset, state)
-		return checkAddress(state, miner, id.Int64()), offset.Int64(), idTarget.Int64()
+	for i := int64(0); i <= offset.Int64(); i++ {
+		if i == 0 {
+			if checkAddress(state, miner, idTarget.Int64()) {
+				return true, i, idTarget.Int64()
+			}
+		} else {
+			id := calId(idTarget, preSignatureQr, totalMinerNum, big.NewInt(i), state)
+			if checkAddress(state, miner, id.Int64()) {
+				return true, i, idTarget.Int64()
+			}
+		}
 	}
+	return false, 0, 0
 }
 
 func CalIdTarget(preCoinbase common.Address, preSignatureQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, state *state.StateDB) *big.Int {
@@ -92,19 +104,13 @@ func CalIdTarget(preCoinbase common.Address, preSignatureQr []byte, blockNumber 
 	return idTarget
 }
 
-func ReadMinerAddress(statedb *state.StateDB, offset int64) []byte {
-	// get data from the contract statedb
-	res := statedb.GetState(common.HexToAddress(MinerListContract), common.HexToHash(common.IncreaseHexByNum(keyIndex, offset)))
-	return res.Bytes()
-}
-
 func calId(idTarget *big.Int, preSignatureQr []byte, totalMinerNum *big.Int, offset *big.Int, state *state.StateDB) *big.Int {
 	// qrOffset = hash(ID_Target_r || nλ || Sig_(r-1))
 	qrOffset := CalQrOrIdNext(idTarget.Bytes(), offset, preSignatureQr)
 	id := new(big.Int).Mod(qrOffset.Big(), totalMinerNum)
 	id = checkIdTargetOrId(state, id, totalMinerNum)
 
-	//id can't be the same as ignoreSlot before
+	// cal oldNode
 	var oldNode []int64
 	if offset.Int64()-1 == 0 {
 		oldNode = append(oldNode, idTarget.Int64())
@@ -112,10 +118,11 @@ func calId(idTarget *big.Int, preSignatureQr []byte, totalMinerNum *big.Int, off
 		for i := ignoreSlot; i > 0; i-- {
 			idNextTemp := CalQrOrIdNext(idTarget.Bytes(), new(big.Int).Sub(offset, big.NewInt(i)), preSignatureQr)
 			idTemp := new(big.Int).Mod(idNextTemp.Big(), totalMinerNum)
-			idTemp = checkIdTargetOrId(state, id, totalMinerNum)
+			idTemp = checkIdTargetOrId(state, idTemp, totalMinerNum)
 			oldNode = append(oldNode, idTemp.Int64())
 		}
 	}
+	// id can't be the same as ignoreSlot before
 DONE:
 	for {
 		for index, value := range oldNode {
@@ -134,19 +141,6 @@ DONE:
 	return id
 }
 
-func CalQrOrIdNext(base []byte, number *big.Int, preQrSignature []byte) common.Hash {
-	return crypto.Keccak256Hash(bytes.Join([][]byte{base, number.Bytes(), preQrSignature}, []byte("")))
-}
-
-// Compare the address to the minerlist contract by offset
-func checkAddress(statedb *state.StateDB, miner common.Address, offset int64) bool {
-	res := statedb.GetState(common.HexToAddress(MinerListContract), common.HexToHash(common.IncreaseHexByNum(keyIndex, offset)))
-	if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
-		return true
-	}
-	return false
-}
-
 // Check whether the miner is be punished by idOriginal , and return a right id
 func checkIdTargetOrId(statedb *state.StateDB, idOriginal *big.Int, totalMinerNum *big.Int) *big.Int {
 	var res common.Hash
@@ -159,6 +153,25 @@ func checkIdTargetOrId(statedb *state.StateDB, idOriginal *big.Int, totalMinerNu
 			return idOriginal
 		}
 	}
+}
+
+func CalQrOrIdNext(base []byte, number *big.Int, preQrSignature []byte) common.Hash {
+	return crypto.Keccak256Hash(bytes.Join([][]byte{base, number.Bytes(), preQrSignature}, []byte("")))
+}
+
+func ReadMinerAddress(statedb *state.StateDB, offset int64) []byte {
+	// get data from the contract statedb
+	res := statedb.GetState(common.HexToAddress(MinerListContract), common.HexToHash(common.IncreaseHexByNum(keyIndex, offset)))
+	return res.Bytes()
+}
+
+// Compare the address to the minerlist contract by offset
+func checkAddress(statedb *state.StateDB, miner common.Address, index int64) bool {
+	res := statedb.GetState(common.HexToAddress(MinerListContract), common.HexToHash(common.IncreaseHexByNum(keyIndex, index)))
+	if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
+		return true
+	}
+	return false
 }
 
 // Return whether the miner is be punished
@@ -187,4 +200,23 @@ func calKeyIndex() []byte {
 	var keyIndex []byte
 	keyIndex = hash.Sum(keyIndex)
 	return keyIndex
+}
+
+func isOnlyOneMinerValid(state *state.StateDB, totalMinerNum *big.Int) (bool, int64) {
+	var validMinerNum = 0
+	var index int64
+	for i := int64(0); i < totalMinerNum.Int64(); i++ {
+		res := state.GetState(common.HexToAddress(MinerListContract), common.HexToHash(common.IncreaseHexByNum(keyIndex, i)))
+		if !isPunishMiner(state, common.HexToAddress("0x"+res.String()[26:]), totalMinerNum) {
+			validMinerNum++
+			index = i
+			if validMinerNum > 1 {
+				return false, 0
+			}
+		}
+	}
+	if validMinerNum == 1 {
+		return true, index
+	}
+	return false, 0
 }

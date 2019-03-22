@@ -282,8 +282,10 @@ func (tx *Transaction) CheckCertLegality(_from common.Address) error {
 	issuerData := DecodeUint8(inputData[3].([]uint8))
 	d, _ := hexutil.Decode(issuerData)
 	issuer := NewIssuer()
-	json.Unmarshal(d, issuer)
-
+	err = json.Unmarshal(d, issuer)
+	if err != nil {
+		log.Error("Unmarshal issuer failed", "err", err)
+	}
 	cert := []byte(issuer.Cert)
 	err = crypto.CheckUserRegisterCert(cert, idhex, id.Fpr)
 	if err != nil {

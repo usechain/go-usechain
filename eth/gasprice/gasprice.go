@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/core"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/internal/ethapi"
 	"github.com/usechain/go-usechain/params"
@@ -79,6 +80,10 @@ func (gpo *Oracle) SuggestPrice(ctx context.Context) (*big.Int, error) {
 	lastHead := gpo.lastHead
 	lastPrice := gpo.lastPrice
 	gpo.cacheLock.RUnlock()
+
+	if lastPrice.Int64() < int64(core.DefaultTxPoolConfig.PriceLimit) {
+		lastPrice = big.NewInt(int64(core.DefaultTxPoolConfig.PriceLimit))
+	}
 
 	head, _ := gpo.backend.HeaderByNumber(ctx, rpc.LatestBlockNumber)
 	headHash := head.Hash()
@@ -144,6 +149,9 @@ func (gpo *Oracle) SuggestPrice(ctx context.Context) (*big.Int, error) {
 	gpo.lastHead = headHash
 	gpo.lastPrice = price
 	gpo.cacheLock.Unlock()
+	if price.Int64() < int64(core.DefaultTxPoolConfig.PriceLimit) {
+		price = big.NewInt(int64(core.DefaultTxPoolConfig.PriceLimit))
+	}
 	return price, nil
 }
 

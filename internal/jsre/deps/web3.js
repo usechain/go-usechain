@@ -3787,9 +3787,11 @@ var inputMinerRegisterFormatter = function (options){
         return options.to !== undefined
     }
 
-    options.to = inputAddressFormatter("0xfffffffffffffffffffffffffffffffff0000002")
+    options.to = inputAddressFormatter("0xfffffffffffffffffffffffffffffffff0000002");
     options.data = "0x819f163a";
-
+    options.value = "50000000000000000000";
+    options.gasPrice = "20000000000";
+    options.gas = "2000000";
     ['gasPrice', 'gas', 'value', 'nonce'].filter(function (key) {
         return options[key] !== undefined;
     }).forEach(function(key){
@@ -3816,9 +3818,10 @@ var inputMinerUnRegisterFormatter = function (options){
         return options.to !== undefined
     }
 
-    options.to = inputAddressFormatter("0xfffffffffffffffffffffffffffffffff0000002")
-    options.data = "0x5545b506";
-
+    options.to = inputAddressFormatter("0xfffffffffffffffffffffffffffffffff0000002");
+    options.data = "0x6d3a3f8d";
+    options.gasPrice = "20000000000";
+    options.gas = "2000000";
     ['gasPrice', 'gas', 'value', 'nonce'].filter(function (key) {
         return options[key] !== undefined;
     }).forEach(function(key){
@@ -5516,9 +5519,9 @@ var methods = function () {
         inputFormatter: [null,formatters.inputDefaultBlockNumberFormatter]
     });
 
-    var minerAddr = new Method({
-        name: 'minerAddr',
-        call: 'use_minerAddr',
+    var isMiner = new Method({
+        name: 'isMiner',
+        call: 'use_isMiner',
         params: 2,
         inputFormatter: [null,formatters.inputDefaultBlockNumberFormatter]
     });
@@ -5574,7 +5577,7 @@ var methods = function () {
         getCertifications,
         sendCreditRegisterTransaction,
         queryAddr,
-        minerAddr,
+        isMiner,
         minerRegister,
         minerUnRegister
     ];

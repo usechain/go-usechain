@@ -12,6 +12,12 @@ FROM alpine:latest
 
 RUN apk add --no-cache ca-certificates
 COPY --from=builder /go-usechain/build/bin/used /usr/local/bin/
+RUN mkdir -p /root/.usechain
+COPY --from=builder /go-usechain/build/config/profile/committee.cfg /root/.usechain
+COPY --from=builder /go-usechain/build/config/profile/rca.crt /root/.usechain
+COPY --from=builder /go-usechain/build/config/profile/user.crt /root/.usechain
+COPY --from=builder /go-usechain/build/config/profile/userrsa.prv /root/.usechain
+COPY --from=builder /go-usechain/build/config/profile/userrsa.pub /root/.usechain
 
 EXPOSE 8848 8849 40404 40404/udp 40405/udp
 ENTRYPOINT ["used"]

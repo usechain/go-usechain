@@ -17,6 +17,10 @@
 package vote
 
 import (
+	"math/big"
+	"sync"
+	"sync/atomic"
+	"time"
 	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/contracts/manager"
@@ -24,10 +28,6 @@ import (
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/event"
 	"github.com/usechain/go-usechain/log"
-	"math/big"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 var (
@@ -72,7 +72,7 @@ func NewVoter(eth Backend, coinbase common.Address) *Voter {
 	}
 	// Subscribe events for blockchain
 	voter.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(voter.chainHeadCh)
-	voter.t = time.NewTimer(time.Hour * 24)
+	voter.t = time.NewTimer(0)
 
 	go voter.VoteLoop()
 	return voter
@@ -87,7 +87,7 @@ func (self *Voter) Start(coinbase common.Address) {
 	mod := big.NewInt(0).Mod(header.Number, common.VoteSlot).Int64()
 	if mod == common.VoteSlot.Int64()-1 && header.Number.Int64() >= common.VoteSlotForGenesis-1 {
 		self.voteChain()
-		self.t.Reset(time.Second * 60)
+		self.t.Reset(time.Second * 300)
 	}
 	log.Info("Starting voting operation")
 }
@@ -138,7 +138,7 @@ func (self *Voter) vote() {
 		//meet the checkpoint, vote
 		if mod == common.VoteSlot.Int64()-1 && header.Number.Int64() >= common.VoteSlotForGenesis-1 {
 			self.voteChain()
-			self.t.Reset(time.Second * 60)
+			self.t.Reset(time.Second * 300)
 		} else if mod == common.VoteSlot.Int64() {
 			self.t.Stop()
 		}

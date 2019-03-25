@@ -36,12 +36,14 @@ var (
 	MaxCommitteemanCount    = 5
 	BlockInterval           = 5
 	GenesisMinerQrSignature = []byte("qwertyuioplkjhgfdsazxcvbnm")
+
+	VoteInterval            = uint64(300)
 )
 
 func GetIndexForVote(t1 int64, t2 int64) uint64 {
 	index := uint64(0)
 	if t1 > t2 {
-		index = uint64(t1-t2) / 60
+		index = uint64(t1-t2) / VoteInterval
 	}
 	return index
 }

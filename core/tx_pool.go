@@ -180,8 +180,9 @@ type TxPoolConfig struct {
 	Journal   string        // Journal of local transactions to survive node restarts
 	Rejournal time.Duration // Time interval to regenerate the local transaction journal
 
-	PriceLimit uint64 // Minimum gas price to enforce for acceptance into the pool
-	PriceBump  uint64 // Minimum price bump percentage to replace an already existing transaction (nonce)
+	PriceLimit  uint64 // Minimum gas price to enforce for acceptance into the pool
+	PriceBump   uint64 // Minimum price bump percentage to replace an already existing transaction (nonce)
+	LowestPrice int64
 
 	AccountSlots uint64 // Minimum number of executable transaction slots guaranteed per account
 	GlobalSlots  uint64 // Maximum number of executable transaction slots for all accounts
@@ -197,8 +198,9 @@ var DefaultTxPoolConfig = TxPoolConfig{
 	Journal:   "transactions.rlp",
 	Rejournal: time.Hour,
 
-	PriceLimit: 1000000,
-	PriceBump:  10,
+	PriceLimit:  1000000,
+	PriceBump:   10,
+	LowestPrice: 1 * params.Shannon,
 
 	AccountSlots: 16,
 	GlobalSlots:  4096 * 2,

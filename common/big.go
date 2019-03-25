@@ -16,7 +16,10 @@
 
 package common
 
-import "math/big"
+import (
+	"math/big"
+	"github.com/usechain/go-usechain/common/hexutil"
+)
 
 // Common big integers often used
 var (
@@ -35,7 +38,7 @@ var (
 	MisconductLimits        = big.NewInt(100)
 	MaxCommitteemanCount    = 5
 	BlockInterval           = 5
-	GenesisMinerQrSignature = []byte("qwertyuioplkjhgfdsazxcvbnm")
+	GenesisMinerQrSignature = hexutil.MustDecode("0xf0a1b27e725547bcac710bac16e6fa2e78354669aa8b4fa77b1b35fe36b78f70158125bec14a9cef5fee276cb9e739a27a8e08c544b8d625b07fe17ce19ebed3009ce48800a25f57fd492e9374cb78a4ef2b91921ed3df829fcee4220de99e2b54")
 
 	VoteInterval            = uint64(300)
 )

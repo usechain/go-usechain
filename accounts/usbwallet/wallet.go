@@ -561,3 +561,8 @@ func (w *wallet) SignHashWithPassphrase(account accounts.Account, passphrase str
 func (w *wallet) SignTxWithPassphrase(account accounts.Account, passphrase string, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
 	return w.SignTx(account, tx, chainID)
 }
+
+// Publickey return the public key based on the account
+func (w *wallet) Publickey(account accounts.Account) (string, error) {
+	return "", fmt.Errorf("can't export public key from usewallet")
+}

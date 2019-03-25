@@ -21,7 +21,9 @@ import (
 	"encoding/hex"
 	"math/big"
 	"strings"
-
+	"crypto/ecdsa"
+	"fmt"
+	
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/core/state"
@@ -34,6 +36,7 @@ const (
 	ignoreSlot        = int64(1)
 	paramIndexFull    = "0x0000000000000000000000000000000000000000000000000000000000000000"
 	paramIndexaHead   = "000000000000000000000000"
+	PreQrLength 	  = 97
 )
 
 var keyIndex = calKeyIndex()
@@ -97,7 +100,7 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 
 func CalIdTarget(preCoinbase common.Address, preSignatureQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, state *state.StateDB) *big.Int {
 	// Qr = Hash(coinbase_(r-1) || r-1 || Sig_(r-1))
-	qr := CalQrOrIdNext(preCoinbase.Bytes(), blockNumber, preSignatureQr)
+	qr, _ := CalQrOrIdNext(preCoinbase.Bytes(), blockNumber, preSignatureQr)
 	idTarget := new(big.Int).Mod(qr.Big(), totalMinerNum)
 	// check whether the id is be punished
 	idTarget = checkIdTargetOrId(state, idTarget, totalMinerNum)
@@ -106,7 +109,7 @@ func CalIdTarget(preCoinbase common.Address, preSignatureQr []byte, blockNumber 
 
 func calId(idTarget *big.Int, preSignatureQr []byte, totalMinerNum *big.Int, offset *big.Int, state *state.StateDB) *big.Int {
 	// qrOffset = hash(ID_Target_r || nλ || Sig_(r-1))
-	qrOffset := CalQrOrIdNext(idTarget.Bytes(), offset, preSignatureQr)
+	qrOffset, _ := CalQrOrIdNext(idTarget.Bytes(), offset, preSignatureQr)
 	id := new(big.Int).Mod(qrOffset.Big(), totalMinerNum)
 	id = checkIdTargetOrId(state, id, totalMinerNum)
 
@@ -116,7 +119,7 @@ func calId(idTarget *big.Int, preSignatureQr []byte, totalMinerNum *big.Int, off
 		oldNode = append(oldNode, idTarget.Int64())
 	} else {
 		for i := ignoreSlot; i > 0; i-- {
-			idNextTemp := CalQrOrIdNext(idTarget.Bytes(), new(big.Int).Sub(offset, big.NewInt(i)), preSignatureQr)
+			idNextTemp, _ := CalQrOrIdNext(idTarget.Bytes(), new(big.Int).Sub(offset, big.NewInt(i)), preSignatureQr)
 			idTemp := new(big.Int).Mod(idNextTemp.Big(), totalMinerNum)
 			idTemp = checkIdTargetOrId(state, idTemp, totalMinerNum)
 			oldNode = append(oldNode, idTemp.Int64())
@@ -155,8 +158,20 @@ func checkIdTargetOrId(statedb *state.StateDB, idOriginal *big.Int, totalMinerNu
 	}
 }
 
-func CalQrOrIdNext(base []byte, number *big.Int, preQrSignature []byte) common.Hash {
-	return crypto.Keccak256Hash(bytes.Join([][]byte{base, number.Bytes(), preQrSignature}, []byte("")))
+func CalQrOrIdNext(base []byte, number *big.Int, preQr []byte) (common.Hash, error) {
+	/// TODO: check the preQr whether got enough length
+	if len(preQr) != PreQrLength {
+		return common.Hash{}, fmt.Errorf("invalid preQr length")
+	}
+	pub, err := crypto.Ecrecover(preQr[65:], preQr[:65])
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("retrieve public key failed")
+	}
+	pubKey := crypto.ToECDSAPub(pub)
+
+	A := new(ecdsa.PublicKey)
+	A.X, A.Y = crypto.S256().ScalarMult(pubKey.X, pubKey.Y, preQr[65:])
+	return crypto.Keccak256Hash(bytes.Join([][]byte{base, number.Bytes(), crypto.FromECDSAPub(A)}, []byte(""))), nil
 }
 
 func ReadMinerAddress(statedb *state.StateDB, offset int64) []byte {

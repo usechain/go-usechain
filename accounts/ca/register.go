@@ -45,7 +45,7 @@ func (w *wizard) MakeUserInfo() {
 	fmt.Println(" 1. IDCard")
 	fmt.Println(" 2. Others")
 
-	choice := w.read()
+	choice := w.readString()
 	switch {
 	case choice == "1":
 		w.info.CertType = "1"
@@ -72,19 +72,23 @@ func (w *wizard) MakeUserInfo() {
 		fmt.Println("What is your address? (optional)")
 		w.info.Addr = w.readDefaultString("")
 
-		fmt.Println(w.info)
-		fmt.Println()
-		if w.filename == "" {
-			fmt.Println("Please specify a file name to store your information.")
-			for {
-				w.filename = w.readString()
-				if !strings.Contains(w.filename, " ") && !strings.Contains(w.filename, "-") {
-					fmt.Printf("\nNow the file name is set to %s.json!\n\n", w.filename)
-					break
-				}
-				log.Error("I also like to live dangerously, still no spaces or hyphens")
-			}
-		}
+		// TODO: will uncomment those code after update credit register API
+		// fmt.Println()
+		// if w.filename == "" {
+		// 	fmt.Println("Please specify a file name to store your information.")
+		// 	for {
+		// 		w.filename = w.readString()
+		// 		if !strings.Contains(w.filename, " ") && !strings.Contains(w.filename, "-") {
+		// 			fmt.Printf("\nNow the file name is set to %s.json!\n\n", w.filename)
+		// 			break
+		// 		}
+		// 		log.Error("I also like to live dangerously, still no spaces or hyphens")
+		// 	}
+		// }
+
+		w.filename = "userData"
+		fmt.Printf("\nNow the file name is set to %s.json!\n\n", w.filename)
+
 		out, _ := json.MarshalIndent(w.info, "", "  ")
 		if err := ioutil.WriteFile(filepath.Join(node.DefaultDataDir(), fmt.Sprintf("%s.json", w.filename)), out, 0644); err != nil {
 			log.Error("Failed to save user info file", "err", err)
@@ -94,15 +98,6 @@ func (w *wizard) MakeUserInfo() {
 	case choice == "2":
 		fmt.Println("We will support other types of documents in the near future.")
 	}
-}
-
-func (w *wizard) read() string {
-	fmt.Printf("> ")
-	text, err := w.in.ReadString('\n')
-	if err != nil {
-		log.Crit("Failed to read user input", "err", err)
-	}
-	return strings.TrimSpace(text)
 }
 
 // readString reads a single line from stdin, trimming if from spaces, enforcing

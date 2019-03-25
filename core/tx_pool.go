@@ -203,7 +203,7 @@ var DefaultTxPoolConfig = TxPoolConfig{
 	AccountSlots: 16,
 	GlobalSlots:  4096 * 2,
 	///TODO: need to get a suitable parameters, and avoid TX DDOS attack
-	AccountQueue: 64 * 32 * 4,
+	AccountQueue: 64 * 32,
 	GlobalQueue:  1024 * 16,
 
 	Lifetime: 3 * time.Hour,

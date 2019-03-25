@@ -18,6 +18,7 @@ package gasprice
 
 import (
 	"context"
+	"github.com/usechain/go-usechain/core"
 	"math/big"
 	"sort"
 	"sync"
@@ -80,7 +81,7 @@ func (gpo *Oracle) SuggestPrice(ctx context.Context) (*big.Int, error) {
 	lastPrice := gpo.lastPrice
 	gpo.cacheLock.RUnlock()
 
-	lowestPrice := int64(1 * params.Shannon)
+	lowestPrice := core.DefaultTxPoolConfig.LowestPrice
 
 	if lastPrice.Int64() < lowestPrice {
 		lastPrice = big.NewInt(lowestPrice)
@@ -100,6 +101,10 @@ func (gpo *Oracle) SuggestPrice(ctx context.Context) (*big.Int, error) {
 	lastHead = gpo.lastHead
 	lastPrice = gpo.lastPrice
 	gpo.cacheLock.RUnlock()
+
+	if lastPrice.Int64() < lowestPrice {
+		lastPrice = big.NewInt(lowestPrice)
+	}
 	if headHash == lastHead {
 		return lastPrice, nil
 	}
@@ -119,6 +124,9 @@ func (gpo *Oracle) SuggestPrice(ctx context.Context) (*big.Int, error) {
 	for exp > 0 {
 		res := <-ch
 		if res.err != nil {
+			if lastPrice.Int64() < lowestPrice {
+				lastPrice = big.NewInt(lowestPrice)
+			}
 			return lastPrice, res.err
 		}
 		exp--

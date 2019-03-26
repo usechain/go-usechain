@@ -28,6 +28,29 @@ or, to build the full suite of utilities:
 
     make all
 
+
+### Identity Verification
+
+To begin with, you need to upload your identity informations to acquire certificate from certificate authority.
+Remember to store the key you received from CA after you upload the informations.
+
+    ./build/bin/used verify
+
+    ./build/bin/used verify --info=userData.json --photo="<yourphotopath1>;<yourphotopath2>"
+
+After waiting serval hours when CA confirmed your informations and documents, you can download your certificate.
+You will be noticed if you failed verification.
+
+    ./build/bin/used verify --query=<yourkey>
+
+One more step, open your used console and send verification transaction.
+
+    use.sendCreditRegisterTransaction({from:<yourethaddress>,to:"0xfffffffffffffffffffffffffffffffff0000001",gas:'0x332423'})
+    // 0xfffffffffffffffffffffffffffffffff0000001 is the address of CA verification smart contract
+
+Pleas refer to [用户身份认证流程](https://github.com/usechain/go-usechain/wiki/%E7%94%A8%E6%88%B7%E8%BA%AB%E4%BB%BD%E8%AE%A4%E8%AF%81%E6%B5%81%E7%A8%8B) for more details.
+
+
 ### Programatically interfacing usechain nodes
 
 As a developer, sooner rather than later you'll want to start interacting with usechain and the usechain

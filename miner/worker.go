@@ -24,6 +24,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"bytes"
 	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/consensus"
@@ -37,7 +38,6 @@ import (
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/params"
 	"gopkg.in/fatih/set.v0"
-	"bytes"
 )
 
 const (
@@ -455,13 +455,6 @@ func (self *worker) commitNewWork() {
 		header.IsCheckPoint = big.NewInt(0)
 	}
 
-	// Could potentially happen if starting to mine in an odd state.
-	err := self.makeCurrent(parent, header)
-	if err != nil {
-		log.Error("Failed to create mining context", "err", err)
-		return
-	}
-
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&self.mining) == 1 {
 		totalMinerNum := minerlist.ReadMinerNum(self.current.state)
@@ -540,6 +533,13 @@ func (self *worker) commitNewWork() {
 			log.Error("Failed to prepare header for mining", "err", err)
 			return
 		}
+	}
+
+	// Could potentially happen if starting to mine in an odd state.
+	err := self.makeCurrent(parent, header)
+	if err != nil {
+		log.Error("Failed to create mining context", "err", err)
+		return
 	}
 
 	// Create the current work task and check any fork transitions needed

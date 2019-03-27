@@ -443,8 +443,8 @@ func (self *worker) commitNewWork() {
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
-		//GasLimit:   core.CalcGasLimit(parent),
-		GasLimit: 210000000,
+		GasLimit:   core.CalcGasLimit(parent),
+		//GasLimit: 210000000,
 		Extra:    self.extra,
 		Time:     big.NewInt(tstamp),
 	}

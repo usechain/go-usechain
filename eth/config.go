@@ -29,16 +29,16 @@ import (
 	"github.com/usechain/go-usechain/params"
 )
 
-// DefaultConfig contains default settings for use on the Ethereum main net.
+// DefaultConfig contains default settings for use on the Usechain main net.
 var DefaultConfig = Config{
-	SyncMode: downloader.FastSync,
-	Rpow: rpow.Config{},
+	SyncMode:      downloader.FastSync,
+	Rpow:          rpow.Config{},
 	NetworkId:     1,
 	LightPeers:    100,
 	DatabaseCache: 768,
 	TrieCache:     256,
 	TrieTimeout:   5 * time.Minute,
-	GasPrice:      big.NewInt(18 * params.Shannon),
+	GasPrice:      big.NewInt(1 * params.Shannon),
 
 	TxPool: core.DefaultTxPoolConfig,
 	GPO: gasprice.Config{
@@ -51,7 +51,7 @@ var DefaultConfig = Config{
 
 type Config struct {
 	// The genesis block, which is inserted if the database is empty.
-	// If nil, the Ethereum main net block is used.
+	// If nil, the Usechain main net block is used.
 	Genesis *core.Genesis `toml:",omitempty"`
 
 	// Protocol options
@@ -71,7 +71,7 @@ type Config struct {
 	TrieTimeout        time.Duration
 
 	// Mining-related options
-	Usebase    common.Address `toml:",omitempty"`
+	Usebase      common.Address `toml:",omitempty"`
 	MinerThreads int            `toml:",omitempty"`
 	ExtraData    []byte         `toml:",omitempty"`
 	GasPrice     *big.Int

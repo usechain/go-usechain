@@ -1740,7 +1740,7 @@ func (s *PublicBlockChainAPI) QueryAddr(ctx context.Context, addr common.Address
 	return 1
 }
 
-func (s *PublicBlockChainAPI) MinerAddr(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) uint64 {
+func (s *PublicBlockChainAPI) IsMiner(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) uint64 {
 	stateDb, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if stateDb == nil || err != nil {
 		return 0

@@ -37,6 +37,7 @@ import (
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/params"
 	"gopkg.in/fatih/set.v0"
+	"bytes"
 )
 
 const (
@@ -470,25 +471,17 @@ func (self *worker) commitNewWork() {
 			return
 		}
 
-		// Look up the wallet containing the requested signer
-		account := accounts.Account{Address: self.coinbase}
-		wallet, err := self.eth.AccountManager().Find(account)
-		if err != nil {
-			log.Error("To be a miner of usechain RPOW, need local account", "err", err)
-			return
-		}
-
 		// collect pre block info and calculate whether the miner is correct for current block
-		var preQrSignature []byte
+		var preQr []byte
 		if header.Number.Cmp(common.Big1) == 0 {
-			preQrSignature = common.GenesisMinerQrSignature
+			preQr = common.GenesisMinerQrSignature
 		} else {
-			preQrSignature = parent.MinerQrSignature()
+			preQr = parent.MinerQrSignature()
 		}
 		preCoinbase := parent.Coinbase()
 		tstampSub := header.Time.Int64() - parent.Time().Int64()
 		n := big.NewInt(tstampSub / common.BlockSlot.Int64())
-		IsValidMiner, level, preMinerid := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preQrSignature, blockNumber, totalMinerNum, n)
+		IsValidMiner, level, preMinerid := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preQr, blockNumber, totalMinerNum, n)
 		if !IsValidMiner {
 		DONE1:
 			for {
@@ -505,13 +498,26 @@ func (self *worker) commitNewWork() {
 		}
 
 		// calculate minerQrSignature for current block
-		qr := minerlist.CalQrOrIdNext(preCoinbase.Bytes(), blockNumber, preQrSignature)
+		qr, err := minerlist.CalQrOrIdNext(preCoinbase.Bytes(), blockNumber, preQr)
+		if err != nil {
+			log.Error("Failed to CalQrOrIdNext", "err", err)
+			return
+		}
+
+		// Look up the wallet containing the requested signer
+		account := accounts.Account{Address: self.coinbase}
+		wallet, err := self.eth.AccountManager().Find(account)
+		if err != nil {
+			log.Error("To be a miner of usechain RPOW, need local account", "err", err)
+			return
+		}
+
 		minerQrSignature, err := wallet.SignHash(account, qr.Bytes())
 		if err != nil {
 			log.Error("Failed to unlock the coinbase account", "err", err)
 			return
 		}
-		header.MinerQrSignature = minerQrSignature
+		header.MinerQrSignature = bytes.Join([][]byte{minerQrSignature, qr.Bytes()}, []byte(""))
 
 		// calculate PrimaryMiner and  DifficultyLevel for current block
 		if totalMinerNum.Int64() != 0 {
@@ -540,7 +546,7 @@ func (self *worker) commitNewWork() {
 	work := self.current
 	committeeCnt := self.chain.GetCommitteeCount()
 	var pending map[common.Address]types.Transactions
-	if header.IsCheckPoint.Cmp(common.Big1) == 0 {
+	if header.IsCheckPoint.Cmp(common.Big1) == 0 && atomic.LoadInt32(&self.mining) == 1 {
 		pending, err = self.eth.TxPool().GetValidPbft(blockNumber.Uint64()-1, common.GetIndexForVote(time.Now().Unix(), parent.Time().Int64()))
 		gen, targetHash, _ := canGenBlockInCheckPoint(pending, committeeCnt)
 		if !gen {
@@ -672,12 +678,12 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 		from, _ := types.Sender(env.signer, tx)
 		// Check whether the tx is replay protected. If we're not in the EIP155 hf
 		// phase, start ignoring the sender until we do.
-		if tx.Protected() && !env.config.IsEIP155(env.header.Number) {
-			log.Trace("Ignoring reply protected transaction", "hash", tx.Hash(), "eip155", env.config.EIP155Block)
-
-			txs.Pop()
-			continue
-		}
+		//if tx.Protected() && !env.config.IsEIP155(env.header.Number) {
+		//	log.Trace("Ignoring reply protected transaction", "hash", tx.Hash(), "eip155", env.config.EIP155Block)
+		//
+		//	txs.Pop()
+		//	continue
+		//}
 		// Start executing the transaction
 		env.state.Prepare(tx.Hash(), common.Hash{}, env.tcount)
 

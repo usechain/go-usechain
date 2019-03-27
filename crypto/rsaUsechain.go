@@ -420,7 +420,7 @@ func CheckUserRegisterCert(cert []byte, idhex string, fpr string) error {
 	}
 
 	subject := parsed.Subject.String()
-	if strings.Contains(subject, idhex) || !strings.Contains(subject, fpr) {
+	if !strings.Contains(subject, idhex) || !strings.Contains(subject, fpr) {
 		return errors.New("Not the right cert of this user")
 	}
 

@@ -384,9 +384,13 @@ func ReadUserCert() string {
 }
 
 ///TODO:add error check
-func parseRcaRsa() (*x509.Certificate, error) {
+func parseRcaRsa(chainid uint64) (*x509.Certificate, error) {
 	BaseDir := DefaultDataDir()
-	rcaFile, err := ioutil.ReadFile(BaseDir + "/rca.crt")
+	rcapath := "moonetCA.pem"
+	if chainid == 1 {
+		rcapath = "mainnetCA.pem"
+	}
+	rcaFile, err := ioutil.ReadFile(filepath.Join(BaseDir, rcapath))
 	if err != nil {
 		log.Error("ReadFile err:", "err", err)
 		return nil, err
@@ -405,8 +409,8 @@ func parseRcaRsa() (*x509.Certificate, error) {
 	return Cert, nil
 }
 
-func CheckUserRegisterCert(cert []byte, idhex string, fpr string) error {
-	rcaCert, err := parseRcaRsa()
+func CheckUserRegisterCert(cert []byte, idhex string, fpr string, chainid uint64) error {
+	rcaCert, err := parseRcaRsa(chainid)
 	certBlock, _ := pem.Decode(cert)
 	if certBlock == nil {
 		return errors.New("User's cert not found!")

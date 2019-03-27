@@ -1,24 +1,27 @@
-// Copyright 2015 The go-ethereum Authors
-// This file is part of the go-ethereum library.
+// Copyright 2018 The go-usechain Authors
+// This file is part of the go-usechain library.
 //
-// The go-ethereum library is free software: you can redistribute it and/or modify
+// The go-usechain library is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Lesser General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// The go-ethereum library is distributed in the hope that it will be useful,
+// The go-usechain library is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
 // You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
+// along with the go-usechain library. If not, see <http://www.gnu.org/licenses/>.
 
 package params
 
 // MainnetBootnodes are the enode URLs of the P2P bootstrap nodes running on
 // the main Usechain network.
-var MainnetBootnodes = []string{}
+var MainnetBootnodes = []string{
+	"enode://c1d4fe20c8056ab1647df98a65412152ad0abc3039cee4bf0b758818897230965420e08240effc7c4a5ce417ecd2ba3465610d39018bea8bd28a3f7e010123e1@47.112.117.48:40404",
+	"enode://41a7a04d8f4b7d0d5d3818f47079013ab7858542454ffb3df99ce0098e2e56a0bdbc8589b95b742d15f024722064ae5f8a9cfc35cd9fca60ee36296efad4970e@39.97.174.114:40404",
+}
 
 // TestnetBootnodes are the enode URLs of the P2P bootstrap nodes running on the
 // test network.
@@ -28,8 +31,7 @@ var TestnetBootnodes = []string{}
 // Moonet test network.
 var MoonetBootnodes = []string{
 	// Usechain Go moonet Bootnodes
-	"enode://f7fee44270a73ab44762598c0f7f2e0fc083d6eee5cbfbc365bd053d8c04886235c3a21fc4e5f3fb2a1deb257612e23c232b090bc2bf650c56fe839625d26cfa@47.112.117.48:40404",
-	"enode://8613e162784e292803196f4a7c04c5ae0cfbb760acd3f1fa5a63222dcc0bc9d6450f8f9c113db622dcad3885849a9c9d9f23424bc94a6f15deb2643c6124a856@39.97.174.114:40404",
+	"enode://d48f0c9d8337ff59a827af8f7eca645efb2d2747cac5e2158f30ee840f7fff7bac9e10ac1626135e881c6a62dcf5dd2fb7b4bc6ca016cc6fa2a03d8bc50bc56f@[119.23.41.121]:40404",
 }
 
 // DiscoveryV5Bootnodes are the enode URLs of the P2P bootstrap nodes for the

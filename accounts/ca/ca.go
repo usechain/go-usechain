@@ -189,8 +189,13 @@ func geneKeyFromInfo(info string) (string, string, error) {
 	return ud.IdHex(), ud.FingerPrint(), nil
 }
 
-var CAurl = "http://usechain.cn:8548/UsechainService/cert/cerauth"
-var CAquery = "http://usechain.cn:8548/UsechainService/user/cerauth"
+// miannet
+var CAurl = "http://mainca.usechain.cn/cert/cerauth"
+var CAquery = "http://mainca.usechain.cn/user/cerauth"
+
+// // moonet
+// var CAurl = "http://moonca.usechain.cn/cert/cerauth"
+// var CAquery = "http://moonca.usechain.cn/user/cerauth"
 
 func savePEMKey(fileName string, key *rsa.PrivateKey) {
 	outFile, err := os.Create(fileName)

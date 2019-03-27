@@ -47,6 +47,11 @@ if [ ! -f "$rcacrt" ]; then
     cp  $cur_dir/config/profile/rca.crt $ConfigDir/.
 fi
 
+rcacrt=$ConfigDir/mainnet.pem
+if [ ! -f "$rcacrt" ]; then
+    cp  $cur_dir/config/profile/mainnet.pem $ConfigDir/.
+fi
+
 committee=$ConfigDir/committee.cfg
 if [ ! -f "$committee" ]; then
     cp  $cur_dir/config/profile/committee.cfg $ConfigDir/.

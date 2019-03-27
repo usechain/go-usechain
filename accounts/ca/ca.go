@@ -262,23 +262,26 @@ func queryID(CAserver string, idKey string) error {
 	u.RawQuery = q.Encode()
 	log.Info("query url for idKey:", "idKey", idKey)
 	resp, err := http.Get(u.String())
-	if err != nil || resp.StatusCode != 200 {
-		log.Error("Your idKey is %s, please try again later")
-		if err == nil {
-			return errors.New("response's statuscode is not 200!please try again later")
-		}
+	if err != nil {
 		return err
 	}
 
 	CAbuf := new(bytes.Buffer)
 	CAbuf.ReadFrom(resp.Body)
-	jsondata, _ := simplejson.NewJson(CAbuf.Bytes())
-	certBytes, _ := jsondata.Get("data").Get("cert").Bytes()
-	if len(certBytes) == 0 {
-		log.Error("Failed to download CA file \n", certBytes)
-		return errors.New("Failed to download CA file")
+	if resp.StatusCode != 200 {
+		log.Error(CAbuf.String())
+		return fmt.Errorf("Response's statuscode is %d! Please try again later", resp.StatusCode)
 	}
-	cert := string(certBytes[:])
+
+	jsondata, _ := simplejson.NewJson(CAbuf.Bytes())
+	status, _ := jsondata.Get("status").Int()
+	if status != 0 {
+		return errors.New("Verification failed, please review your profile and submit later")
+	}
+	cert, err := jsondata.Get("data").Get("cert").String()
+	if err != nil {
+		return err
+	}
 
 	userCert := node.DefaultDataDir() + string(os.PathSeparator) + "user.crt"
 	err = ioutil.WriteFile(userCert, []byte(cert), 0644)

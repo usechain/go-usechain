@@ -42,9 +42,14 @@ if [ ! -f "$usercrt" ]; then
     cp  $cur_dir/config/profile/user.crt $ConfigDir/.
 fi
 
-rcacrt=$ConfigDir/rca.crt
+moonetcrt=$ConfigDir/moonetCA.pem
 if [ ! -f "$rcacrt" ]; then
-    cp  $cur_dir/config/profile/rca.crt $ConfigDir/.
+    cp  $cur_dir/config/profile/moonetCA.pem $ConfigDir/.
+fi
+
+mainnetcrt=$ConfigDir/mainnetCA.pem
+if [ ! -f "$mainnetcrt" ]; then
+    cp  $cur_dir/config/profile/mainnetCA.pem $ConfigDir/.
 fi
 
 committee=$ConfigDir/committee.cfg

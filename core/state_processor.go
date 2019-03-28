@@ -103,7 +103,6 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		} else if tx.IsRegisterTransaction() {
 			err := tx.CheckCertLegality(common.Address(sender))
 			if err != nil {
-				err = errors.New("invalid authentication signature")
 				return nil, nil, 0, err
 			}
 		}

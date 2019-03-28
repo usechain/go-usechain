@@ -287,7 +287,7 @@ func (tx *Transaction) CheckCertLegality(_from common.Address) error {
 		log.Error("Unmarshal issuer failed", "err", err)
 	}
 	cert := []byte(issuer.Cert)
-	err = crypto.CheckUserRegisterCert(cert, idhex, id.Fpr)
+	err = crypto.CheckUserRegisterCert(cert, idhex, id.Fpr, tx.ChainId().Uint64())
 	if err != nil {
 		return err
 	}

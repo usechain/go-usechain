@@ -289,6 +289,10 @@ var (
 		Name:  "info",
 		Usage: "User identity info file",
 	}
+	VerifyNetworkFlag = cli.BoolFlag{
+		Name:  "moonetca",
+		Usage: "User register CA server",
+	}
 	VerifyIdFlag = cli.StringFlag{
 		Name:  "id",
 		Usage: "User identity id",

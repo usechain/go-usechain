@@ -70,10 +70,11 @@ passwordfile as argument containing the wallet password in plaintext.`,
 	verifyCommand = cli.Command{
 		Name:      "verify",
 		Usage:     "Verify address",
-		ArgsUsage: "Verify --info=<info> --id=<id> --photo=<photo> --query=<q>",
+		ArgsUsage: "Verify --info=<info> --id=<id> --photo=<photo> --query=<q> --<network>",
 		Action:    utils.MigrateFlags(verify),
 
 		Flags: []cli.Flag{
+			utils.VerifyNetworkFlag,
 			utils.VerifyInfoFlag,
 			utils.VerifyIdFlag,
 			utils.VerifyPhotoFlag,
@@ -401,13 +402,32 @@ func verify(ctx *cli.Context) error {
 
 	infoFile := ctx.GlobalString(utils.VerifyInfoFlag.Name)
 	photos := ctx.GlobalString(utils.VerifyPhotoFlag.Name)
+	moonetFlag := ctx.GlobalBool(utils.VerifyNetworkFlag.Name)
 	q := ctx.GlobalString(utils.VerifyQueryFlag.Name)
+
+	// mainnet
+	var mainnetUrl = "http://mainca.usechain.cn/cert/cerauth"
+	var mainnetQuery = "http://mainca.usechain.cn/user/cerauth"
+
+	// moonet
+	var moonetUrl = "http://moonca.usechain.cn/cert/cerauth"
+	var moonetQuery = "http://moonca.usechain.cn/user/cerauth"
+
+	var caUrl, queryUrl string
+
+	if moonetFlag {
+		caUrl = moonetUrl
+		queryUrl = moonetQuery
+	} else {
+		caUrl = mainnetUrl
+		queryUrl = mainnetQuery
+	}
 
 	if len(infoFile) > 0 && len(photos) > 0 {
 		p := strings.Split(photos, ";")
-		ca.UserAuthOperation(infoFile, p)
+		ca.UserAuthOperation(infoFile, p, caUrl)
 	} else if len(q) > 0 {
-		ca.Query(q)
+		ca.Query(q, queryUrl)
 	} else if len(infoFile) == 0 {
 		w := ca.MakeWizard("")
 		w.Run()

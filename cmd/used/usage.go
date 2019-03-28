@@ -80,6 +80,7 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.IdentityFlag,
 			utils.VerifyIdFlag,
 			utils.VerifyInfoFlag,
+			utils.VerifyNetworkFlag,
 			utils.VerifyPhotoFlag,
 			utils.VerifyQueryFlag,
 			utils.LightServFlag,
@@ -94,7 +95,7 @@ var AppHelpFlagGroups = []flagGroup{
 		},
 	},
 	{
-		Name: "RPOW",
+		Name:  "RPOW",
 		Flags: []cli.Flag{},
 	},
 	//{

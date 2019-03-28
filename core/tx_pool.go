@@ -774,8 +774,10 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 
 	//If the transaction is authentication, check txCert Signature
 	//If the transaction isn't, check the address legality
+	var chainid = pool.chainconfig.ChainId
+
 	if tx.IsRegisterTransaction() {
-		err = tx.CheckCertLegality(from)
+		err = tx.CheckCertLegality(from, chainid)
 		if err != nil {
 			return err
 		}

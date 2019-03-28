@@ -101,7 +101,8 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 				return nil, nil, 0, err
 			}
 		} else if tx.IsRegisterTransaction() {
-			err := tx.CheckCertLegality(common.Address(sender))
+			chainid := p.config.ChainId
+			err := tx.CheckCertLegality(common.Address(sender), chainid)
 			if err != nil {
 				return nil, nil, 0, err
 			}

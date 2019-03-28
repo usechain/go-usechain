@@ -411,6 +411,9 @@ func parseRcaRsa(chainid uint64) (*x509.Certificate, error) {
 
 func CheckUserRegisterCert(cert []byte, idhex string, fpr string, chainid uint64) error {
 	rcaCert, err := parseRcaRsa(chainid)
+	if err != nil {
+		return err
+	}
 	certBlock, _ := pem.Decode(cert)
 	if certBlock == nil {
 		return errors.New("User's cert not found!")

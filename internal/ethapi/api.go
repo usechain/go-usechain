@@ -326,23 +326,23 @@ func (s *PrivateAccountAPI) DeriveAccount(url string, path string, pin *bool) (a
 	return wallet.Derive(derivPath, *pin)
 }
 
-//Verify will register a user id and prints the infomation about this id after register.
-func (s *PrivateAccountAPI) Verify(id string, photos []string) (string, error) {
-	IDKey, err := ca.CAVerify(id, photos)
-	if err != nil {
-		return "", err
-	}
-	return IDKey, nil
-}
+// //Verify will register a user id and prints the infomation about this id after register.
+// func (s *PrivateAccountAPI) Verify(id string, photos []string) (string, error) {
+// 	IDKey, err := ca.CAVerify(id, photos)
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	return IDKey, nil
+// }
 
-//VerifyQuery supports user query their information after register.
-func (s *PrivateAccountAPI) VerifyQuery(id string) (bool, error) {
-	err := ca.VerifyQuery(id)
-	if err != nil {
-		return false, err
-	}
-	return true, nil
-}
+// //VerifyQuery supports user query their information after register.
+// func (s *PrivateAccountAPI) VerifyQuery(id string) (bool, error) {
+// 	err := ca.VerifyQuery(id)
+// 	if err != nil {
+// 		return false, err
+// 	}
+// 	return true, nil
+// }
 
 // NewAccount will create a new account and returns the address for the new account.
 func (s *PrivateAccountAPI) NewAccount(password string) (common.Address, error) {

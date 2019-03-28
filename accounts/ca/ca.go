@@ -61,8 +61,8 @@ func fatalf(format string, args ...interface{}) {
 }
 
 //CAVerify user register
-func CAVerify(id string, photos []string) (string, error) {
-	IDKey, err := UserAuthOperation(id, photos)
+func CAVerify(id string, photos []string, caUrl string) (string, error) {
+	IDKey, err := UserAuthOperation(id, photos, caUrl)
 	if err != nil {
 		return "", err
 	}
@@ -70,17 +70,17 @@ func CAVerify(id string, photos []string) (string, error) {
 }
 
 //UserAuthOperation use userID and photo to register ca cert.
-func UserAuthOperation(infofile string, photo []string) (string, error) {
+func UserAuthOperation(infofile string, photo []string, caUrl string) (string, error) {
 
 	info := string(GetUserData(infofile))
-	IDKey, err := postVerifactionData(info, photo)
+	IDKey, err := postVerifactionData(info, photo, caUrl)
 	if err != nil {
 		log.Error("Failed to upload user info :", "err", err)
 		return "", err
 	}
 	return IDKey, nil
 }
-func postVerifactionData(info string, filename []string) (string, error) {
+func postVerifactionData(info string, filename []string, caUrl string) (string, error) {
 	//Create form
 	buf := new(bytes.Buffer)
 	writer := multipart.NewWriter(buf)
@@ -126,7 +126,7 @@ func postVerifactionData(info string, filename []string) (string, error) {
 
 	writer.Close()
 	contentType := writer.FormDataContentType()
-	resp, err := http.Post(CAurl, contentType, buf)
+	resp, err := http.Post(caUrl, contentType, buf)
 	if err != nil {
 		log.Error("Post failed,", "err", err)
 		return "", err
@@ -189,9 +189,6 @@ func geneKeyFromInfo(info string) (string, string, error) {
 	return ud.IdHex(), ud.FingerPrint(), nil
 }
 
-var CAurl = "http://usechain.cn:8548/UsechainService/cert/cerauth"
-var CAquery = "http://usechain.cn:8548/UsechainService/user/cerauth"
-
 func savePEMKey(fileName string, key *rsa.PrivateKey) {
 	outFile, err := os.Create(fileName)
 	checkError(err)
@@ -236,20 +233,19 @@ func checkError(err error) {
 	}
 }
 
-//VerifyQuery after user registered, user can get query info and stores ca file.
-func VerifyQuery(idKey string) error {
-	err := Query(idKey)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
+// //VerifyQuery after user registered, user can get query info and stores ca file.
+// func VerifyQuery(idKey string) error {
+// 	err := Query(idKey)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }
 
 //Query use idkey as param to query user ca information.
-func Query(s string) error {
+func Query(s string, queryUrl string) error {
 
-	err := queryID(CAquery, s)
+	err := queryID(queryUrl, s)
 	if err != nil {
 		return err
 	}

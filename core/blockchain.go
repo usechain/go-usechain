@@ -856,7 +856,7 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 			continue
 		}
 		// Check local voted block
-		if block.NumberU64()%common.VoteSlot.Uint64() == 0 {
+		if block.NumberU64()%common.VoteSlot.Uint64() == 0 && block.Number().Int64() >= common.VoteSlotForGenesis {
 			tempBlock := bc.GetBlockByNumber(block.NumberU64())
 			if tempBlock != nil {
 				if block.Header().ParentHash != tempBlock.Header().ParentHash {
@@ -1146,7 +1146,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 
 		// Check local voted block
 
-		if block.NumberU64()%common.VoteSlot.Uint64() == 0 {
+		if block.NumberU64()%common.VoteSlot.Uint64() == 0 && block.Number().Int64() >= common.VoteSlotForGenesis {
 			tempBlock := bc.GetBlockByNumber(block.NumberU64())
 			if tempBlock != nil {
 				if block.Header().ParentHash != tempBlock.Header().ParentHash {

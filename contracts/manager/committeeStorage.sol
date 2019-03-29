@@ -82,15 +82,15 @@ contract committeeStorage {
     /****************voting*********************/
     /// @notice voting now?
     modifier isVoting() {
-        //require(block.number%Election_cycle <= Election_duration);
-        require(vote_enabled);
+        require(block.number%Election_cycle <= Election_duration);
+        //require(vote_enabled);
         _;
     }
 
     /// @notice not voting
     modifier notVoting() {
-        //require(block.number%Election_cycle > Election_duration);
-        require(!vote_enabled);
+        require(block.number%Election_cycle > Election_duration);
+        //require(!vote_enabled);
         _;
     }
 

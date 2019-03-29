@@ -137,3 +137,8 @@ func (w *keystoreWallet) SignTxWithPassphrase(account accounts.Account, passphra
 	// Account seems valid, request the keystore to sign
 	return w.keystore.SignTxWithPassphrase(account, passphrase, tx, chainID)
 }
+
+// Publickey return the public key based on the account
+func (w *keystoreWallet) Publickey(account accounts.Account) (string, error) {
+	return w.keystore.GetPublicKey(account)
+}

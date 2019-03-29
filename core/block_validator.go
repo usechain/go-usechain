@@ -132,9 +132,23 @@ func (v *BlockValidator) ValidateMiner(block, parent *types.Block, statedb *stat
 		preQrSignature = common.GenesisMinerQrSignature
 	}
 	n := new(big.Int).Div(tstampSub, common.BlockSlot)
-	qr := minerlist.CalQrOrIdNext(preCoinbase.Bytes(), blockNumber, preQrSignature)
-	if header.Number.Int64() > 1 && !VerifySig(minerQrSignature, qr, header.Coinbase) {
-		return fmt.Errorf("invalid minerQrSignature")
+	qr, err := minerlist.CalQrOrIdNext(preCoinbase.Bytes(), blockNumber, preQrSignature)
+	if err != nil {
+		return err
+	}
+
+	if header.Number.Int64() > 1 {
+		if len(minerQrSignature) != minerlist.PreQrLength {
+			return fmt.Errorf("invalid minerQrSignature length")
+		}
+		qrtemp := common.BytesToHash(minerQrSignature[65:])
+		if qr.String() != qrtemp.String() {
+			return fmt.Errorf("invalid minerQrSignature, qr is not correct")
+		}
+
+		if !VerifySig(minerQrSignature[:65], qr, header.Coinbase) {
+			return fmt.Errorf("invalid minerQrSignature")
+		}
 	}
 	IsValidMiner, level, preMinerid := minerlist.IsValidMiner(statedb, header.Coinbase, preCoinbase, preQrSignature, blockNumber, totalMinerNum, n)
 	if !IsValidMiner {

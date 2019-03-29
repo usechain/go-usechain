@@ -37,11 +37,6 @@ fi
 
 echo "prepare configure files...."
 
-usercrt=$ConfigDir/user.crt
-if [ ! -f "$usercrt" ]; then
-    cp  $cur_dir/config/profile/user.crt $ConfigDir/.
-fi
-
 moonetcrt=$ConfigDir/moonetCA.pem
 if [ ! -f "$rcacrt" ]; then
     cp  $cur_dir/config/profile/moonetCA.pem $ConfigDir/.
@@ -50,21 +45,6 @@ fi
 mainnetcrt=$ConfigDir/mainnetCA.pem
 if [ ! -f "$mainnetcrt" ]; then
     cp  $cur_dir/config/profile/mainnetCA.pem $ConfigDir/.
-fi
-
-committee=$ConfigDir/committee.cfg
-if [ ! -f "$committee" ]; then
-    cp  $cur_dir/config/profile/committee.cfg $ConfigDir/.
-fi
-
-userrsaprv=$ConfigDir/userrsa.prv
-if [ ! -f "$userrsaprv" ]; then
-    cp  $cur_dir/config/profile/userrsa.prv $ConfigDir/.
-fi
-
-userrsapub=$ConfigDir/userrsa.pub
-if [ ! -f "$userrsapub" ]; then
-    cp  $cur_dir/config/profile/userrsa.pub $ConfigDir/.
 fi
 
 cd $ConfigDir 

@@ -254,7 +254,7 @@ func (tx *Transaction) GetVerifiedAddress() common.Address {
 	return addr
 }
 
-func (tx *Transaction) CheckCertLegality(_from common.Address) error {
+func (tx *Transaction) CheckCertLegality(_from common.Address, chainid *big.Int) error {
 	creditABI, _ := abi.JSON(strings.NewReader(common.CreditABI))
 
 	method, exist := creditABI.Methods["register"]
@@ -287,7 +287,7 @@ func (tx *Transaction) CheckCertLegality(_from common.Address) error {
 		log.Error("Unmarshal issuer failed", "err", err)
 	}
 	cert := []byte(issuer.Cert)
-	err = crypto.CheckUserRegisterCert(cert, idhex, id.Fpr)
+	err = crypto.CheckUserRegisterCert(cert, idhex, id.Fpr, chainid.Uint64())
 	if err != nil {
 		return err
 	}

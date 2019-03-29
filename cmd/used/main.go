@@ -53,6 +53,7 @@ var (
 	// flags that configure the node
 	nodeFlags = []cli.Flag{
 		utils.IdentityFlag,
+		utils.VerifyNetworkFlag,
 		utils.VerifyIdFlag,
 		utils.VerifyInfoFlag,
 		utils.VerifyPhotoFlag,

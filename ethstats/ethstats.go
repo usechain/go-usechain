@@ -49,17 +49,17 @@ const (
 	// history request.
 	historyUpdateRange = 50
 
-	// txChanSize is the size of channel listening to TxPreEvent.
+	// txChanSize is the size of channel listening to NewTxsEvent.
 	// The number is referenced from the size of tx pool.
-	txChanSize = 4096
+	txChanSize = 4096 * 16
 	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
 	chainHeadChanSize = 10
 )
 
 type txPool interface {
-	// SubscribeTxPreEvent should return an event subscription of
-	// TxPreEvent and send events to the given channel.
-	SubscribeTxPreEvent(chan<- core.TxPreEvent) event.Subscription
+	// SubscribeNewTxsEvent should return an event subscription of
+	// NewTxsEvent and send events to the given channel.
+	SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription
 }
 
 type blockChain interface {
@@ -150,8 +150,8 @@ func (s *Service) loop() {
 	headSub := blockchain.SubscribeChainHeadEvent(chainHeadCh)
 	defer headSub.Unsubscribe()
 
-	txEventCh := make(chan core.TxPreEvent, txChanSize)
-	txSub := txpool.SubscribeTxPreEvent(txEventCh)
+	txEventCh := make(chan core.NewTxsEvent, txChanSize)
+	txSub := txpool.SubscribeNewTxsEvent(txEventCh)
 	defer txSub.Unsubscribe()
 
 	// Start a goroutine that exhausts the subsciptions to avoid events piling up
@@ -468,21 +468,23 @@ func (s *Service) reportLatency(conn *websocket.Conn) error {
 
 // blockStats is the information to report about individual blocks.
 type blockStats struct {
-	Number     *big.Int       `json:"number"`
-	Hash       common.Hash    `json:"hash"`
-	ParentHash common.Hash    `json:"parentHash"`
-	Timestamp  *big.Int       `json:"timestamp"`
-	Miner      common.Address `json:"miner"`
-	MinerNum   *big.Int		  `json:"minerNum"`
-	MinerTag   string		  `json:"minerTag"`
-	GasUsed    uint64         `json:"gasUsed"`
-	GasLimit   uint64         `json:"gasLimit"`
-	Diff       string         `json:"difficulty"`
-	TotalDiff  string         `json:"totalDifficulty"`
-	Txs        []txStats      `json:"transactions"`
-	TxHash     common.Hash    `json:"transactionsRoot"`
-	Root       common.Hash    `json:"stateRoot"`
-	Uncles     uncleStats     `json:"uncles"`
+	Number           *big.Int       `json:"number"`
+	Hash             common.Hash    `json:"hash"`
+	ParentHash       common.Hash    `json:"parentHash"`
+	Timestamp        *big.Int       `json:"timestamp"`
+	Miner            common.Address `json:"miner"`
+	IsCheckPoint     *big.Int       `json:"isCheckPoint"`
+	MinerQrSignature []byte         `json:"minerQrSignature"`
+	DifficultyLevel  *big.Int       `json:"difficultyLevel"`
+	PrimaryMiner     common.Address `json:"primaryMiner"`
+	GasUsed          uint64         `json:"gasUsed"`
+	GasLimit         uint64         `json:"gasLimit"`
+	Diff             string         `json:"difficulty"`
+	TotalDiff        string         `json:"totalDifficulty"`
+	Txs              []txStats      `json:"transactions"`
+	TxHash           common.Hash    `json:"transactionsRoot"`
+	Root             common.Hash    `json:"stateRoot"`
+	Uncles           uncleStats     `json:"uncles"`
 }
 
 // txStats is the information to report about individual transactions.
@@ -556,21 +558,23 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 	author, _ := s.engine.Author(header)
 
 	return &blockStats{
-		Number:     header.Number,
-		Hash:       header.Hash(),
-		ParentHash: header.ParentHash,
-		Timestamp:  header.Time,
-		Miner:      author,
-		MinerNum:	header.MinerNum,
-		MinerTag:   string(header.MinerTag),
-		GasUsed:    header.GasUsed,
-		GasLimit:   header.GasLimit,
-		Diff:       header.Difficulty.String(),
-		TotalDiff:  td.String(),
-		Txs:        txs,
-		TxHash:     header.TxHash,
-		Root:       header.Root,
-		Uncles:     uncles,
+		Number:           header.Number,
+		Hash:             header.Hash(),
+		ParentHash:       header.ParentHash,
+		Timestamp:        header.Time,
+		Miner:            author,
+		IsCheckPoint:     header.IsCheckPoint,
+		MinerQrSignature: header.MinerQrSignature,
+		DifficultyLevel:  header.DifficultyLevel,
+		PrimaryMiner:     header.PrimaryMiner,
+		GasUsed:          header.GasUsed,
+		GasLimit:         header.GasLimit,
+		Diff:             header.Difficulty.String(),
+		TotalDiff:        td.String(),
+		Txs:              txs,
+		TxHash:           header.TxHash,
+		Root:             header.Root,
+		Uncles:           uncles,
 	}
 }
 
@@ -646,7 +650,7 @@ func (s *Service) reportPending(conn *websocket.Conn) error {
 	// Retrieve the pending count from the local blockchain
 	var pending int
 	if s.eth != nil {
-		pending, _ = s.eth.TxPool().Stats()
+		pending, _, _ = s.eth.TxPool().Stats()
 	} else {
 		pending = s.les.TxPool().Stats()
 	}
@@ -670,7 +674,6 @@ type nodeStats struct {
 	Active   bool `json:"active"`
 	Syncing  bool `json:"syncing"`
 	Mining   bool `json:"mining"`
-	Hashrate int  `json:"hashrate"`
 	Peers    int  `json:"peers"`
 	GasPrice int  `json:"gasPrice"`
 	Uptime   int  `json:"uptime"`
@@ -682,13 +685,11 @@ func (s *Service) reportStats(conn *websocket.Conn) error {
 	// Gather the syncing and mining infos from the local miner instance
 	var (
 		mining   bool
-		hashrate int
 		syncing  bool
 		gasprice int
 	)
 	if s.eth != nil {
 		mining = s.eth.Miner().Mining()
-		hashrate = int(s.eth.Miner().HashRate())
 
 		sync := s.eth.Downloader().Progress()
 		syncing = s.eth.BlockChain().CurrentHeader().Number.Uint64() >= sync.HighestBlock
@@ -707,7 +708,6 @@ func (s *Service) reportStats(conn *websocket.Conn) error {
 		"stats": &nodeStats{
 			Active:   true,
 			Mining:   mining,
-			Hashrate: hashrate,
 			Peers:    s.server.PeerCount(),
 			GasPrice: gasprice,
 			Syncing:  syncing,

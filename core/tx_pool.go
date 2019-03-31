@@ -1,18 +1,18 @@
-// Copyright 2014 The go-ethereum Authors
-// This file is part of the go-ethereum library.
+// Copyright 2018 The go-usechain Authors
+// This file is part of the go-usechain library.
 //
-// The go-ethereum library is free software: you can redistribute it and/or modify
+// The go-usechain library is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Lesser General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// The go-ethereum library is distributed in the hope that it will be useful,
+// The go-usechain library is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
 // You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
+// along with the go-usechain library. If not, see <http://www.gnu.org/licenses/>.
 
 package core
 
@@ -25,25 +25,16 @@ import (
 	"sync"
 	"time"
 
-	"crypto/rand"
-	"encoding/binary"
-	db "github.com/syndtr/goleveldb/leveldb"
 	"github.com/usechain/go-usechain/accounts"
-	"github.com/usechain/go-usechain/accounts/keystore"
 	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/contracts/manager"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
-	"github.com/usechain/go-usechain/crypto"
-	"github.com/usechain/go-usechain/crypto/ecies"
 	"github.com/usechain/go-usechain/event"
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/metrics"
 	"github.com/usechain/go-usechain/params"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
-	"reflect"
-	"strings"
-	"github.com/usechain/go-usechain/accounts/abi"
-	"github.com/usechain/go-usechain/common/hexutil"
 )
 
 const (
@@ -104,6 +95,39 @@ var (
 	// than some meaningful limit a user might use. This is not a consensus error
 	// making the transaction invalid, rather a DOS protection.
 	ErrOversizedData = errors.New("oversized data")
+
+	// ErrPbftTo is returned if to is not nil in a pbft transaction
+	ErrTxpoolFull = errors.New("the txpool is already full")
+
+	// ErrPbftTo is returned if to is not nil in a pbft transaction
+	ErrPbftTo = errors.New("invalid receiver in pbft transaction")
+
+	// ErrPbftAmount is returned if amount is not zero in a pbft transaction
+	ErrPbftAmount = errors.New("invalid amount in pbft transaction")
+
+	// ErrPbftGas is returned if gas is not zero in a pbft transaction
+	ErrPbftGas = errors.New("invalid gas in pbft transaction")
+
+	// ErrPbftPrice is returned if price is not zero in a pbft transaction
+	ErrPbftPrice = errors.New("invalid price in pbft transaction")
+
+	// ErrPbftPrice is returned if price is not zero in a pbft transaction
+	ErrPbftSender = errors.New("invalid sender in pbft transaction")
+
+	// ErrPbftPayloadLen is returned if length of payload is invalid in a pbft transaction
+	ErrPbftPayloadLen = errors.New("invalid length of payload in a pbft transaction")
+
+	// ErrPbftPayload is returned if payload is invalid in a pbft transaction
+	ErrPbftPayload = errors.New("invalid payload in a pbft transaction")
+
+	// ErrPbftHeight is returned if vote height % VoteSlot != VoteSlot - 1
+	ErrPbftHeight = errors.New("invalid vote height in a pbft transaction")
+
+	// ErrOverduePbftHeight is returned if vote height is less than current chain height
+	ErrOverduePbftHeight = errors.New("overdue vote height in a pbft transaction")
+
+	// ErrPbftIndex is returned if vote index is error
+	ErrPbftIndex = errors.New("invalid vote index in a pbft transaction")
 )
 
 var (
@@ -137,22 +161,8 @@ const (
 	TxStatusQueued
 	TxStatusPending
 	TxStatusIncluded
+	TxStatusPbft
 )
-
-const (
-	defaultKeystoreDict    = ""
-	defaultGasForCommittee = 1000000
-	DefaultReplayMsg       = "0xeeeeeeee"
-	DefaultSendTagMsg      = "0xffffffff"
-	TextAddress1           = "0xd2a132139ca63447a7affc49143c17bf81948d54"
-	TextAddress2           = "0xfa01c38d39625a76d2f13af3203e82555236f9ea"
-
-)
-
-var priv string = "113b218c583e05d08130e04ddd9ff852095e3352ca79b0249385ce438035b3af"
-var privateKeyECDSA_text, _ = crypto.HexToECDSA(priv)
-
-var replayCh = make(chan common.Hash)
 
 // blockChain provides the state of blockchain and current gas limit to do
 // some pre checks in tx pool and event subscribers.
@@ -170,8 +180,9 @@ type TxPoolConfig struct {
 	Journal   string        // Journal of local transactions to survive node restarts
 	Rejournal time.Duration // Time interval to regenerate the local transaction journal
 
-	PriceLimit uint64 // Minimum gas price to enforce for acceptance into the pool
-	PriceBump  uint64 // Minimum price bump percentage to replace an already existing transaction (nonce)
+	PriceLimit  uint64 // Minimum gas price to enforce for acceptance into the pool
+	PriceBump   uint64 // Minimum price bump percentage to replace an already existing transaction (nonce)
+	LowestPrice int64
 
 	AccountSlots uint64 // Minimum number of executable transaction slots guaranteed per account
 	GlobalSlots  uint64 // Maximum number of executable transaction slots for all accounts
@@ -187,13 +198,15 @@ var DefaultTxPoolConfig = TxPoolConfig{
 	Journal:   "transactions.rlp",
 	Rejournal: time.Hour,
 
-	PriceLimit: 1,
-	PriceBump:  10,
+	PriceLimit:  1000000,
+	PriceBump:   10,
+	LowestPrice: 1 * params.Shannon,
 
 	AccountSlots: 16,
-	GlobalSlots:  4096,
-	AccountQueue: 64,
-	GlobalQueue:  1024,
+	GlobalSlots:  4096 * 2,
+	///TODO: need to get a suitable parameters, and avoid TX DDOS attack
+	AccountQueue: 64 * 32,
+	GlobalQueue:  1024 * 16,
 
 	Lifetime: 3 * time.Hour,
 }
@@ -283,7 +296,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 	if !config.NoLocals && config.Journal != "" {
 		pool.journal = newTxJournal(config.Journal)
 
-		if err := pool.journal.load(pool.AddLocal); err != nil {
+		if err := pool.journal.load(pool.AddLocals); err != nil {
 			log.Warn("Failed to load transaction journal", "err", err)
 		}
 		if err := pool.journal.rotate(pool.local()); err != nil {
@@ -307,7 +320,7 @@ func (pool *TxPool) loop() {
 	defer pool.wg.Done()
 
 	// Start the stats reporting and transaction eviction tickers
-	var prevPending, prevQueued, prevStales int
+	var prevPending, prevQueued, prevPbft, prevStales int
 
 	report := time.NewTicker(statsReportInterval)
 	defer report.Stop()
@@ -343,13 +356,13 @@ func (pool *TxPool) loop() {
 		// Handle stats reporting ticks
 		case <-report.C:
 			pool.mu.RLock()
-			pending, queued := pool.stats()
+			pending, queued, pbft := pool.stats()
 			stales := pool.priced.stales
 			pool.mu.RUnlock()
 
-			if pending != prevPending || queued != prevQueued || stales != prevStales {
-				log.Debug("Transaction pool status report", "executable", pending, "queued", queued, "stales", stales)
-				prevPending, prevQueued, prevStales = pending, queued, stales
+			if pending != prevPending || queued != prevQueued || pbft != prevPbft || stales != prevStales {
+				log.Debug("Transaction pool status report", "executable", pending, "queued", queued, "pbft", pbft, "stales", stales)
+				prevPending, prevQueued, prevPbft, prevStales = pending, queued, pbft, stales
 			}
 
 		// Handle inactive account transaction eviction
@@ -489,9 +502,9 @@ func (pool *TxPool) Stop() {
 	log.Info("Transaction pool stopped")
 }
 
-// SubscribeTxPreEvent registers a subscription of TxPreEvent and
+// SubscribeNewTxsEvent registers a subscription of NewTxsEvent and
 // starts sending event to the given channel.
-func (pool *TxPool) SubscribeTxPreEvent(ch chan<- TxPreEvent) event.Subscription {
+func (pool *TxPool) SubscribeNewTxsEvent(ch chan<- NewTxsEvent) event.Subscription {
 	return pool.scope.Track(pool.txFeed.Subscribe(ch))
 }
 
@@ -524,9 +537,16 @@ func (pool *TxPool) State() *state.ManagedState {
 	return pool.pendingState
 }
 
+// State returns the current state in the blockchain head
+func (pool *TxPool) StateDB() *state.StateDB {
+	pool.mu.RLock()
+	defer pool.mu.RUnlock()
+	return pool.currentState
+}
+
 // Stats retrieves the current pool stats, namely the number of pending and the
-// number of queued (non-executable) transactions.
-func (pool *TxPool) Stats() (int, int) {
+// number of queued (non-executable) and the number of pbft transactions.
+func (pool *TxPool) Stats() (int, int, int) {
 	pool.mu.RLock()
 	defer pool.mu.RUnlock()
 
@@ -534,34 +554,59 @@ func (pool *TxPool) Stats() (int, int) {
 }
 
 // stats retrieves the current pool stats, namely the number of pending and the
-// number of queued (non-executable) transactions.
-func (pool *TxPool) stats() (int, int) {
+// number of queued (non-executable) and the number of pbft transactions.
+func (pool *TxPool) stats() (int, int, int) {
 	pending := 0
+	pbft := 0
 	for _, list := range pool.pending {
-		pending += list.Len()
+		txs := list.Flatten()
+		for i := 0; i < len(txs); i++ {
+			if txs[i].Flag() == 1 {
+				pbft++
+			} else {
+				pending++
+			}
+		}
 	}
 	queued := 0
 	for _, list := range pool.queue {
 		queued += list.Len()
 	}
-	return pending, queued
+	return pending, queued, pbft
 }
 
 // Content retrieves the data content of the transaction pool, returning all the
-// pending as well as queued transactions, grouped by account and sorted by nonce.
-func (pool *TxPool) Content() (map[common.Address]types.Transactions, map[common.Address]types.Transactions) {
+// pending as well as queued and pbft transactions, grouped by account and sorted by nonce.
+func (pool *TxPool) Content() (map[common.Address]types.Transactions, map[common.Address]types.Transactions, map[common.Address]types.Transactions) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
 	pending := make(map[common.Address]types.Transactions)
+	pbft := make(map[common.Address]types.Transactions)
 	for addr, list := range pool.pending {
-		pending[addr] = list.Flatten()
+		txs := list.Flatten()
+		tempPendingTxs := make(types.Transactions, 0, txs.Len())
+		tempPbftTxs := make(types.Transactions, 0, txs.Len())
+		for i := 0; i < txs.Len(); i++ {
+			if txs[i].Flag() == 1 {
+				tempPbftTxs = append(tempPbftTxs, txs[i])
+			} else {
+				tempPendingTxs = append(tempPendingTxs, txs[i])
+			}
+		}
+		if tempPendingTxs.Len() > 0 {
+			pending[addr] = tempPendingTxs
+		}
+
+		if tempPbftTxs.Len() > 0 {
+			pbft[addr] = tempPbftTxs
+		}
 	}
 	queued := make(map[common.Address]types.Transactions)
 	for addr, list := range pool.queue {
 		queued[addr] = list.Flatten()
 	}
-	return pending, queued
+	return pending, queued, pbft
 }
 
 // Pending retrieves all currently processable transactions, groupped by origin
@@ -573,9 +618,75 @@ func (pool *TxPool) Pending() (map[common.Address]types.Transactions, error) {
 
 	pending := make(map[common.Address]types.Transactions)
 	for addr, list := range pool.pending {
-		pending[addr] = list.Flatten()
+		txs := list.Flatten()
+		tempPendingTxs := make(types.Transactions, 0, txs.Len())
+		for i := 0; i < txs.Len(); i++ {
+			if txs[i].Flag() == 0 {
+				tempPendingTxs = append(tempPendingTxs, txs[i])
+			}
+		}
+		if tempPendingTxs.Len() > 0 {
+			pending[addr] = tempPendingTxs
+		}
 	}
 	return pending, nil
+}
+
+// Pbft retrieves all currently pbft transactions, groupped by origin
+// account. The returned transaction set is a copy and can be
+// freely modified by calling code.
+func (pool *TxPool) Pbft() (map[common.Address]types.Transactions, error) {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
+
+	pbft := make(map[common.Address]types.Transactions)
+	for addr, list := range pool.pending {
+		txs := list.Flatten()
+		tempPbftTxs := make(types.Transactions, 0, txs.Len())
+		for i := 0; i < txs.Len(); i++ {
+			if txs[i].Flag() == 1 {
+				tempPbftTxs = append(tempPbftTxs, txs[i])
+			}
+		}
+		if tempPbftTxs.Len() > 0 {
+			pbft[addr] = tempPbftTxs
+		}
+	}
+	return pbft, nil
+}
+
+// GetValidPbft retrieves all suitable pbft transactions, groupped by origin
+// account. The returned transaction set is a copy and can be
+// freely modified by calling code.
+func (pool *TxPool) GetValidPbft(number uint64, index uint64) (map[common.Address]types.Transactions, error) {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
+
+	pbft := make(map[common.Address]types.Transactions)
+	for addr, list := range pool.pending {
+		txs := list.Flatten()
+		tempPbftTxs := make(types.Transactions, 0, txs.Len())
+		for i := 0; i < txs.Len(); i++ {
+			tx := txs[i]
+			if tx.Flag() != 1 {
+				continue
+			}
+
+			payload := tx.Data()
+			if number != common.BytesToUint64(payload[common.HashLength:common.HashLength+8]) { // filter unsuitable vote height
+				continue
+			}
+			if index != common.BytesToUint64(payload[common.HashLength+8:]) { // filter unsuitable vote index
+				continue
+			}
+
+			tempPbftTxs = append(tempPbftTxs, txs[i])
+		}
+		if tempPbftTxs.Len() > 0 {
+			pbft[addr] = tempPbftTxs
+		}
+	}
+	return pbft, nil
 }
 
 // local retrieves all currently known local transactions, groupped by origin
@@ -594,78 +705,40 @@ func (pool *TxPool) local() map[common.Address]types.Transactions {
 	return txs
 }
 
-//check the certificate signature if the transaction is authentication Tx
-func checkAddrLegality(_db *state.StateDB, tx *types.Transaction, _from common.Address) error {
-
-	if _db.GetCode(_from) == nil {
-		if _db.CheckAddrAuthenticateStat(_from) == 0 {
-			return ErrIllegalSourceAddress
-		}
-
-		log.Info("The normal transaction addr checking passed!")
+// validatePbftTx checks whether a pbft transaction is valid
+func ValidatePbftTx(state *state.StateDB, h *big.Int, index uint64, tx *types.Transaction, from common.Address) error {
+	if *tx.To() != common.HexToAddress("0x0000000000000000000000000000000000000000") {
+		return ErrPbftTo
 	}
-	return nil
-}
-
-//check the certificate signature if the transaction is multiAccount authentication Tx
-//   MultiAB account authentication TX:
-//   -------------------------------------------------------------------
-//  |             |              |               |                      |
-//  |   ABI_tag   |   ringSig    |   pub_S_key   |   publicKeyMirror    |
-//  |             |              |               |                      |
-//   -------------------------------------------------------------------
-//  ======================================================================
-func checkMultiAccountSig(tx *types.Transaction, _db *state.StateDB, _addType int, _from common.Address) error {
-
-	usechainABI, err := abi.JSON(strings.NewReader(common.UsechainABI))
-	if err != nil {
-		log.Error("usechainABI error")
+	if tx.Value().Int64() != 0 {
+		return ErrPbftAmount
+	}
+	if tx.Gas() != 0 {
+		return ErrPbftGas
+	}
+	if tx.GasPrice().Int64() != 0 {
+		return ErrPbftPrice
 	}
 
-	method, exist := usechainABI.Methods["storeMainUserCert"]
-	if !exist {
-		log.Error("method storeMainUserCert not found")
+	if !manager.IsCommittee(state, from) {
+		return ErrPbftSender
 	}
 
-	InputDataInterface,err :=method.Inputs.UnpackABI(tx.Data()[4:])
-	if err !=nil {
-		log.Error("method.Inputs: ",err)
-		return err
+	payload := tx.Data()
+	len := len(payload)
+	if len != common.HashLength+16 {
+		return ErrPbftPayloadLen
 	}
-
-	var inputData []string
-	for _, param := range InputDataInterface {
-		inputData = append(inputData, param.(string))
+	number := common.BytesToUint64(payload[common.HashLength : common.HashLength+8])
+	if number%common.VoteSlot.Uint64() != common.VoteSlot.Uint64()-1 {
+		return ErrPbftHeight
 	}
-
-	ringsign := inputData[0]
-	//pub := inputData[1]
-	pubMirror := inputData[2]
-
-
-	msg:=hexutil.Encode(_from[:])
-
-	ringRes:=crypto.VerifyRingSign(msg, ringsign)
-	if ringRes == false {
-		return errors.New("verify ring signature error")
+	if number < h.Uint64() {
+		return ErrOverduePbftHeight
 	}
-
-	err, pubKeys, pubMirrorKey, _, _ := crypto.DecodeRingSignOut(ringsign)
-	if err != nil {
-		log.Error("The  ringSig decode failed")
-		return err
+	if index != common.BytesToUint64(payload[common.HashLength+8:]) {
+		return ErrPbftIndex
 	}
-
-	if  common.ToHex((crypto.FromECDSAPub(pubMirrorKey))) != pubMirror {
-		log.Error("The pubMirror doesn't match with ringSig")
-		return errors.New("the pubMirror doesn't match with ringSig")
-	}
-
-	if !_db.CheckRingSigPubKey(_addType, pubKeys) {
-		log.Error("The ringSig pubkey is illegal!")
-		return errors.New("the ringSig pubkey is illegal")
-	}
-
 	return nil
 }
 
@@ -676,6 +749,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if tx.Size() > 32*1024 {
 		return ErrOversizedData
 	}
+
 	// Transactions can't be negative. This may never happen using RLP decoded
 	// transactions but may occur if you create a transaction using the RPC.
 	if tx.Value().Sign() < 0 {
@@ -693,41 +767,25 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return ErrInvalidSender
 	}
 
+	// If it's vote transaction
+	if tx.Flag() == 1 {
+		return ValidatePbftTx(pool.currentState, pool.chain.CurrentBlock().Number(), common.GetIndexForVote(time.Now().Unix(), pool.chain.CurrentBlock().Time().Int64()), tx, from)
+	}
+
 	//If the transaction is authentication, check txCert Signature
 	//If the transaction isn't, check the address legality
-	if tx.IsAuthentication() {
-		//log.Info("Is a authentication tx")
-		err = tx.CheckCertificateSig(from)
+	var chainid = pool.chainconfig.ChainId
+
+	if tx.IsRegisterTransaction() {
+		err = tx.CheckCertLegality(from, chainid)
 		if err != nil {
-			return ErrInvalidAuthenticationsig
+			return err
 		}
-	} else if tx.IsMainAuthentication() {
-		//log.Info("Is a Main authentication tx")
-		err = checkMultiAccountSig(tx, pool.currentState, common.MainAddress, from)
-		if err != nil {
-			return ErrInvalidAuthenticationsig
-		}
-	} else if tx.IsSubAuthentication() {
-		//log.Info("Is a Sub authentication tx")
-		err = checkMultiAccountSig(tx, pool.currentState, common.SubAddress, from)
-		if err != nil {
-			return ErrInvalidAuthenticationsig
-		}
-	} else {
-		///TODO: Remove address legality check in moonet testnet
-		//if common.ToHex(from[:]) != "0x6102d428c9aee1ae53d1ba77c83e78be4da1b95a" {
-		//	fmt.Println("common.ToHex(from[:]) != 0x490a8abf72eb8bed2a6cfeff7826c3158591bac0")
-		//	err = checkAddrLegality(pool.currentState, tx, from)
-		//}
-		//
-		//if err != nil {
-		//	return ErrIllegalAddress
-		//}
 	}
 
 	// Drop non-local transactions under our own minimal accepted gas price
 	local = local || pool.locals.contains(from) // account may be local even if the transaction arrived from the network
-	if !local && pool.gasPrice.Cmp(tx.GasPrice()) > 0 && !tx.IsAuthentication() {
+	if !local && pool.gasPrice.Cmp(tx.GasPrice()) > 0 {
 		return ErrUnderpriced
 	}
 
@@ -761,31 +819,19 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 	// If the transaction is already known, discard it
 	hash := tx.Hash()
-	if pool.all[hash] != nil {
-		log.Trace("Discarding already known transaction", "hash", hash)
+	if pool.all[hash] != nil && tx.Flag() == 0 {
+		log.Debug("Discarding already known transaction", "hash", hash)
 		return false, fmt.Errorf("known transaction: %x", hash)
 	}
 	// If the transaction fails basic validation, discard it
 	if err := pool.validateTx(tx, local); err != nil {
-		log.Trace("Discarding invalid transaction", "hash", hash, "err", err)
+		log.Debug("Discarding invalid transaction", "hash", hash, "err", err)
 		invalidTxCounter.Inc(1)
 		return false, err
 	}
 	// If the transaction pool is full, discard underpriced transactions
-	if uint64(len(pool.all)) >= pool.config.GlobalSlots+pool.config.GlobalQueue {
-		// If the new transaction is underpriced, don't accept it
-		if pool.priced.Underpriced(tx, pool.locals) {
-			log.Trace("Discarding underpriced transaction", "hash", hash, "price", tx.GasPrice())
-			underpricedTxCounter.Inc(1)
-			return false, ErrUnderpriced
-		}
-		// New transaction is better than our worse ones, make room for it
-		drop := pool.priced.Discard(len(pool.all)-int(pool.config.GlobalSlots+pool.config.GlobalQueue-1), pool.locals)
-		for _, tx := range drop {
-			log.Trace("Discarding freshly underpriced transaction", "hash", tx.Hash(), "price", tx.GasPrice())
-			underpricedTxCounter.Inc(1)
-			pool.removeTx(tx.Hash())
-		}
+	if uint64(len(pool.all)) >= pool.config.GlobalSlots+pool.config.GlobalQueue && tx.Flag() != 1 {
+		return false, ErrTxpoolFull
 	}
 	// If the transaction is replacing an already pending one, do directly
 	from, _ := types.Sender(pool.signer, tx) // already validated
@@ -806,56 +852,12 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 		pool.priced.Put(tx)
 		pool.journalTx(from, tx)
 
-		log.Trace("Pooled new executable transaction", "hash", hash, "from", from, "to", tx.To())
+		log.Debug("Pooled new executable transaction", "hash", hash, "from", from, "to", tx.To())
 
 		// We've directly injected a replacement transaction, notify subsystems
-		go pool.txFeed.Send(TxPreEvent{tx})
+		go pool.txFeed.Send(NewTxsEvent{types.Transactions{tx}})
 
 		return old != nil, nil
-	}
-	// committee transaction check
-	store := pool.accountManager.Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
-	if len(store.Accounts()) > 0 {
-		localAccount := store.Accounts()[0]
-		localAddress := localAccount.Address
-
-		go func() {
-			sender, _ := types.Sender(pool.signer, tx)
-			//fmt.Printf("in range , the addr now is %x ---- and tx.To() is %x \n", sender, tx.To())
-
-			if tx.To() != nil && pool.currentState.IsCommittee(*(tx.To())) && pool.currentState.IsCommittee(sender) {
-				if reflect.DeepEqual(sender, localAddress) {
-					tag := tx.Data()[:len(DefaultSendTagMsg)]
-					if reflect.DeepEqual(string(tag), DefaultSendTagMsg) {
-						cryptoMsg := tx.Data()[len(DefaultSendTagMsg):]
-						msg, err := AnalyticMsgInfo(cryptoMsg, localAccount, store)
-						if err != nil {
-							log.Info("some err between AnalyticMsgInfo", err)
-						}
-						GlobalMsgMapStore(sender, msg, tx.Hash())
-						select {
-						case <-time.After(20 * time.Second):
-							return
-						case <-replayCh:
-							return
-						}
-					}
-				} else if reflect.DeepEqual(*tx.To(), localAddress) {
-					tag := tx.Data()[:len(DefaultSendTagMsg)]
-					if reflect.DeepEqual(string(tag), DefaultSendTagMsg) {
-						cryptoMsg := tx.Data()[len(DefaultSendTagMsg):]
-						msg, err := AnalyticMsgInfo(cryptoMsg, localAccount, store)
-						if err != nil {
-							log.Info("some err between AnalyticMsgInfo", err)
-						}
-						GlobalMsgMapStore(sender, msg, tx.Hash())
-						//ReplayToCommitteeOnce(*tx.To(), sender, tx.GasPrice(), pool, tx.Data(), store)
-					} else if reflect.DeepEqual(string(tag), DefaultReplayMsg) {
-						replayCh <- tx.Hash()
-					}
-				}
-			}
-		}()
 	}
 
 	// New transaction isn't replacing a pending one, push into queue
@@ -869,7 +871,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 	}
 	pool.journalTx(from, tx)
 
-	log.Trace("Pooled new future transaction", "hash", hash, "from", from, "to", tx.To())
+	log.Debug("Pooled new future transaction", "hash", hash, "from", from, "to", tx.To())
 	return replace, nil
 }
 
@@ -911,10 +913,10 @@ func (pool *TxPool) journalTx(from common.Address, tx *types.Transaction) {
 	}
 }
 
-// promoteTx adds a transaction to the pending (processable) list of transactions.
-//
+// promoteTx adds a transaction to the pending (processable) list of transactions
+// and returns whether it was inserted or an older was better.
 // Note, this method assumes the pool lock is held!
-func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.Transaction) {
+func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.Transaction) bool {
 	// Try to insert the transaction into the pending queue
 	if pool.pending[addr] == nil {
 		pool.pending[addr] = newTxList(true)
@@ -928,7 +930,7 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 		pool.priced.Removed()
 
 		pendingDiscardCounter.Inc(1)
-		return
+		return false
 	}
 	// Otherwise discard any previous transaction and mark this
 	if old != nil {
@@ -946,7 +948,7 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 	pool.beats[addr] = time.Now()
 	pool.pendingState.SetNonce(addr, tx.Nonce()+1)
 
-	go pool.txFeed.Send(TxPreEvent{tx})
+	return true
 }
 
 // AddLocal enqueues a single transaction into the pool if it is valid, marking
@@ -1040,6 +1042,21 @@ func (pool *TxPool) Status(hashes []common.Hash) []TxStatus {
 	for i, hash := range hashes {
 		if tx := pool.all[hash]; tx != nil {
 			from, _ := types.Sender(pool.signer, tx) // already validated
+
+			// check pbft tx list
+			//if pbft := pool.pbft[from]; pbft != nil {
+			//	var exist bool = false
+			//	for _, pbftTx := range pool.pbft[from].Flatten() {
+			//		if pbftTx.Hash() == tx.Hash() {
+			//			status[i] = TxStatusPbft
+			//			exist = true
+			//			break
+			//		}
+			//	}
+			//	if exist {
+			//		continue
+			//	}
+			//}
 			if pool.pending[from] != nil && pool.pending[from].txs.items[tx.Nonce()] != nil {
 				status[i] = TxStatusPending
 			} else {
@@ -1106,6 +1123,9 @@ func (pool *TxPool) removeTx(hash common.Hash) {
 // future queue to the set of pending transactions. During this process, all
 // invalidated transactions (low nonce, low balance) are deleted.
 func (pool *TxPool) promoteExecutables(accounts []common.Address) {
+	// Track the promoted transactions to broadcast them at once
+	var promoted []*types.Transaction
+
 	// Gather all the accounts potentially needing updates
 	if accounts == nil {
 		accounts = make([]common.Address, 0, len(pool.queue))
@@ -1138,8 +1158,10 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 		// Gather all executable transactions and promote them
 		for _, tx := range list.Ready(pool.pendingState.GetNonce(addr)) {
 			hash := tx.Hash()
-			log.Trace("Promoting queued transaction", "hash", hash)
-			pool.promoteTx(addr, hash, tx)
+			if pool.promoteTx(addr, hash, tx) {
+				log.Trace("Promoting queued transaction", "hash", hash)
+				promoted = append(promoted, tx)
+			}
 		}
 		// Drop all transactions over the allowed limit
 		if !pool.locals.contains(addr) {
@@ -1155,6 +1177,10 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 		if list.Empty() {
 			delete(pool.queue, addr)
 		}
+	}
+	// Notify subsystem for new promoted transactions.
+	if len(promoted) > 0 {
+		pool.txFeed.Send(NewTxsEvent{promoted})
 	}
 	// If the pending limit is overflown, start equalizing allowances
 	pending := uint64(0)
@@ -1312,6 +1338,35 @@ func (pool *TxPool) demoteUnexecutables() {
 			delete(pool.beats, addr)
 		}
 	}
+
+	// Drop all pbft transactions that different from current height(such as: 9, 19, ..., 109, etc)
+	curBlock := pool.chain.CurrentBlock()
+	for addr, list := range pool.pending {
+		txs := list.Flatten()
+		for i := 0; i < txs.Len(); i++ {
+			tx := txs[i]
+			if tx.Flag() != 1 {
+				continue
+			}
+
+			payload := tx.Data()
+			vote_h := common.BytesToUint64(payload[common.HashLength : common.HashLength+8])
+			vote_index := common.BytesToUint64(payload[common.HashLength+8:])
+			if vote_h < curBlock.NumberU64() || vote_index < common.GetIndexForVote(time.Now().Unix(), curBlock.Time().Int64()) {
+				list.txs.Remove(tx.Nonce())
+				hash := tx.Hash()
+				log.Trace("Removed overdue vote transaction", "hash", hash)
+				delete(pool.all, hash)
+				pool.priced.Removed()
+			}
+		}
+
+		// Delete the entire queue entry if it became empty.
+		if list.Empty() {
+			delete(pool.pending, addr)
+			delete(pool.beats, addr)
+		}
+	}
 }
 
 // addressByHeartbeat is an account address tagged with its last activity timestamp.
@@ -1360,244 +1415,4 @@ func (as *accountSet) containsTx(tx *types.Transaction) bool {
 // add inserts a new address into the set to track.
 func (as *accountSet) add(addr common.Address) {
 	as.accounts[addr] = struct{}{}
-}
-
-func ReplayToCommitteeOnce(sender common.Address, to common.Address, gasPrice *big.Int, pool *TxPool, data []byte, store *keystore.KeyStore) {
-	copy(data[:len(DefaultSendTagMsg)], []byte(DefaultReplayMsg)[:])
-	tx := GenerateTransaction(sender, to, big.NewInt(0), pool, gasPrice, data)
-
-	accounts := store.Accounts()
-
-	signTx, err := store.SignTx(accounts[0], tx, pool.chainconfig.ChainId)
-	if err != nil {
-		log.Info("Transaction pool committee internal communication callback error, error content is ", err)
-	}
-	//bool, err := pool.enqueueTx(txHash, signTx)
-	// Add the batch of transaction, tracking the accepted ones
-	//dirty := make(map[common.Address]struct{})
-	replace, err := pool.add(signTx, true)
-	fmt.Println("finished pool.add in go func replace and err is ", replace, err)
-	if err != nil {
-		return
-	}
-	// If we added a new transaction, run promotion checks and return
-	if !replace {
-		from, _ := types.Sender(pool.signer, signTx) // already validated
-		pool.promoteExecutables([]common.Address{from})
-	}
-}
-
-func ReplayToCommittee(sender common.Address, to common.Address, gasPrice *big.Int, pool *TxPool, data []byte, store *keystore.KeyStore, msg []byte) {
-	tx := GenerateTransaction(sender, to, big.NewInt(0), pool, gasPrice, data)
-
-	accounts := store.Accounts()
-	signTx, err := store.SignTx(accounts[0], tx, pool.chainconfig.ChainId)
-	if err != nil {
-		log.Info("Transaction pool committee internal communication callback error, error content is ", err)
-	}
-	//bool, err := pool.enqueueTx(txHash, signTx)
-	// Add the batch of transaction, tracking the accepted ones
-	//dirty := make(map[common.Address]struct{})
-	replace, err := pool.add(signTx, true)
-	if err != nil {
-		return
-	}
-	// If we added a new transaction, run promotion checks and return
-	if !replace {
-		from, _ := types.Sender(pool.signer, signTx) // already validated
-		fmt.Printf("---- go func prepare to go into promoteExecutables and from is ::: %x\n", from)
-		pool.promoteExecutables([]common.Address{from})
-	}
-	GlobalMsgMapStore(sender, msg, signTx.Hash())
-	if err == nil {
-		select {
-		case <-time.After(20 * time.Second):
-			go ReplayToCommittee(sender, to, gasPrice, pool, data, store, msg)
-			return
-		case <-replayCh:
-			return
-		}
-	}
-}
-
-// Generate transactions based on data
-func GenerateTransaction(from common.Address, to common.Address, value *big.Int, pool *TxPool, gasPrice *big.Int, data []byte) *types.Transaction {
-	managedState := pool.State()
-	nonce := managedState.GetNonce(from) + 1
-	managedState.SetNonce(from, nonce)
-	//newData := data
-	gasLimit := big.NewInt(defaultGasForCommittee).Uint64()
-	return types.NewTransaction(nonce, to, value, gasLimit, gasPrice, data)
-}
-
-// The global thread-safe map stores internal data
-var GlobalMsgStoreMap sync.Map
-
-// slice to store the key of the map
-var GlobalMsgKeyStoreSlice []common.Hash
-
-type Interior struct {
-	Info map[common.Hash][]msgInfo
-}
-
-type msgInfo struct {
-	addr  common.Address
-	nonce uint64
-	msg   []byte
-}
-
-type Persistence struct {
-	Sender common.Address `json:"sender"`
-	Nonce  uint64         `json:"nonce"`
-	Msg    []byte         `json:"msg"`
-}
-
-func NewInterior() *Interior {
-	return &Interior{
-		Info: make(map[common.Hash][]msgInfo),
-	}
-}
-
-func (i *Interior) SetInfoIntoMap(sender common.Address, msg []byte, nonce uint64, txHash common.Hash) {
-	value := msgInfo{
-		nonce: nonce,
-		msg:   msg,
-		addr:  sender}
-	i.insert(txHash, value)
-}
-
-func (i *Interior) insert(txHash common.Hash, msg msgInfo) {
-	i.Info[txHash] = append(i.Info[txHash], msg)
-}
-
-func (i *Interior) DeleteByKey(txHash common.Hash) error {
-	if _, ok := i.Info[txHash]; !ok {
-		return errors.New("given address is not exist in the map")
-	}
-	delete(i.Info, txHash)
-	return nil
-}
-
-func (i *Interior) GetTheWholeMap() map[common.Hash][]msgInfo {
-	return i.Info
-}
-
-func (i *Interior) FindIfExist(txHash common.Hash) (x bool) {
-	_, x = i.Info[txHash]
-	return
-}
-
-func NewPersistence(sender common.Address, nonce uint64, msg []byte) *Persistence {
-	return &Persistence{
-		Sender: sender,
-		Nonce:  nonce,
-		Msg:    msg,
-	}
-}
-
-func (n *Persistence) PutIntoDatabase() error {
-	db, err := db.OpenFile("", nil)
-	if err != nil {
-		return err
-	}
-	uniqueKey := getUniqueKey(n.Sender, n.Nonce)
-	uniqueValue := n.Msg
-	err = db.Put(uniqueKey, uniqueValue, nil)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (n *Persistence) GetFromDatabase(sender common.Address, nonce uint64) ([]byte, error) {
-	uniqueKey := getUniqueKey(sender, nonce)
-	db, err := db.OpenFile("", nil)
-	if err != nil {
-		return nil, err
-	}
-	msg, err := db.Get(uniqueKey, nil)
-	if err != nil {
-		return nil, err
-	}
-	return msg, nil
-}
-
-func getUniqueKey(sender common.Address, nonce uint64) []byte {
-	nonceToByte := make([]byte, 8)
-	binary.BigEndian.PutUint64(nonceToByte, nonce)
-
-	unique := make([]byte, len(sender)+len(nonceToByte))
-
-	copy(unique[:len(sender)], sender[:])
-	copy(unique[len(sender):], nonceToByte)
-
-	return unique
-}
-
-func AnalyticMsgInfo(cryptoMsg []byte, localAccount accounts.Account, store *keystore.KeyStore) ([]byte, error) {
-	privateKeyEcies := ecies.ImportECDSA(privateKeyECDSA_text)
-	msg, err := privateKeyEcies.Decrypt(rand.Reader, cryptoMsg, nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	return msg, nil
-}
-
-
-// CURD for map
-func GlobalMsgMapStore(sender common.Address, msg []byte, txHash common.Hash) {
-	GlobalMsgKeyStoreSlice = append(GlobalMsgKeyStoreSlice, txHash)
-	msgStoreKey := txHash
-	msgStoreValue := make([]byte, len(sender)+len(msg))
-	copy(msgStoreValue[:len(sender)], sender[:])
-	copy(msgStoreValue[len(sender):], msg)
-	GlobalMsgStoreMap.Store(msgStoreKey, msgStoreValue)
-}
-
-func GlobalMsgMapLoad(key interface{}) bool {
-	_, exist := GlobalMsgStoreMap.Load(key)
-	return exist
-}
-
-func GlobalMsgMapDelete(key interface{}) {
-	GlobalMsgStoreMap.Delete(key)
-	for i, index := range GlobalMsgKeyStoreSlice {
-		if reflect.DeepEqual(key, index) {
-			GlobalMsgKeyStoreSlice = append(GlobalMsgKeyStoreSlice[:i], GlobalMsgKeyStoreSlice[i+1:]...)
-		}
-	}
-}
-
-// Read self message from tx queue
-func GetTheLastInternalTrans() (common.Address, []byte) {
-	if len(GlobalMsgKeyStoreSlice) == 0 {
-		return common.Address{}, nil
-	}
-
-	maxIndex := len(GlobalMsgKeyStoreSlice) - 1
-	lastKeyInMap := GlobalMsgKeyStoreSlice[maxIndex]
-	info := GetValueByKey(lastKeyInMap)
-	if info != nil {
-		senderAddr := common.Address{}
-		copy(senderAddr[:], info[:len(common.Address{})])
-		//senderAddr[:] = info[:len(common.Address{})]
-		msgInfo := info[len(common.Address{}):]
-		GlobalMsgMapDelete(lastKeyInMap)
-		return senderAddr, msgInfo
-	}
-	GlobalMsgMapDelete(lastKeyInMap)
-	return common.Address{}, nil
-}
-
-func GetValueByKey(key interface{}) []byte {
-	value, ok := GlobalMsgStoreMap.Load(key)
-	if ok {
-		msgInfo, valid := value.([]byte)
-		if valid {
-			return msgInfo
-		} else {
-			return nil
-		}
-	}
-	return nil
 }

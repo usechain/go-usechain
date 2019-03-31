@@ -263,19 +263,19 @@ func TestEncryptDecrypt(t *testing.T) {
 		t.FailNow()
 	}
 
-	message := []byte("Hello, world.")
+	message := []byte("Hello world")
 	ct, err := Encrypt(rand.Reader, &prv2.PublicKey, message, nil, nil)
 	if err != nil {
 		fmt.Println(err.Error())
 		t.FailNow()
 	}
-
+	fmt.Println(ct)
 	pt, err := prv2.Decrypt(rand.Reader, ct, nil, nil)
 	if err != nil {
 		fmt.Println(err.Error())
 		t.FailNow()
 	}
-
+	fmt.Println(string(pt))
 	if !bytes.Equal(pt, message) {
 		fmt.Println("ecies: plaintext doesn't match message")
 		t.FailNow()

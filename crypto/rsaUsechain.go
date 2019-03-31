@@ -13,39 +13,32 @@
 //
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-usechain library. If not, see <http://www.gnu.org/licenses/>.
+
 package crypto
 
 import (
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
+	// "github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/log"
 	"io/ioutil"
+	"math/big"
 	"os"
 	"os/user"
 	"path/filepath"
 	"runtime"
-
-	"crypto/ecdsa"
-	"crypto/x509/pkix"
-	"encoding/json"
-	"github.com/usechain/go-usechain/common"
-	"github.com/usechain/go-usechain/log"
-	"math/big"
+	"strings"
 	"time"
 )
-
-type committee struct {
-	Committee int
-	ID        int
-	Address   string
-	PrivShare string
-}
 
 // GenerateRSAKeypair generate RSA format public key and private key
 func GenerateRSAKeypair() error {
@@ -123,7 +116,7 @@ func parsePublicKey(pemBytes []byte) (Unsigner, error) {
 	case "PUBLIC KEY":
 		rsaa, err := x509.ParsePKIXPublicKey(block.Bytes)
 		if err != nil {
-			log.Error("ParsePKIXPublicKey error: ",err)
+			log.Error("ParsePKIXPublicKey error: ", err)
 			return nil, err
 		}
 		rawkey = rsaa
@@ -212,8 +205,7 @@ type rsaPrivateKey struct {
 func Hash(data []byte) {
 	h := sha256.New()
 	h.Write(data)
-	d := h.Sum(nil)
-	fmt.Printf("%x\n", d)
+	h.Sum(nil)
 	return
 }
 
@@ -242,7 +234,7 @@ func RSA_Sign(message string) (string, error) {
 	BaseDir := DefaultDataDir()
 	signer, err := loadPrivateKey(BaseDir + "/userrsa.prv")
 	if err != nil {
-		fmt.Printf("RSA is not found: %v\n", err)
+		log.Error("RSA is not found:", "error", err)
 		return "", err
 	}
 
@@ -261,7 +253,7 @@ func RSA_Verify(message string, sig string) bool {
 	BaseDir := DefaultDataDir()
 	parser, err := loadPublicKey(BaseDir + "/userrsa.pub")
 	if err != nil {
-		fmt.Printf("public could not sign request: %v\n", err)
+		log.Error("public could not sign request:", "error", err)
 		return false
 	}
 
@@ -292,7 +284,7 @@ func RSA_Verify_Pub(message string, sig string, pub *rsa.PublicKey) bool {
 func RSA_Verify_Standard(message string, sig string, pubKey interface{}) error {
 	parser, err := newUnsignerFromKey(pubKey)
 	if err != nil {
-		fmt.Printf("public could not sign request: %v\n", err)
+		log.Error("public could not sign request:", "error", err)
 		return err
 	}
 
@@ -340,7 +332,7 @@ func GenRCA(emailAddress string, isCA bool, caName string, privName string, pubN
 	pub := publicKey(priv)
 	rcaCert, err := x509.CreateCertificate(rand.Reader, &template, &template, pub, priv)
 	if err != nil {
-		log.Error("Failed to create certificate:", "err",err)
+		log.Error("Failed to create certificate:", "err", err)
 	}
 
 	BaseDir := DefaultDataDir()
@@ -387,21 +379,18 @@ func ReadUserCert() string {
 		log.Error("ReadFile err:", "err", err)
 	}
 
-	//Block, _:= pem.Decode(f)
-	//if Block == nil {
-	//	fmt.Println("ecaFile error")
-	//}
-	//
-	//userCert:=pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: Block.Bytes})
 	userCertString := hex.EncodeToString(f)
 	return userCertString
 }
 
 ///TODO:add error check
-func parseRcaRsa() (*x509.Certificate, error) {
+func parseRcaRsa(chainid uint64) (*x509.Certificate, error) {
 	BaseDir := DefaultDataDir()
-	//fmt.Println("BaseDir: ", BaseDir)
-	rcaFile, err := ioutil.ReadFile(BaseDir + "/rca.crt")
+	rcapath := "moonetCA.pem"
+	if chainid == 1 {
+		rcapath = "mainnetCA.pem"
+	}
+	rcaFile, err := ioutil.ReadFile(filepath.Join(BaseDir, rcapath))
 	if err != nil {
 		log.Error("ReadFile err:", "err", err)
 		return nil, err
@@ -420,100 +409,28 @@ func parseRcaRsa() (*x509.Certificate, error) {
 	return Cert, nil
 }
 
-func ParseCommitteeID() (int, int, string, error) {
-	BaseDir := DefaultDataDir()
-	committeeFile, err := ioutil.ReadFile(BaseDir + "/committee.cfg")
-	if err != nil {
-		log.Info("Running normal node without committee config")
-		return 0, -1, "", err
-	}
-
-	config := &committee{}
-	err = json.Unmarshal(committeeFile, &config)
-	if err != nil {
-		log.Error("ReadFile err:", "err", err)
-		return 0, -1, "", err
-	}
-
-	return config.Committee, config.ID, config.PrivShare, nil
-}
-
-// CheckUserCert verify user certificate
-func CheckUserCert(userCert string) bool {
-	rcaCert, err := parseRcaRsa()
-	if err != nil {
-		return false
-	}
-
-	//certToByte,err:=hexutil.Decode(userCert)
-	certToByte, err := hex.DecodeString(userCert)
-	if err != nil {
-		log.Error("user's certificate format error")
-		return false
-	}
-
-	Block, _ := pem.Decode(certToByte)
-	if Block == nil {
-		log.Error("ecaFile error")
-	}
-
-	userCert2, err := x509.ParseCertificate(Block.Bytes)
-	if err != nil {
-		log.Error("ParseCertificate err:", "err", err)
-		return false
-	}
-
-	err = userCert2.CheckSignatureFrom(rcaCert)
-	log.Info("check eCert signature: ", "err", err == nil)
-	return err == nil
-}
-
-// CheckUserCertStandard verify user certificate
-func CheckUserCertStandard(userCert string, addr common.Address, signature []byte) error {
-	rcaCert, err := parseRcaRsa()
+func CheckUserRegisterCert(cert []byte, idhex string, fpr string, chainid uint64) error {
+	rcaCert, err := parseRcaRsa(chainid)
 	if err != nil {
 		return err
 	}
+	certBlock, _ := pem.Decode(cert)
+	if certBlock == nil {
+		return errors.New("User's cert not found!")
+	}
+	parsed, err := x509.ParseCertificate(certBlock.Bytes)
 
-	//certToByte,err:=hexutil.Decode(userCert)
-	certToByte, err := hex.DecodeString(userCert)
+	//TODO: update verify method, using publicKey
+	err = parsed.CheckSignatureFrom(rcaCert)
 	if err != nil {
-		log.Error("user's certificate format error")
-		return err
+		return errors.New("Not from the official RCA")
 	}
 
-	Block, _ := pem.Decode(certToByte)
-	if Block == nil {
-		log.Error("ecaFile error")
+	subject := parsed.Subject.String()
+	if !strings.Contains(subject, idhex) || !strings.Contains(subject, fpr) {
+		return errors.New("Not the right cert of this user")
 	}
 
-	userCert2, err := x509.ParseCertificate(Block.Bytes)
-	if err != nil {
-		log.Error("ParseCertificate err:", "err", err)
-		return err
-	}
-
-	err = userCert2.CheckSignatureFrom(rcaCert)
-	log.Info("check eCert signature: ", "err", err)
-	if err != nil {
-		return err
-	}
-
-	///TODO:change the RSA_Verify_Pub to CheckSignature, to support more signatureAlgorithm
-	k := rcaCert.PublicKey
-	switch t := k.(type) {
-	case *rsa.PublicKey:
-		sshKey := &rsaPublicKey{t}
-		err := RSA_Verify_Pub(addr.String(), hex.EncodeToString(signature), sshKey.PublicKey)
-		if err == false {
-			return errors.New("address signature verify failed")
-		}
-
-	default:
-		log.Info("address signature verify passed")
-	}
-
-	log.Info("check address signature: ", "err", err)
 	return nil
 }
 

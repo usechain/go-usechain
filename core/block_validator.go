@@ -17,11 +17,17 @@
 package core
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/usechain/go-usechain/log"
+	"math/big"
 
+	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/consensus"
+	"github.com/usechain/go-usechain/contracts/minerlist"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
+	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/params"
 )
 
@@ -61,7 +67,8 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 	}
 	// Header validity is known at this point, check the uncles and transactions
 	header := block.Header()
-	if err := v.engine.VerifyUncles(v.bc, block); err != nil {
+	state, _ := v.bc.State()
+	if err := v.engine.VerifyUncles(v.bc, block, state); err != nil {
 		return err
 	}
 	if hash := types.CalcUncleHash(block.Uncles()); hash != header.UncleHash {
@@ -101,6 +108,75 @@ func (v *BlockValidator) ValidateState(block, parent *types.Block, statedb *stat
 	return nil
 }
 
+func (v *BlockValidator) ValidateMiner(block, parent *types.Block, statedb *state.StateDB) error {
+	header := block.Header()
+	tstampParent := parent.Time()
+	tstampHead := header.Time
+	tstampSub := new(big.Int).Sub(tstampHead, tstampParent)
+
+	if tstampSub.Int64() < int64(common.BlockInterval) {
+		return fmt.Errorf("Block time slot should be more than five seconds")
+	}
+
+	totalMinerNum := minerlist.ReadMinerNum(statedb)
+
+	// Verify block miner && verify the minerQrSignature legality
+	if !minerlist.IsMiner(statedb, header.Coinbase, totalMinerNum) && totalMinerNum.Int64() > 1 {
+		return fmt.Errorf("Coinbase should be legal miner address, invalid miner")
+	}
+	preCoinbase := parent.Coinbase()
+	blockNumber := header.Number
+	preQrSignature := parent.MinerQrSignature()
+	minerQrSignature := header.MinerQrSignature
+	if header.Number.Cmp(common.Big1) == 0 {
+		preQrSignature = common.GenesisMinerQrSignature
+	}
+	n := new(big.Int).Div(tstampSub, common.BlockSlot)
+	qr, err := minerlist.CalQrOrIdNext(preCoinbase.Bytes(), blockNumber, preQrSignature)
+	if err != nil {
+		return err
+	}
+
+	if header.Number.Int64() > 1 {
+		if len(minerQrSignature) != minerlist.PreQrLength {
+			return fmt.Errorf("invalid minerQrSignature length")
+		}
+		qrtemp := common.BytesToHash(minerQrSignature[65:])
+		if qr.String() != qrtemp.String() {
+			return fmt.Errorf("invalid minerQrSignature, qr is not correct")
+		}
+
+		if !VerifySig(minerQrSignature[:65], qr, header.Coinbase) {
+			return fmt.Errorf("invalid minerQrSignature")
+		}
+	}
+	IsValidMiner, level, preMinerid := minerlist.IsValidMiner(statedb, header.Coinbase, preCoinbase, preQrSignature, blockNumber, totalMinerNum, n)
+	if !IsValidMiner {
+		return fmt.Errorf("invalid miner")
+	}
+
+	// Verify PrimaryMiner and DifficultyLevel
+	var preMiner common.Address
+	if totalMinerNum.Int64() != 0 {
+		preMiner = common.BytesToAddress(minerlist.ReadMinerAddress(statedb, preMinerid))
+	}
+	if bytes.Compare(header.PrimaryMiner.Bytes(), preMiner.Bytes()) != 0 && totalMinerNum.Int64() != 0 {
+		return fmt.Errorf("invalid primaryMiner: have %s, want %s", header.PrimaryMiner.String(), preMiner.String())
+	}
+
+	if header.Number.Cmp(common.Big1) == 0 {
+		if header.DifficultyLevel.Int64() != 0 {
+			return fmt.Errorf("invalid difficultyLevel: have %v, want 0", header.DifficultyLevel)
+		}
+	} else {
+		if level > header.DifficultyLevel.Int64() {
+			return fmt.Errorf("invalid difficultyLevel: have %v, want %v", header.DifficultyLevel, level)
+		}
+	}
+
+	return nil
+}
+
 // CalcGasLimit computes the gas limit of the next block after parent.
 // This is miner strategy, not consensus protocol.
 func CalcGasLimit(parent *types.Block) uint64 {
@@ -130,4 +206,16 @@ func CalcGasLimit(parent *types.Block) uint64 {
 		}
 	}
 	return limit
+}
+
+// verify the qrSignature legality
+// need to verify the sig legality and singer must equal to miner
+func VerifySig(sig []byte, hash common.Hash, miner common.Address) bool {
+	pub, err := crypto.Ecrecover(hash.Bytes(), sig)
+	if err != nil {
+		log.Error("retrieve public key failed")
+		return false
+	}
+	pubKey := crypto.ToECDSAPub(pub)
+	return crypto.VerifySignature(pub, hash.Bytes(), sig[:64]) && (crypto.PubkeyToAddress(*pubKey) == miner)
 }

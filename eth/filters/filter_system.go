@@ -57,9 +57,9 @@ const (
 
 const (
 
-	// txChanSize is the size of channel listening to TxPreEvent.
+	// txChanSize is the size of channel listening to NewTxsEvent.
 	// The number is referenced from the size of tx pool.
-	txChanSize = 4096
+	txChanSize = 4096 * 16
 	// rmLogsChanSize is the size of channel listening to RemovedLogsEvent.
 	rmLogsChanSize = 10
 	// logsChanSize is the size of channel listening to LogsEvent.
@@ -78,7 +78,7 @@ type subscription struct {
 	created   time.Time
 	logsCrit  ethereum.FilterQuery
 	logs      chan []*types.Log
-	hashes    chan common.Hash
+	hashes    chan []common.Hash
 	headers   chan *types.Header
 	installed chan struct{} // closed when the filter is installed
 	err       chan error    // closed when the filter is uninstalled
@@ -208,7 +208,7 @@ func (es *EventSystem) subscribeMinedPendingLogs(crit ethereum.FilterQuery, logs
 		logsCrit:  crit,
 		created:   time.Now(),
 		logs:      logs,
-		hashes:    make(chan common.Hash),
+		hashes:    make(chan []common.Hash),
 		headers:   make(chan *types.Header),
 		installed: make(chan struct{}),
 		err:       make(chan error),
@@ -225,7 +225,7 @@ func (es *EventSystem) subscribeLogs(crit ethereum.FilterQuery, logs chan []*typ
 		logsCrit:  crit,
 		created:   time.Now(),
 		logs:      logs,
-		hashes:    make(chan common.Hash),
+		hashes:    make(chan []common.Hash),
 		headers:   make(chan *types.Header),
 		installed: make(chan struct{}),
 		err:       make(chan error),
@@ -242,7 +242,7 @@ func (es *EventSystem) subscribePendingLogs(crit ethereum.FilterQuery, logs chan
 		logsCrit:  crit,
 		created:   time.Now(),
 		logs:      logs,
-		hashes:    make(chan common.Hash),
+		hashes:    make(chan []common.Hash),
 		headers:   make(chan *types.Header),
 		installed: make(chan struct{}),
 		err:       make(chan error),
@@ -258,7 +258,7 @@ func (es *EventSystem) SubscribeNewHeads(headers chan *types.Header) *Subscripti
 		typ:       BlocksSubscription,
 		created:   time.Now(),
 		logs:      make(chan []*types.Log),
-		hashes:    make(chan common.Hash),
+		hashes:    make(chan []common.Hash),
 		headers:   headers,
 		installed: make(chan struct{}),
 		err:       make(chan error),
@@ -268,7 +268,7 @@ func (es *EventSystem) SubscribeNewHeads(headers chan *types.Header) *Subscripti
 
 // SubscribePendingTxEvents creates a subscription that writes transaction hashes for
 // transactions that enter the transaction pool.
-func (es *EventSystem) SubscribePendingTxEvents(hashes chan common.Hash) *Subscription {
+func (es *EventSystem) SubscribePendingTxs(hashes chan []common.Hash) *Subscription {
 	sub := &subscription{
 		id:        rpc.NewID(),
 		typ:       PendingTransactionsSubscription,
@@ -316,9 +316,13 @@ func (es *EventSystem) broadcast(filters filterIndex, ev interface{}) {
 				}
 			}
 		}
-	case core.TxPreEvent:
+	case core.NewTxsEvent:
+		hashes := make([]common.Hash, 0, len(e.Txs))
+		for _, tx := range e.Txs {
+			hashes = append(hashes, tx.Hash())
+		}
 		for _, f := range filters[PendingTransactionsSubscription] {
-			f.hashes <- e.Tx.Hash()
+			f.hashes <- hashes
 		}
 	case core.ChainEvent:
 		for _, f := range filters[BlocksSubscription] {
@@ -415,8 +419,8 @@ func (es *EventSystem) eventLoop() {
 		index = make(filterIndex)
 		sub   = es.mux.Subscribe(core.PendingLogsEvent{})
 		// Subscribe TxPreEvent form txpool
-		txCh  = make(chan core.TxPreEvent, txChanSize)
-		txSub = es.backend.SubscribeTxPreEvent(txCh)
+		txsCh = make(chan core.NewTxsEvent, txChanSize)
+		txsSub = es.backend.SubscribeNewTxsEvent(txsCh)
 		// Subscribe RemovedLogsEvent
 		rmLogsCh  = make(chan core.RemovedLogsEvent, rmLogsChanSize)
 		rmLogsSub = es.backend.SubscribeRemovedLogsEvent(rmLogsCh)
@@ -430,7 +434,7 @@ func (es *EventSystem) eventLoop() {
 
 	// Unsubscribe all events
 	defer sub.Unsubscribe()
-	defer txSub.Unsubscribe()
+	defer txsSub.Unsubscribe()
 	defer rmLogsSub.Unsubscribe()
 	defer logsSub.Unsubscribe()
 	defer chainEvSub.Unsubscribe()
@@ -448,7 +452,7 @@ func (es *EventSystem) eventLoop() {
 			es.broadcast(index, ev)
 
 		// Handle subscribed events
-		case ev := <-txCh:
+		case ev := <-txsCh:
 			es.broadcast(index, ev)
 		case ev := <-rmLogsCh:
 			es.broadcast(index, ev)
@@ -477,7 +481,7 @@ func (es *EventSystem) eventLoop() {
 			close(f.err)
 
 		// System stopped
-		case <-txSub.Err():
+		case <-txsSub.Err():
 			return
 		case <-rmLogsSub.Err():
 			return

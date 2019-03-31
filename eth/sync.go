@@ -152,6 +152,10 @@ func (pm *ProtocolManager) syncer() {
 
 		case <-forceSync.C:
 			// Force a sync even if not enough peers are present
+			targetHash := pm.blockchain.GetTargetBlock()
+			if (targetHash != common.Hash{}) {
+				pm.peers.SyncWithPeers(targetHash)
+			}
 			go pm.synchronise(pm.peers.BestPeer())
 
 		case <-pm.noMorePeers:
@@ -171,7 +175,10 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	td := pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 
 	pHead, pTd := peer.Head()
-	if pTd.Cmp(td) <= 0 {
+	if td == nil || pTd.Cmp(td) <= 0 {
+		if (td == nil || pTd.Cmp(td) == 0) && atomic.LoadUint32(&pm.acceptTxs) == 0 {
+			atomic.StoreUint32(&pm.acceptTxs, 1) // Mark initial sync done
+		}
 		return
 	}
 	// Otherwise try to sync with the downloader

@@ -47,6 +47,14 @@ type (
 		account *common.Address
 		prev    *big.Int
 	}
+	creditChange struct {
+		account *common.Address
+		prev    uint64
+	}
+	certificationChange struct {
+		account *common.Address
+		prev    uint64
+	}
 	nonceChange struct {
 		account *common.Address
 		prev    uint64
@@ -107,6 +115,14 @@ func (ch touchChange) undo(s *StateDB) {
 
 func (ch balanceChange) undo(s *StateDB) {
 	s.getStateObject(*ch.account).setBalance(ch.prev)
+}
+
+func (ch creditChange) undo(s *StateDB) {
+	s.getStateObject(*ch.account).setTradePoints(ch.prev)
+}
+
+func (ch certificationChange) undo(s *StateDB) {
+	// s.getStateObject(*ch.account).setTradePoints(ch.prev)
 }
 
 func (ch nonceChange) undo(s *StateDB) {

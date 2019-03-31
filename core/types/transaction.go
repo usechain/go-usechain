@@ -17,21 +17,21 @@
 package types
 
 import (
+	"bytes"
 	"container/heap"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"math/big"
-	"sync/atomic"
-	"bytes"
 	"github.com/usechain/go-usechain/accounts/abi"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/crypto"
-	"github.com/usechain/go-usechain/rlp"
-	"strings"
 	"github.com/usechain/go-usechain/log"
-	"encoding/hex"
+	"github.com/usechain/go-usechain/rlp"
+	"io"
+	"math/big"
+	"strings"
+	"sync/atomic"
 )
 
 //go:generate gencodec -type txdata -field-override txdataMarshaling -out gen_tx_json.go
@@ -59,6 +59,7 @@ type Transaction struct {
 }
 
 type txdata struct {
+	Flag         uint8           `json:"flag"     gencodec:"required"` // 0: common tx; 1: pbft tx(payload is the last block hash in best chain)
 	AccountNonce uint64          `json:"nonce"    gencodec:"required"`
 	Price        *big.Int        `json:"gasPrice" gencodec:"required"`
 	GasLimit     uint64          `json:"gas"      gencodec:"required"`
@@ -76,6 +77,7 @@ type txdata struct {
 }
 
 type txdataMarshaling struct {
+	Flag         hexutil.Uint8
 	AccountNonce hexutil.Uint64
 	Price        *hexutil.Big
 	GasLimit     hexutil.Uint64
@@ -87,18 +89,24 @@ type txdataMarshaling struct {
 }
 
 func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data)
+	return newTransaction(0, nonce, &to, amount, gasLimit, gasPrice, data)
 }
 
 func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data)
+	return newTransaction(0, nonce, nil, amount, gasLimit, gasPrice, data)
 }
 
-func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+func NewPbftMessage(nonce uint64, data []byte) *Transaction {
+	addr := common.HexToAddress("0x0000000000000000000000000000000000000000")
+	return newTransaction(1, nonce, &addr, nil, 0, nil, data)
+}
+
+func newTransaction(flag uint8, nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
 	}
 	d := txdata{
+		Flag:         flag,
 		AccountNonce: nonce,
 		Recipient:    to,
 		Payload:      data,
@@ -182,6 +190,7 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
+func (tx *Transaction) Flag() uint8        { return tx.data.Flag }
 func (tx *Transaction) Data() []byte       { return common.CopyBytes(tx.data.Payload) }
 func (tx *Transaction) Gas() uint64        { return tx.data.GasLimit }
 func (tx *Transaction) GasPrice() *big.Int { return new(big.Int).Set(tx.data.Price) }
@@ -199,126 +208,106 @@ func (tx *Transaction) To() *common.Address {
 	return &to
 }
 
-//Another authentication implementation write in state_trasanction.go
-//Main&Sub account authentication
-func (tx *Transaction) IsMainAuthentication() bool {
-	//The authentication tx payload must longer than 36 bytes
-	//Added levelTag and address type
-	if len(tx.Data()) <= 4 + 32 * 30 {
+func (tx *Transaction) IsRegisterTransaction() bool {
+
+	if len(tx.Data()) <= 4+32*10 {
 		return false
 	}
 
-	//leavel below, something wrong with !=
-	if bytes.Compare(tx.Data()[:4], []byte{0x10, 0xc9, 0x56, 0xea}) != 0 {
-		return false
+	if bytes.Compare(tx.Data()[:4], []byte{248, 22, 31, 117}) == 0 {
+		return true
 	}
-
-	if !strings.EqualFold((*tx.To()).Hex(), common.AuthenticationContractAddressString) {
-		fmt.Println("Contract address doesn't match")
-		return false
-	}
-
-	return true
+	return false
 }
 
-//Another authentication implementation write in state_trasanction.go
-func (tx *Transaction) IsSubAuthentication() bool {
-	//The authentication tx payload must longer than 36 bytes
-	//Added levelTag and address type
-	if len(tx.Data()) <= 4 + 32 * 30 {
+func (tx *Transaction) IsCommitteeTransaction() bool {
+	// TODO: sender addr need to be fixed
+	if len(tx.Data()) <= 4+32 {
 		return false
 	}
 
-	//leavel below, something wrong with !=
-	if bytes.Compare(tx.Data()[:4], []byte{0xca, 0xcc, 0x93, 0x4c}) != 0 {
-		return false
+	if bytes.Compare(tx.Data()[:4], []byte{199, 174, 221, 31}) == 0 {
+		return true
 	}
-
-	if !strings.EqualFold((*tx.To()).Hex(), common.AuthenticationContractAddressString) {
-		fmt.Println("Contract address doesn't match")
-		return false
-	}
-
-	return true
+	return false
 }
 
+func (tx *Transaction) GetVerifiedAddress() common.Address {
+	creditABI, _ := abi.JSON(strings.NewReader(common.CreditABI))
 
-//Another authentication implementation write in state_trasanction.go
-//OTA transaction verify
-func (tx *Transaction) IsAuthentication() bool {
-	//The authentication tx payload must longer than 36 bytes
-	//Added levelTag and address type
-	if len(tx.Data()) <= 4 + 32 * 10{
-		return false
-	}
-
-	//leavel below, something wrong with !=
-	if bytes.Compare(tx.Data()[:4], []byte{0xfd, 0xf0, 0x3f, 0x86}) != 0 {
-		return false
-	}
-
-	if !strings.EqualFold((*tx.To()).Hex(), common.AuthenticationContractAddressString) {
-		fmt.Println("Contract address doesn't match")
-		return false
-	}
-
-	return true
-}
-
-
-//check the certificate signature if the transaction is authentication Tx
-//   MultiAB account authentication TX:
-//   -------------------------------------------------------------------
-//  |             |              |               |                      |
-//  |   ABI_tag   |   pubkey     |     sign      |       CA cert        |
-//  |             |              |               |                      |
-//   -------------------------------------------------------------------
-//  ======================================================================
-func (tx *Transaction) CheckCertificateSig(_from common.Address) error {
-
-	usechainABI, err := abi.JSON(strings.NewReader(common.UsechainABI))
-	if err != nil {
-		log.Error("parse usechainABI",err)
-	}
-
-	method, exist := usechainABI.Methods["storeOneTimeAddress"]
+	method, exist := creditABI.Methods["verifyHash"]
 	if !exist {
-		log.Error("method not found:", "storeOneTimeAddress")
+		log.Error("method not found:", "verifyHash")
 	}
-	InputDataInterface,err :=method.Inputs.UnpackABI(tx.Data()[4:])
-	if err !=nil {
-		fmt.Println("method.Inputs: ",err)
+
+	InputDataInterface, err := method.Inputs.UnpackABI(tx.Data()[4:])
+	if err != nil {
+		log.Error("method.Inputs: ", err)
+	}
+
+	var inputData []interface{}
+	for _, param := range InputDataInterface {
+		inputData = append(inputData, param)
+	}
+
+	addr := inputData[0].(common.Address)
+	return addr
+}
+
+func (tx *Transaction) CheckCertLegality(_from common.Address, chainid *big.Int) error {
+	creditABI, _ := abi.JSON(strings.NewReader(common.CreditABI))
+
+	method, exist := creditABI.Methods["register"]
+	if !exist {
+		log.Error("method not found:", "register")
+	}
+
+	InputDataInterface, err := method.Inputs.UnpackABI(tx.Data()[4:])
+	if err != nil {
+		log.Error("method.Inputs: ", err)
+	}
+
+	var inputData []interface{}
+	for _, param := range InputDataInterface {
+		inputData = append(inputData, param)
+	}
+
+	// pubKey := inputData[0]
+	idhex := Decode32Uint8(inputData[1].([32]uint8))
+	identity := DecodeUint8(inputData[2].([]uint8))
+	i, _ := hexutil.Decode(identity)
+	id := NewIdentity()
+	json.Unmarshal(i, id)
+
+	issuerData := DecodeUint8(inputData[3].([]uint8))
+	d, _ := hexutil.Decode(issuerData)
+	issuer := NewIssuer()
+	err = json.Unmarshal(d, issuer)
+	if err != nil {
+		log.Error("Unmarshal issuer failed", "err", err)
+	}
+	cert := []byte(issuer.Cert)
+	err = crypto.CheckUserRegisterCert(cert, idhex, id.Fpr, chainid.Uint64())
+	if err != nil {
 		return err
 	}
 
-	var inputData []string
-	for _, param := range InputDataInterface {
-		inputData = append(inputData, param.(string))
-	}
-
-	pub := inputData[0]
-	sign := inputData[1]
-	ca := inputData[2]
-
-	pubHex, _ := hexutil.Decode(pub)
-	pubKey := crypto.ToECDSAPub(pubHex)
-	if crypto.PubkeyToAddress(*pubKey) != _from {
-		return errors.New("the pubkey & address doesn't match")
-	}
-
-	sig,_ := hex.DecodeString(sign)
-	err = crypto.CheckUserCertStandard(ca, _from, sig)
-	if  err != nil {
-		return errors.New("the CA cert is illegal")
-	}
-
-	return err
+	return nil
 }
 
-
-//get the authentication level, only for authentication Tx
-func (tx *Transaction) GetTxAuthenticationLevel() int {
-	return int(tx.Data()[35])
+func Decode32Uint8(bs [32]uint8) string {
+	b := make([]byte, len(bs))
+	for i, v := range bs {
+		b[i] = byte(v)
+	}
+	return hexutil.Encode(b)
+}
+func DecodeUint8(bs []uint8) string {
+	b := make([]byte, len(bs))
+	for i, v := range bs {
+		b[i] = byte(v)
+	}
+	return hexutil.Encode(b)
 }
 
 // Hash hashes the RLP encoding of tx.
@@ -351,6 +340,7 @@ func (tx *Transaction) Size() common.StorageSize {
 // XXX Rename message to something less arbitrary?
 func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 	msg := Message{
+		flag:       tx.data.Flag,
 		nonce:      tx.data.AccountNonce,
 		gasLimit:   tx.data.GasLimit,
 		gasPrice:   new(big.Int).Set(tx.data.Price),
@@ -411,6 +401,7 @@ func (tx *Transaction) String() string {
 	enc, _ := rlp.EncodeToBytes(&tx.data)
 	return fmt.Sprintf(`
 	TX(%x)
+	Flag:     %v
 	Contract: %v
 	From:     %s
 	To:       %s
@@ -425,6 +416,7 @@ func (tx *Transaction) String() string {
 	Hex:      %x
 `,
 		tx.Hash(),
+		tx.data.Flag,
 		tx.data.Recipient == nil,
 		from,
 		to,
@@ -564,6 +556,7 @@ func (t *TransactionsByPriceAndNonce) Pop() {
 //
 // NOTE: In a future PR this will be removed.
 type Message struct {
+	flag       uint8
 	to         *common.Address
 	from       common.Address
 	nonce      uint64
@@ -587,6 +580,7 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 	}
 }
 
+func (m Message) Flag() uint8          { return m.flag }
 func (m Message) From() common.Address { return m.from }
 func (m Message) To() *common.Address  { return m.to }
 func (m Message) GasPrice() *big.Int   { return m.gasPrice }
@@ -595,4 +589,3 @@ func (m Message) Gas() uint64          { return m.gasLimit }
 func (m Message) Nonce() uint64        { return m.nonce }
 func (m Message) Data() []byte         { return m.data }
 func (m Message) CheckNonce() bool     { return m.checkNonce }
-

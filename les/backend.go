@@ -24,7 +24,6 @@ import (
 
 	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/common"
-	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/consensus"
 	"github.com/usechain/go-usechain/core"
 	"github.com/usechain/go-usechain/core/bloombits"
@@ -101,7 +100,7 @@ func New(ctx *node.ServiceContext, config *eth.Config) (*LightEthereum, error) {
 		peers:            peers,
 		reqDist:          newRequestDistributor(peers, quitSync),
 		accountManager:   ctx.AccountManager,
-		engine:           eth.CreateConsensusEngine(ctx, &config.Ethash, chainConfig, chainDb),
+		engine:           eth.CreateConsensusEngine(ctx, &config.Rpow, chainConfig, chainDb),
 		shutdownChan:     make(chan bool),
 		networkId:        config.NetworkId,
 		bloomRequests:    make(chan chan *bloombits.Retrieval),
@@ -161,11 +160,6 @@ func (s *LightDummyAPI) Usebase() (common.Address, error) {
 // Coinbase is the address that mining rewards will be send to (alias for Usebase)
 func (s *LightDummyAPI) Coinbase() (common.Address, error) {
 	return common.Address{}, fmt.Errorf("not supported")
-}
-
-// Hashrate returns the POW hashrate
-func (s *LightDummyAPI) Hashrate() hexutil.Uint {
-	return 0
 }
 
 // Mining returns an indication if this node is currently mining.

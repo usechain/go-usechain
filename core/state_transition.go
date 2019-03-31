@@ -22,10 +22,10 @@ import (
 	"math/big"
 
 	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/core/vm"
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/params"
-	"github.com/usechain/go-usechain/core/types"
 )
 
 var (
@@ -63,6 +63,8 @@ type StateTransition struct {
 
 // Message represents a message sent to a contract.
 type Message interface {
+	Flag() uint8
+
 	From() common.Address
 	//FromFrontier() (common.Address, error)
 	To() *common.Address
@@ -189,7 +191,7 @@ func (st *StateTransition) buyGas() error {
 	return nil
 }
 
-func (st *StateTransition) preCheck() error {
+func (st *StateTransition) preCheck() (err error) {
 	msg := st.msg
 	sender := st.from()
 
@@ -202,9 +204,9 @@ func (st *StateTransition) preCheck() error {
 			return ErrNonceTooLow
 		}
 	}
+
 	return st.buyGas()
 }
-
 
 // TransitionDb will transition the state by applying the current message and
 // returning the result including the the used gas. It returns an error if it
@@ -215,52 +217,20 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	}
 	msg := st.msg
 	sender := st.from() // err checked in preCheck
-
 	homestead := st.evm.ChainConfig().IsHomestead(st.evm.BlockNumber)
 	contractCreation := msg.To() == nil
-
-	switch contractCreation {
-	case true:
-		//if common.ToHex(addr[:]) != "0x6102d428c9aee1ae53d1ba77c83e78be4da1b95a" {
-		//	if st.state.CheckAddrAuthenticateStat(msg.From()) == 0 {
-		//		return nil, 0, false, vm.ErrIllegalAddress
-		//	}
-		//}
-
-	case false:
-		transactionFormat := msgToTransaction(msg)
-
-		if transactionFormat.IsAuthentication() {
-			err = transactionFormat.CheckCertificateSig(msg.From())
-			if err != nil {
-				return nil, 0, false, vm.ErrInvalidAuthenticationsig
-			}
-		} else if transactionFormat.IsMainAuthentication() {
-			err = st.state.CheckMultiAccountSig(transactionFormat, common.MainAddress, msg.From())
-			if err != nil {
-				return nil, 0, false, vm.ErrInvalidAuthenticationsig
-			}
-		} else if transactionFormat.IsSubAuthentication() {
-			err = st.state.CheckMultiAccountSig(transactionFormat, common.MainAddress, msg.From())
-			if err != nil {
-				return nil, 0, false, vm.ErrInvalidAuthenticationsig
-			}
-		} else {
-			//if common.ToHex(addr[:]) != "0x6102d428c9aee1ae53d1ba77c83e78be4da1b95a" {
-			//	if st.state.CheckAddrAuthenticateStat(msg.From()) == 0 {
-			//		return nil, 0, false, vm.ErrIllegalAddress
-			//	}
-			//}
-		}
-	}
 
 	// Pay intrinsic gas
 	gas, err := IntrinsicGas(st.data, contractCreation, homestead)
 	if err != nil {
 		return nil, 0, false, err
 	}
-	if err = st.useGas(gas); err != nil {
-		return nil, 0, false, err
+
+	// If it's vote transaction
+	if msg.Flag() != 1 {
+		if err = st.useGas(gas); err != nil {
+			return nil, 0, false, err
+		}
 	}
 
 	var (
@@ -288,6 +258,18 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	}
 	st.refundGas()
 	st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+	st.state.AddTradePoints(sender.Address(), 1)
+
+	if !contractCreation {
+		transactionFormat := msgToTransaction(msg)
+		if transactionFormat.IsCommitteeTransaction() {
+			addr := transactionFormat.GetVerifiedAddress()
+			// Points for the identity verification.
+			if !st.state.IsCertificationVerified(addr, common.IDVerified) {
+				st.state.AddCertifications(addr, common.IDVerified)
+			}
+		}
+	}
 
 	return ret, st.gasUsed(), vmerr != nil, err
 }

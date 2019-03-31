@@ -2508,7 +2508,6 @@ along with web3.js.  If not, see <http://www.gnu.org/licenses/>.
 
 var RequestManager = require('./web3/requestmanager');
 var Iban = require('./web3/iban');
-var Eth = require('./web3/methods/eth');
 var Use = require('./web3/methods/use');
 var DB = require('./web3/methods/db');
 var Shh = require('./web3/methods/shh');
@@ -2531,7 +2530,6 @@ var BigNumber = require('bignumber.js');
 function Web3 (provider) {
     this._requestManager = new RequestManager(provider);
     this.currentProvider = provider;
-    this.eth = new Eth(this);
     this.use = new Use(this);
     this.db = new DB(this);
     this.shh = new Shh(this);
@@ -2612,7 +2610,7 @@ var properties = function () {
         }),
         new Property({
             name: 'version.usechain',
-            getter: 'eth_protocolVersion',
+            getter: 'use_protocolVersion',
             inputFormatter: utils.toDecimal
         }),
         new Property({
@@ -2634,7 +2632,7 @@ Web3.prototype.createBatch = function () {
 module.exports = Web3;
 
 
-},{"./utils/sha3":19,"./utils/utils":20,"./version.json":21,"./web3/batch":24,"./web3/extend":28,"./web3/httpprovider":32,"./web3/iban":33,"./web3/ipcprovider":34,"./web3/methods/db":37,"./web3/methods/eth":38,"./web3/methods/use":87,"./web3/methods/net":39,"./web3/methods/personal":40,"./web3/methods/shh":41,"./web3/methods/swarm":42,"./web3/property":45,"./web3/requestmanager":46,"./web3/settings":47,"bignumber.js":"bignumber.js"}],23:[function(require,module,exports){
+},{"./utils/sha3":19,"./utils/utils":20,"./version.json":21,"./web3/batch":24,"./web3/extend":28,"./web3/httpprovider":32,"./web3/iban":33,"./web3/ipcprovider":34,"./web3/methods/db":37,"./web3/methods/use":38,"./web3/methods/net":39,"./web3/methods/personal":40,"./web3/methods/shh":41,"./web3/methods/swarm":42,"./web3/property":45,"./web3/requestmanager":46,"./web3/settings":47,"bignumber.js":"bignumber.js"}],23:[function(require,module,exports){
 /*
 This file is part of web3.js.
 
@@ -3789,9 +3787,11 @@ var inputMinerRegisterFormatter = function (options){
         return options.to !== undefined
     }
 
-    options.to = inputAddressFormatter("0xfffffffffffffffffffffffffffffffff0000002")
+    options.to = inputAddressFormatter("0xfffffffffffffffffffffffffffffffff0000002");
     options.data = "0x819f163a";
-
+    options.value = "50000000000000000000";
+    options.gasPrice = "20000000000";
+    options.gas = "2000000";
     ['gasPrice', 'gas', 'value', 'nonce'].filter(function (key) {
         return options[key] !== undefined;
     }).forEach(function(key){
@@ -3818,63 +3818,10 @@ var inputMinerUnRegisterFormatter = function (options){
         return options.to !== undefined
     }
 
-    options.to = inputAddressFormatter("0xfffffffffffffffffffffffffffffffff0000002")
-    options.data = "0x5545b506";
-
-    ['gasPrice', 'gas', 'value', 'nonce'].filter(function (key) {
-        return options[key] !== undefined;
-    }).forEach(function(key){
-        options[key] = utils.fromDecimal(options[key]);
-    });
-
-    return options;
-};
-
-/**
- * Formats the input of a main account authentication transaction and converts all values to HEX
- *
- * @method inputAuthenticationFormatter
- * @param {Object} transaction options
- * @returns object
- */
-
-var inputAuthenticationFormatter = function (options){
-
-    options.from = options.from || config.defaultAccount;
-    options.from = inputAddressFormatter(options.from);
-
-    if (options.to) { // it might be contract creation
-        options.to = inputAddressFormatter(options.to);
-    }
-    options.data = "0xfdf03f86" + options.data;
-
-    ['gasPrice', 'gas', 'value', 'nonce'].filter(function (key) {
-        return options[key] !== undefined;
-    }).forEach(function(key){
-        options[key] = utils.fromDecimal(options[key]);
-    });
-
-    return options;
-};
-
-/**
- * Formats the input of a sub account authentication transaction and converts all values to HEX
- *
- * @method inputSubAuthenticationFormatter
- * @param {Object} transaction options
- * @returns object
- */
-
-var inputSubAuthenticationFormatter = function (options){
-
-    options.from = options.from || config.defaultAccount;
-    options.from = inputAddressFormatter(options.from);
-
-    if (options.to) { // it might be contract creation
-        options.to = inputAddressFormatter(options.to);
-    }
-    options.data = "0x10c956ea" + options.data;
-
+    options.to = inputAddressFormatter("0xfffffffffffffffffffffffffffffffff0000002");
+    options.data = "0x6d3a3f8d";
+    options.gasPrice = "20000000000";
+    options.gas = "2000000";
     ['gasPrice', 'gas', 'value', 'nonce'].filter(function (key) {
         return options[key] !== undefined;
     }).forEach(function(key){
@@ -4070,8 +4017,6 @@ module.exports = {
     inputTransactionFormatter: inputTransactionFormatter,
     inputMinerRegisterFormatter: inputMinerRegisterFormatter,
     inputMinerUnRegisterFormatter: inputMinerUnRegisterFormatter,
-    inputAuthenticationFormatter: inputAuthenticationFormatter,
-    inputSubAuthenticationFormatter: inputSubAuthenticationFormatter,
     inputAddressFormatter: inputAddressFormatter,
     inputPostFormatter: inputPostFormatter,
     outputBigNumberFormatter: outputBigNumberFormatter,
@@ -5346,7 +5291,7 @@ var uncleCountCall = function (args) {
     return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'eth_getUncleCountByBlockHash' : 'eth_getUncleCountByBlockNumber';
 };
 
-function Eth(web3) {
+function Use(web3) {
     this._requestManager = web3._requestManager;
 
     var self = this;
@@ -5366,7 +5311,7 @@ function Eth(web3) {
     this.sendIBANTransaction = transfer.bind(null, this);
 }
 
-Object.defineProperty(Eth.prototype, 'defaultBlock', {
+Object.defineProperty(Use.prototype, 'defaultBlock', {
     get: function () {
         return c.defaultBlock;
     },
@@ -5376,7 +5321,7 @@ Object.defineProperty(Eth.prototype, 'defaultBlock', {
     }
 });
 
-Object.defineProperty(Eth.prototype, 'defaultAccount', {
+Object.defineProperty(Use.prototype, 'defaultAccount', {
     get: function () {
         return c.defaultAccount;
     },
@@ -5389,7 +5334,7 @@ Object.defineProperty(Eth.prototype, 'defaultAccount', {
 var methods = function () {
     var getBalance = new Method({
         name: 'getBalance',
-        call: 'eth_getBalance',
+        call: 'use_getBalance',
         params: 2,
         inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
         outputFormatter: formatters.outputBigNumberFormatter
@@ -5397,14 +5342,14 @@ var methods = function () {
 
     var getStorageAt = new Method({
         name: 'getStorageAt',
-        call: 'eth_getStorageAt',
+        call: 'use_getStorageAt',
         params: 3,
         inputFormatter: [null, utils.toHex, formatters.inputDefaultBlockNumberFormatter]
     });
 
     var getCode = new Method({
         name: 'getCode',
-        call: 'eth_getCode',
+        call: 'use_getCode',
         params: 2,
         inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter]
     });
@@ -5428,7 +5373,7 @@ var methods = function () {
 
     var getCompilers = new Method({
         name: 'getCompilers',
-        call: 'eth_getCompilers',
+        call: 'use_getCompilers',
         params: 0
     });
 
@@ -5450,7 +5395,7 @@ var methods = function () {
 
     var getTransaction = new Method({
         name: 'getTransaction',
-        call: 'eth_getTransactionByHash',
+        call: 'use_getTransactionByHash',
         params: 1,
         outputFormatter: formatters.outputTransactionFormatter
     });
@@ -5465,14 +5410,14 @@ var methods = function () {
 
     var getTransactionReceipt = new Method({
         name: 'getTransactionReceipt',
-        call: 'eth_getTransactionReceipt',
+        call: 'use_getTransactionReceipt',
         params: 1,
         outputFormatter: formatters.outputTransactionReceiptFormatter
     });
 
     var getTransactionCount = new Method({
         name: 'getTransactionCount',
-        call: 'eth_getTransactionCount',
+        call: 'use_getTransactionCount',
         params: 2,
         inputFormatter: [null, formatters.inputDefaultBlockNumberFormatter],
         outputFormatter: utils.toDecimal
@@ -5480,42 +5425,42 @@ var methods = function () {
 
     var sendRawTransaction = new Method({
         name: 'sendRawTransaction',
-        call: 'eth_sendRawTransaction',
+        call: 'use_sendRawTransaction',
         params: 1,
         inputFormatter: [null]
     });
 
     var sendTransaction = new Method({
         name: 'sendTransaction',
-        call: 'eth_sendTransaction',
+        call: 'use_sendTransaction',
         params: 1,
         inputFormatter: [formatters.inputTransactionFormatter]
     });
 
     var signTransaction = new Method({
         name: 'signTransaction',
-        call: 'eth_signTransaction',
+        call: 'use_signTransaction',
         params: 1,
         inputFormatter: [formatters.inputTransactionFormatter]
     });
 
     var sign = new Method({
         name: 'sign',
-        call: 'eth_sign',
+        call: 'use_sign',
         params: 2,
         inputFormatter: [formatters.inputAddressFormatter, null]
     });
 
     var call = new Method({
         name: 'call',
-        call: 'eth_call',
+        call: 'use_call',
         params: 2,
         inputFormatter: [formatters.inputCallFormatter, formatters.inputDefaultBlockNumberFormatter]
     });
 
     var estimateGas = new Method({
         name: 'estimateGas',
-        call: 'eth_estimateGas',
+        call: 'use_estimateGas',
         params: 1,
         inputFormatter: [formatters.inputCallFormatter],
         outputFormatter: utils.toDecimal
@@ -5523,32 +5468,83 @@ var methods = function () {
 
     var compileSolidity = new Method({
         name: 'compile.solidity',
-        call: 'eth_compileSolidity',
+        call: 'use_compileSolidity',
         params: 1
     });
 
     var compileLLL = new Method({
         name: 'compile.lll',
-        call: 'eth_compileLLL',
+        call: 'use_compileLLL',
         params: 1
     });
 
     var compileSerpent = new Method({
         name: 'compile.serpent',
-        call: 'eth_compileSerpent',
+        call: 'use_compileSerpent',
         params: 1
     });
 
     var submitWork = new Method({
         name: 'submitWork',
-        call: 'eth_submitWork',
+        call: 'use_submitWork',
         params: 3
     });
 
     var getWork = new Method({
         name: 'getWork',
-        call: 'eth_getWork',
+        call: 'use_getWork',
         params: 0
+    });
+
+    var getTradePoints = new Method({
+        name: 'getTradePoints',
+        call: 'use_getTradePoints',
+        params: 2,
+        inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
+        outputFormatter: formatters.outputBigNumberFormatter
+    });
+
+    var getCertifications = new Method({
+        name: 'getCertifications',
+        call: 'use_getCertifications',
+        params: 2,
+        inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
+        outputFormatter: formatters.outputBigNumberFormatter
+    });
+
+    var queryAddr = new Method({
+        name: 'queryAddr',
+        call: 'use_queryAddr',
+        params: 2,
+        inputFormatter: [null,formatters.inputDefaultBlockNumberFormatter]
+    });
+
+    var isMiner = new Method({
+        name: 'isMiner',
+        call: 'use_isMiner',
+        params: 2,
+        inputFormatter: [null,formatters.inputDefaultBlockNumberFormatter]
+    });
+
+    var sendCreditRegisterTransaction = new Method({
+        name: 'sendCreditRegisterTransaction',
+        call: 'use_sendCreditRegisterTransaction',
+        params: 1,
+        inputFormatter: [formatters.inputTransactionFormatter]
+    });
+
+    var minerRegister = new Method({
+        name: 'minerRegister',
+        call: 'use_sendTransaction',
+        params: 1,
+        inputFormatter: [formatters.inputMinerRegisterFormatter]
+    });
+
+    var minerUnRegister = new Method({
+        name: 'minerUnRegister',
+        call: 'use_sendTransaction',
+        params: 1,
+        inputFormatter: [formatters.inputMinerUnRegisterFormatter]
     });
 
     return [
@@ -5575,7 +5571,15 @@ var methods = function () {
         compileLLL,
         compileSerpent,
         submitWork,
-        getWork
+        getWork,
+
+        getTradePoints,
+        getCertifications,
+        sendCreditRegisterTransaction,
+        queryAddr,
+        isMiner,
+        minerRegister,
+        minerUnRegister
     ];
 };
 
@@ -5584,65 +5588,60 @@ var properties = function () {
     return [
         new Property({
             name: 'coinbase',
-            getter: 'eth_coinbase'
+            getter: 'use_coinbase'
         }),
         new Property({
             name: 'mining',
-            getter: 'eth_mining'
-        }),
-        new Property({
-            name: 'hashrate',
-            getter: 'eth_hashrate',
-            outputFormatter: utils.toDecimal
+            getter: 'use_mining'
         }),
         new Property({
             name: 'syncing',
-            getter: 'eth_syncing',
+            getter: 'use_syncing',
             outputFormatter: formatters.outputSyncingFormatter
         }),
         new Property({
             name: 'gasPrice',
-            getter: 'eth_gasPrice',
+            getter: 'use_gasPrice',
             outputFormatter: formatters.outputBigNumberFormatter
         }),
         new Property({
             name: 'accounts',
-            getter: 'eth_accounts'
+            getter: 'use_accounts'
         }),
         new Property({
             name: 'blockNumber',
-            getter: 'eth_blockNumber',
+            getter: 'use_blockNumber',
             outputFormatter: utils.toDecimal
         }),
         new Property({
             name: 'protocolVersion',
-            getter: 'eth_protocolVersion'
+            getter: 'use_protocolVersion'
         })
     ];
 };
 
-Eth.prototype.contract = function (abi) {
+Use.prototype.contract = function (abi) {
     var factory = new Contract(this, abi);
     return factory;
 };
 
-Eth.prototype.filter = function (options, callback, filterCreationErrorCallback) {
+Use.prototype.filter = function (options, callback, filterCreationErrorCallback) {
     return new Filter(options, 'eth', this._requestManager, watches.eth(), formatters.outputLogFormatter, callback, filterCreationErrorCallback);
 };
 
-Eth.prototype.namereg = function () {
+Use.prototype.namereg = function () {
     return this.contract(namereg.global.abi).at(namereg.global.address);
 };
 
-Eth.prototype.icapNamereg = function () {
+Use.prototype.icapNamereg = function () {
     return this.contract(namereg.icap.abi).at(namereg.icap.address);
 };
 
-Eth.prototype.isSyncing = function (callback) {
+Use.prototype.isSyncing = function (callback) {
     return new IsSyncing(this._requestManager, callback);
 };
 
-module.exports = Eth;
+module.exports = Use;
 
 },{"../../utils/config":18,"../../utils/utils":20,"../contract":25,"../filter":29,"../formatters":30,"../iban":33,"../method":36,"../namereg":44,"../property":45,"../syncing":48,"../transfer":49,"./watches":43}],39:[function(require,module,exports){
 /*
@@ -5745,6 +5744,18 @@ function Personal(web3) {
 }
 
 var methods = function () {
+    var verify = new Method({
+        name: 'verify',
+        call: 'personal_verify',
+        params: 2,
+        inputFormatter: [null, null]
+    });
+    var verifyQuery = new Method({
+        name: 'verifyQuery',
+        call: 'personal_verifyQuery',
+        params: 1,
+        inputFormatter: [null]
+    });
     var newAccount = new Method({
         name: 'newAccount',
         call: 'personal_newAccount',
@@ -5793,21 +5804,9 @@ var methods = function () {
         inputFormatter: [formatters.inputAddressFormatter]
     });
 
-
-    var newABaccount = new Method({
-        name:'newABaccount',
-        call:'personal_newABaccount',
-        params: 2,
-        inputFormatter: [formatters.inputAddressFormatter,null]
-    });
-
-    var generateRSAKeypair = new Method({
-        name:'generateRSAKeypair',
-        call:'personal_generateRSAKeypair',
-        params: 0
-    });
-
     return [
+        verify,
+        verifyQuery,
         newAccount,
         importRawKey,
         unlockAccount,
@@ -5815,8 +5814,6 @@ var methods = function () {
         sign,
         sendTransaction,
         lockAccount,
-        newABaccount,
-        generateRSAKeypair,
     ];
 };
 
@@ -13746,159 +13743,7 @@ module.exports = transfer;
 },{}],86:[function(require,module,exports){
 module.exports = XMLHttpRequest;
 
-},{}],87:[function(require,module,exports){
-
-        /** @file use.js
-         * @authors:
-         *   Usechain Team
-         * @date 2018
-         */
-
-        var Method = require('../method');
-        var formatters = require('../formatters');
-
-        function Use(web3) {
-            this._requestManager = web3._requestManager;
-
-            var self = this;
-
-            methods().forEach(function(method) {
-                method.attachToObject(self);
-                method.setRequestManager(self._requestManager);
-            });
-
-            properties().forEach(function(p) {
-                p.attachToObject(self);
-                p.setRequestManager(self._requestManager);
-            });
-        }
-
-        var methods = function () {
-            var sendMainTransaction = new Method({
-                name: 'sendMainTransaction',
-                call: 'use_sendMainTransaction',
-                params: 3,
-                inputFormatter: [null,formatters.inputTransactionFormatter,formatters.inputDefaultBlockNumberFormatter]
-            });
-
-            var sendCommTransaction = new Method({
-                name: 'sendCommTransaction',
-                call: 'use_sendCommTransaction',
-                params: 2,
-                inputFormatter: [null,formatters.inputTransactionFormatter]
-            });
-
-            var sendSubTransaction = new Method({
-                name: 'sendSubTransaction',
-                call: 'use_sendSubTransaction',
-                params: 3,
-                inputFormatter: [null,formatters.inputTransactionFormatter,formatters.inputDefaultBlockNumberFormatter]
-            });
-
-            var getConfirmedMainAS = new Method({
-                name: 'getConfirmedMainAS',
-                call: 'use_getConfirmedMainAS',
-                params: 4,
-                inputFormatter: [null, null,null, formatters.inputDefaultBlockNumberFormatter]
-            });
-
-            var queryAddr = new Method({
-                name: 'queryAddr',
-                call: 'use_queryAddr',
-                params: 2,
-                inputFormatter: [null,formatters.inputDefaultBlockNumberFormatter]
-            });
-
-            var minerAddr = new Method({
-                name: 'minerAddr',
-                call: 'use_minerAddr',
-                params: 2,
-                inputFormatter: [null,formatters.inputDefaultBlockNumberFormatter]
-            });
-
-            var sendAuthentication = new Method({
-                name: 'sendAuthentication',
-                call: 'use_sendTransaction',
-                params: 1,
-                inputFormatter: [formatters.inputAuthenticationFormatter]
-            });
-
-            var sendSubAuthentication = new Method({
-                name: 'sendSubAuthentication',
-                call: 'use_sendTransaction',
-                params: 1,
-                inputFormatter: [formatters.inputSubAuthenticationFormatter]
-            });
-
-
-            var sendOneTimeTransaction = new Method({
-                name: 'sendOneTimeTransaction',
-                call: 'use_sendOneTimeTransaction',
-                params: 1,
-                inputFormatter: [formatters.inputTransactionFormatter]
-            });
-
-            var getOneTimePubSet = new Method({
-                name: 'getOneTimePubSet',
-                call: 'use_getOneTimePubSet',
-                params: 3,
-                inputFormatter: [null, null, formatters.inputDefaultBlockNumberFormatter]
-            });
-
-            var getUnConfirmedMainInfo = new Method({
-                name: 'getUnConfirmedMainInfo',
-                call: 'use_getUnConfirmedMainInfo',
-                params: 4,
-                inputFormatter: [null, null,null, formatters.inputDefaultBlockNumberFormatter]
-            });
-
-            var getConfirmedMainInfo = new Method({
-                name: 'getConfirmedMainInfo',
-                call: 'use_getConfirmedMainInfo',
-                params: 4,
-                inputFormatter: [null, null,null, formatters.inputDefaultBlockNumberFormatter]
-            });
-
-            var minerRegister = new Method({
-                name: 'minerRegister',
-                call: 'eth_sendTransaction',
-                params: 1,
-                inputFormatter: [formatters.inputMinerRegisterFormatter]
-            });
-
-            var minerUnRegister = new Method({
-                name: 'minerUnRegister',
-                call: 'eth_sendTransaction',
-                params: 1,
-                inputFormatter: [formatters.inputMinerUnRegisterFormatter]
-            });
-
-            return [
-                sendMainTransaction,
-                sendSubTransaction,
-                sendOneTimeTransaction,
-                getOneTimePubSet,
-                getUnConfirmedMainInfo,
-
-                sendCommTransaction,
-                getConfirmedMainInfo,
-                getConfirmedMainAS,
-
-                queryAddr,
-                minerAddr,
-
-                sendAuthentication,
-                sendSubAuthentication,
-
-                minerRegister,
-                minerUnRegister
-            ];
-        };
-        var properties = function () {
-            return [];
-        };
-module.exports = Use;
-},{"../formatters":30,"../method":36}],"bignumber.js":[function(require,module,exports){
+},{}],"bignumber.js":[function(require,module,exports){
 'use strict';
 
 module.exports = BigNumber; // jshint ignore:line

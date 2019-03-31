@@ -134,7 +134,7 @@ func validateTxPoolInternals(pool *TxPool) error {
 	defer pool.mu.RUnlock()
 
 	// Ensure the total transaction set is consistent with pending + queued
-	pending, queued := pool.stats()
+	pending, queued, _ := pool.stats()
 	if total := len(pool.all); total != pending+queued {
 		return fmt.Errorf("total transaction count %d != %d pending + %d queued", total, pending, queued)
 	}
@@ -159,21 +159,27 @@ func validateTxPoolInternals(pool *TxPool) error {
 
 // validateEvents checks that the correct number of transaction addition events
 // were fired on the pool's event feed.
-func validateEvents(events chan TxPreEvent, count int) error {
-	for i := 0; i < count; i++ {
+func validateEvents(events chan NewTxsEvent, count int) error {
+	var received []*types.Transaction
+
+	for len(received) < count {
 		select {
-		case <-events:
+		case ev := <-events:
+			received = append(received, ev.Txs...)
 		case <-time.After(time.Second):
-			return fmt.Errorf("event #%d not fired", i)
+			return fmt.Errorf("event #%d not fired", received)
 		}
 	}
+	if len(received) > count {
+		return fmt.Errorf("more than %d events fired: %v", count, received[count:])
+	}
 	select {
-	case tx := <-events:
-		return fmt.Errorf("more than %d events fired: %v", count, tx.Tx)
+	case ev := <-events:
+		return fmt.Errorf("more than %d events fired: %v", count, ev.Txs)
 
 	case <-time.After(50 * time.Millisecond):
 		// This branch should be "default", but it's a data race between goroutines,
-		// reading the event channel and pushng into it, so better wait a bit ensuring
+		// reading the event channel and pushing into it, so better wait a bit ensuring
 		// really nothing gets injected.
 	}
 	return nil
@@ -710,7 +716,7 @@ func TestTransactionGapFilling(t *testing.T) {
 	pool.currentState.AddBalance(account, big.NewInt(1000000))
 
 	// Keep track of transaction events to ensure all executables get announced
-	events := make(chan TxPreEvent, testTxPoolConfig.AccountQueue+5)
+	events := make(chan NewTxsEvent, testTxPoolConfig.AccountQueue+5)
 	sub := pool.txFeed.Subscribe(events)
 	defer sub.Unsubscribe()
 
@@ -721,7 +727,7 @@ func TestTransactionGapFilling(t *testing.T) {
 	if err := pool.AddRemote(transaction(2, 100000, key)); err != nil {
 		t.Fatalf("failed to add queued transaction: %v", err)
 	}
-	pending, queued := pool.Stats()
+	pending, queued, _ := pool.Stats()
 	if pending != 1 {
 		t.Fatalf("pending transactions mismatched: have %d, want %d", pending, 1)
 	}
@@ -738,7 +744,7 @@ func TestTransactionGapFilling(t *testing.T) {
 	if err := pool.AddRemote(transaction(1, 100000, key)); err != nil {
 		t.Fatalf("failed to add gapped transaction: %v", err)
 	}
-	pending, queued = pool.Stats()
+	pending, queued, _ = pool.Stats()
 	if pending != 3 {
 		t.Fatalf("pending transactions mismatched: have %d, want %d", pending, 3)
 	}
@@ -974,7 +980,7 @@ func testTransactionQueueTimeLimiting(t *testing.T, nolocals bool) {
 	if err := pool.AddRemote(pricedTransaction(1, 100000, big.NewInt(1), remote)); err != nil {
 		t.Fatalf("failed to add remote transaction: %v", err)
 	}
-	pending, queued := pool.Stats()
+	pending, queued, _ := pool.Stats()
 	if pending != 0 {
 		t.Fatalf("pending transactions mismatched: have %d, want %d", pending, 0)
 	}
@@ -987,7 +993,7 @@ func testTransactionQueueTimeLimiting(t *testing.T, nolocals bool) {
 	// Wait a bit for eviction to run and clean up any leftovers, and ensure only the local remains
 	time.Sleep(2 * config.Lifetime)
 
-	pending, queued = pool.Stats()
+	pending, queued, _ = pool.Stats()
 	if pending != 0 {
 		t.Fatalf("pending transactions mismatched: have %d, want %d", pending, 0)
 	}
@@ -1019,7 +1025,7 @@ func TestTransactionPendingLimiting(t *testing.T) {
 	pool.currentState.AddBalance(account, big.NewInt(1000000))
 
 	// Keep track of transaction events to ensure all executables get announced
-	events := make(chan TxPreEvent, testTxPoolConfig.AccountQueue+5)
+	events := make(chan NewTxsEvent, testTxPoolConfig.AccountQueue+5)
 	sub := pool.txFeed.Subscribe(events)
 	defer sub.Unsubscribe()
 
@@ -1355,7 +1361,7 @@ func TestTransactionPoolRepricing(t *testing.T) {
 	defer pool.Stop()
 
 	// Keep track of transaction events to ensure all executables get announced
-	events := make(chan TxPreEvent, 32)
+	events := make(chan NewTxsEvent, 32)
 	sub := pool.txFeed.Subscribe(events)
 	defer sub.Unsubscribe()
 
@@ -1382,7 +1388,7 @@ func TestTransactionPoolRepricing(t *testing.T) {
 	pool.AddRemotes(txs)
 	pool.AddLocal(ltx)
 
-	pending, queued := pool.Stats()
+	pending, queued, _ := pool.Stats()
 	if pending != 4 {
 		t.Fatalf("pending transactions mismatched: have %d, want %d", pending, 4)
 	}
@@ -1398,7 +1404,7 @@ func TestTransactionPoolRepricing(t *testing.T) {
 	// Reprice the pool and check that underpriced transactions get dropped
 	pool.SetGasPrice(big.NewInt(2))
 
-	pending, queued = pool.Stats()
+	pending, queued, _ = pool.Stats()
 	if pending != 2 {
 		t.Fatalf("pending transactions mismatched: have %d, want %d", pending, 2)
 	}
@@ -1429,7 +1435,7 @@ func TestTransactionPoolRepricing(t *testing.T) {
 	if err := pool.AddLocal(tx); err != nil {
 		t.Fatalf("failed to add underpriced local transaction: %v", err)
 	}
-	if pending, _ = pool.Stats(); pending != 3 {
+	if pending, _, _ = pool.Stats(); pending != 3 {
 		t.Fatalf("pending transactions mismatched: have %d, want %d", pending, 3)
 	}
 	if err := validateEvents(events, 1); err != nil {
@@ -1500,10 +1506,10 @@ func TestTransactionPoolRepricingKeepsLocals(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	pending, queued := pool.Stats()
+	pending, queued, _ := pool.Stats()
 	expPending, expQueued := 500, 500
 	validate := func() {
-		pending, queued = pool.Stats()
+		pending, queued, _ = pool.Stats()
 		if pending != expPending {
 			t.Fatalf("pending transactions mismatched: have %d, want %d", pending, expPending)
 		}
@@ -1577,7 +1583,7 @@ func TestTransactionPoolUnderpricing(t *testing.T) {
 	defer pool.Stop()
 
 	// Keep track of transaction events to ensure all executables get announced
-	events := make(chan TxPreEvent, 32)
+	events := make(chan NewTxsEvent, 32)
 	sub := pool.txFeed.Subscribe(events)
 	defer sub.Unsubscribe()
 
@@ -1601,7 +1607,7 @@ func TestTransactionPoolUnderpricing(t *testing.T) {
 	pool.AddRemotes(txs)
 	pool.AddLocal(ltx)
 
-	pending, queued := pool.Stats()
+	pending, queued, _ := pool.Stats()
 	if pending != 3 {
 		t.Fatalf("pending transactions mismatched: have %d, want %d", pending, 3)
 	}
@@ -1628,7 +1634,7 @@ func TestTransactionPoolUnderpricing(t *testing.T) {
 	if err := pool.AddRemote(pricedTransaction(3, 100000, big.NewInt(5), keys[1])); err != nil {
 		t.Fatalf("failed to add well priced transaction: %v", err)
 	}
-	pending, queued = pool.Stats()
+	pending, queued, _ = pool.Stats()
 	if pending != 2 {
 		t.Fatalf("pending transactions mismatched: have %d, want %d", pending, 2)
 	}
@@ -1646,7 +1652,7 @@ func TestTransactionPoolUnderpricing(t *testing.T) {
 	if err := pool.AddLocal(tx); err != nil {
 		t.Fatalf("failed to add underpriced local transaction: %v", err)
 	}
-	pending, queued = pool.Stats()
+	pending, queued, _ = pool.Stats()
 	if pending != 2 {
 		t.Fatalf("pending transactions mismatched: have %d, want %d", pending, 2)
 	}
@@ -1703,7 +1709,7 @@ func TestTransactionReplacement(t *testing.T) {
 	defer pool.Stop()
 
 	// Keep track of transaction events to ensure all executables get announced
-	events := make(chan TxPreEvent, 32)
+	events := make(chan NewTxsEvent, 32)
 	sub := pool.txFeed.Subscribe(events)
 	defer sub.Unsubscribe()
 
@@ -1848,7 +1854,7 @@ func testTransactionJournaling(t *testing.T, nolocals bool) {
 	if err := pool.AddRemote(pricedTransaction(0, 100000, big.NewInt(1), remote)); err != nil {
 		t.Fatalf("failed to add remote transaction: %v", err)
 	}
-	pending, queued := pool.Stats()
+	pending, queued, _ := pool.Stats()
 	if pending != 4 {
 		t.Fatalf("pending transactions mismatched: have %d, want %d", pending, 4)
 	}
@@ -1866,7 +1872,7 @@ func testTransactionJournaling(t *testing.T, nolocals bool) {
 
 	pool = NewTxPool(config, params.TestChainConfig, blockchain, am)
 
-	pending, queued = pool.Stats()
+	pending, queued, _ = pool.Stats()
 	if queued != 0 {
 		t.Fatalf("queued transactions mismatched: have %d, want %d", queued, 0)
 	}
@@ -1893,7 +1899,7 @@ func testTransactionJournaling(t *testing.T, nolocals bool) {
 
 	pool = NewTxPool(config, params.TestChainConfig, blockchain, am)
 
-	pending, queued = pool.Stats()
+	pending, queued, _ = pool.Stats()
 	if pending != 0 {
 		t.Fatalf("pending transactions mismatched: have %d, want %d", pending, 0)
 	}
@@ -1970,7 +1976,7 @@ func TestTransactionStatusCheck(t *testing.T) {
 	// Import the transaction and ensure they are correctly added
 	pool.AddRemotes(txs)
 
-	pending, queued := pool.Stats()
+	pending, queued, _ := pool.Stats()
 	if pending != 2 {
 		t.Fatalf("pending transactions mismatched: have %d, want %d", pending, 2)
 	}

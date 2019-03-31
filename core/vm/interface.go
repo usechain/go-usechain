@@ -34,6 +34,15 @@ type StateDB interface {
 	GetNonce(common.Address) uint64
 	SetNonce(common.Address, uint64)
 
+	SetTradePoints(common.Address, uint64)
+	AddTradePoints(common.Address, uint64)
+	GetTradePoints(common.Address) uint64
+
+	SetCertifications(common.Address, uint64)
+	AddCertifications(common.Address, uint64)
+	GetCertifications(common.Address) uint64
+	IsCertificationVerified(common.Address, uint64) bool
+
 	GetCodeHash(common.Address) common.Hash
 	GetCode(common.Address) []byte
 	SetCode(common.Address, []byte)
@@ -62,16 +71,6 @@ type StateDB interface {
 	AddPreimage(common.Hash, []byte)
 
 	ForEachStorage(common.Address, func(common.Hash, common.Hash) bool)
-
-
-
-	CheckAddrAuthenticateStat(common.Address) int
-	GetOneTimePubSet(common.Address, int64) (string,error)
-	GetUnConfirmedMainInfo(common.Address, int64,int64) (string,error)
-	GetConfirmedMainInfo(common.Address, int64,int64) (string,error)
-	GetConfirmedMainAS(common.Address, int64,int64) (string,error)
-
-	CheckMultiAccountSig(*types.Transaction, int, common.Address) error
 }
 
 // CallContext provides a basic interface for the EVM calling conventions. The EVM EVM

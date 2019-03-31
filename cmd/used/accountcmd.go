@@ -17,28 +17,17 @@
 package main
 
 import (
-	"bytes"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/asn1"
-	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"io/ioutil"
-	"net/http"
-	"net/url"
-	"os"
+	"strings"
 
-	"github.com/bitly/go-simplejson"
 	"github.com/usechain/go-usechain/accounts"
+	"github.com/usechain/go-usechain/accounts/ca"
 	"github.com/usechain/go-usechain/accounts/keystore"
 	"github.com/usechain/go-usechain/cmd/utils"
 	"github.com/usechain/go-usechain/console"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/log"
-	"github.com/usechain/go-usechain/node"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -58,7 +47,7 @@ passwordfile as argument containing the wallet password in plaintext.`,
 			{
 
 				Name:      "import",
-				Usage:     "Import Ethereum presale wallet",
+				Usage:     "Import Usechain presale wallet",
 				ArgsUsage: "<keyFile>",
 				Action:    utils.MigrateFlags(importWallet),
 				Category:  "ACCOUNT COMMANDS",
@@ -79,29 +68,21 @@ passwordfile as argument containing the wallet password in plaintext.`,
 	}
 
 	verifyCommand = cli.Command{
-		Name:  "verify",
-		Usage: "Verify address",
-		// Category: "",
-		// Action: utils.MigrateFlags(verify),
-		Description: `
-Verify the wallet address`,
+		Name:      "verify",
+		Usage:     "Verify address",
+		ArgsUsage: "Verify --info=<info> --id=<id> --photo=<photo> --query=<q> --<network>",
+		Action:    utils.MigrateFlags(verify),
 
-		Subcommands: []cli.Command{
-			{
-				Name:   "id",
-				Usage:  "Get ID number from user",
-				Action: utils.MigrateFlags(id),
-				Description: `
-		Input user's ID`,
-			},
-			{
-				Name:   "query",
-				Usage:  "Get CA from CA server via idKey",
-				Action: utils.MigrateFlags(query),
-				Description: `
-		Get CA from CA server via idKey`,
-			},
+		Flags: []cli.Flag{
+			utils.VerifyNetworkFlag,
+			utils.VerifyInfoFlag,
+			utils.VerifyIdFlag,
+			utils.VerifyPhotoFlag,
+			utils.VerifyQueryFlag,
 		},
+
+		Description: `
+Verify the wallet address via upload id and photo`,
 	}
 
 	accountCommand = cli.Command{
@@ -418,146 +399,41 @@ func accountImport(ctx *cli.Context) error {
 }
 
 func verify(ctx *cli.Context) error {
+
+	infoFile := ctx.GlobalString(utils.VerifyInfoFlag.Name)
+	photos := ctx.GlobalString(utils.VerifyPhotoFlag.Name)
+	moonetFlag := ctx.GlobalBool(utils.VerifyNetworkFlag.Name)
+	q := ctx.GlobalString(utils.VerifyQueryFlag.Name)
+
+	// mainnet
+	var mainnetUrl = "http://mainca.usechain.cn/cert/cerauth"
+	var mainnetQuery = "http://mainca.usechain.cn/user/cerauth"
+
+	// moonet
+	var moonetUrl = "http://moonca.usechain.cn/cert/cerauth"
+	var moonetQuery = "http://moonca.usechain.cn/user/cerauth"
+
+	var caUrl, queryUrl string
+
+	if moonetFlag {
+		caUrl = moonetUrl
+		queryUrl = moonetQuery
+	} else {
+		caUrl = mainnetUrl
+		queryUrl = mainnetQuery
+	}
+
+	if len(infoFile) > 0 && len(photos) > 0 {
+		p := strings.Split(photos, ";")
+		ca.UserAuthOperation(infoFile, p, caUrl)
+	} else if len(q) > 0 {
+		ca.Query(q, queryUrl)
+	} else if len(infoFile) == 0 {
+		w := ca.MakeWizard("")
+		w.Run()
+		return nil
+	} else {
+		fmt.Println("No parameter found.")
+	}
 	return nil
-}
-
-// var CAurl string = "http://127.0.0.1:8001/echo"
-var CAurl string = "http://usechain.cn:8548/UsechainService/user/auth2"
-var CAquery string = "http://usechain.cn:8548/UsechainService/user/cerauth"
-
-func id(ctx *cli.Context) error {
-	id := ctx.Args().First()
-	if id == "" {
-		utils.Fatalf("Could not use empty string as ID")
-	}
-	if len(ctx.Args()) != 1 {
-		utils.Fatalf("Only one parameter is required")
-	}
-	idHex := crypto.Keccak256Hash([]byte(id)).Hex()
-	fmt.Printf("idHex: %v\n", idHex)
-	csr := generateCSR(idHex)
-
-	jsondata, _ := simplejson.NewJson([]byte(getAuthId(CAurl, csr)))
-	idKeyBytes, _ := jsondata.Get("data").Get("idKey").Bytes()
-	idKey := string(idKeyBytes[:])
-	queryId(CAquery, idKey)
-	return nil
-}
-
-func query(ctx *cli.Context) error {
-	idKey := ctx.Args().First()
-	if idKey == "" {
-		utils.Fatalf("Only one parameter is required")
-	}
-	queryId(CAquery, idKey)
-	return nil
-}
-
-func generateCSR(idHex string) string {
-	keyBytes, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		utils.Fatalf("Generate RSA key pair error: %v", err)
-	}
-	publicKey := keyBytes.PublicKey
-	savePEMKey(node.DefaultDataDir()+"/userrsa.prv", keyBytes)
-	savePublicPEMKey(node.DefaultDataDir()+"/userrsa.pub", publicKey)
-
-	subj := pkix.Name{
-		CommonName: idHex,
-		// Locality:   []string{idHex},
-	}
-	rawSubj := subj.ToRDNSequence()
-	asn1Subj, _ := asn1.Marshal(rawSubj)
-	template := x509.CertificateRequest{
-		RawSubject:         asn1Subj,
-		SignatureAlgorithm: x509.SHA256WithRSA,
-	}
-
-	csrBytes, _ := x509.CreateCertificateRequest(rand.Reader, &template, keyBytes)
-	csrBuf := new(bytes.Buffer)
-	pem.Encode(csrBuf, &pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrBytes})
-
-	return csrBuf.String()
-}
-
-func getAuthId(CAserver string, CSR string) string {
-	values := map[string]string{"csr": CSR}
-	jsonValue, _ := json.Marshal(values)
-
-	resp, err := http.Post(CAserver, "application/json", bytes.NewBuffer(jsonValue))
-	if err != nil {
-		utils.Fatalf("Fail to get ID from CA server: %v", err)
-	}
-	idbuf := new(bytes.Buffer)
-	idbuf.ReadFrom(resp.Body)
-	fmt.Println("idbuf:" + idbuf.String())
-
-	return idbuf.String()
-	// return "10086"
-}
-
-func queryId(CAserver string, idKey string) error {
-	u, _ := url.Parse(CAserver)
-	q := u.Query()
-	q.Add("idKey", idKey)
-	u.RawQuery = q.Encode()
-	fmt.Printf("query url for idKey:%v\n", u)
-	resp, err := http.Get(u.String())
-	if err != nil || resp.StatusCode != 200 {
-		utils.Fatalf("Your idKey is %s, please try again later", idKey)
-	}
-
-	CAbuf := new(bytes.Buffer)
-	CAbuf.ReadFrom(resp.Body)
-	jsondata, _ := simplejson.NewJson(CAbuf.Bytes())
-	certBytes, _ := jsondata.Get("data").Get("cert").Bytes()
-	cert := string(certBytes[:])
-
-	userCert := node.DefaultDataDir() + "/user.crt"
-	err = ioutil.WriteFile(userCert, []byte(cert), 0644)
-	checkError(err)
-	fmt.Println(CAbuf.String())
-	log.Info("Verification successful, your CA file stored in " + userCert)
-
-	return nil
-}
-
-func savePEMKey(fileName string, key *rsa.PrivateKey) {
-	outFile, err := os.Create(fileName)
-	checkError(err)
-	defer outFile.Close()
-
-	var privateKey = &pem.Block{
-		Type:  "PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(key),
-	}
-
-	err = pem.Encode(outFile, privateKey)
-	log.Info("Private key saved at " + fileName)
-	checkError(err)
-}
-
-func savePublicPEMKey(fileName string, pubkey rsa.PublicKey) {
-	asn1Bytes, err := asn1.Marshal(pubkey)
-	checkError(err)
-
-	var pemkey = &pem.Block{
-		Type:  "PUBLIC KEY",
-		Bytes: asn1Bytes,
-	}
-
-	pemfile, err := os.Create(fileName)
-	checkError(err)
-	defer pemfile.Close()
-
-	err = pem.Encode(pemfile, pemkey)
-	log.Info("Public key saved at " + fileName)
-	checkError(err)
-}
-
-func checkError(err error) {
-	if err != nil {
-		utils.Fatalf("Fatal error ", err.Error())
-		os.Exit(1)
-	}
 }

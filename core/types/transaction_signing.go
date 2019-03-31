@@ -41,14 +41,15 @@ type sigCache struct {
 // MakeSigner returns a Signer based on the given chain config and block number.
 func MakeSigner(config *params.ChainConfig, blockNumber *big.Int) Signer {
 	var signer Signer
-	switch {
-	case config.IsEIP155(blockNumber):
-		signer = NewEIP155Signer(config.ChainId)
-	case config.IsHomestead(blockNumber):
-		signer = HomesteadSigner{}
-	default:
-		signer = FrontierSigner{}
-	}
+	signer = NewEIP155Signer(config.ChainId)
+	//switch {
+	//case config.IsEIP155(blockNumber):
+	//	signer = NewEIP155Signer(config.ChainId)
+	//case config.IsHomestead(blockNumber):
+	//	signer = HomesteadSigner{}
+	//default:
+	//	signer = FrontierSigner{}
+	//}
 	return signer
 }
 
@@ -154,6 +155,7 @@ func (s EIP155Signer) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big
 // It does not uniquely identify the transaction.
 func (s EIP155Signer) Hash(tx *Transaction) common.Hash {
 	return rlpHash([]interface{}{
+		tx.data.Flag,
 		tx.data.AccountNonce,
 		tx.data.Price,
 		tx.data.GasLimit,
@@ -206,6 +208,7 @@ func (fs FrontierSigner) SignatureValues(tx *Transaction, sig []byte) (r, s, v *
 // It does not uniquely identify the transaction.
 func (fs FrontierSigner) Hash(tx *Transaction) common.Hash {
 	return rlpHash([]interface{}{
+		tx.data.Flag,
 		tx.data.AccountNonce,
 		tx.data.Price,
 		tx.data.GasLimit,

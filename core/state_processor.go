@@ -73,9 +73,35 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 
 	// Iterate over and process the individual transactions
 	p.bc.committeeCnt = manager.GetCommitteeCount(statedb)
-	if header.IsCheckPoint.Int64() == 1 && float64(block.Transactions().Len()) < math.Ceil(float64(p.bc.committeeCnt)*2/3) {
-		err := errors.New("checkpoint block should contain more than three-seconds voter")
-		return nil, nil, 0, err
+	if header.IsCheckPoint.Int64() == 1 {
+		txs := block.Transactions()
+		if float64(txs.Len()) < math.Ceil(float64(p.bc.committeeCnt)*2/3) {
+			err := errors.New("checkpoint block should contain more than three-seconds voter")
+			return nil, nil, 0, err
+		}
+		hash := common.BytesToHash(txs[0].Data()[:common.HashLength])
+		height := common.BytesToUint64(txs[0].Data()[common.HashLength:common.HashLength+8])
+		index := common.BytesToUint64(txs[0].Data()[common.HashLength+8:])
+		count := 1
+		for i := 1; i < txs.Len(); i++ {
+			if hash != common.BytesToHash(txs[i].Data()[:common.HashLength]) {
+				err := errors.New("checkpoint block should contain same hash in txs")
+				return nil, nil, 0, err
+			}
+			if height != common.BytesToUint64(txs[i].Data()[common.HashLength:common.HashLength+8]) {
+				err := errors.New("checkpoint block should contain same height in txs")
+				return nil, nil, 0, err
+			}
+			if index != common.BytesToUint64(txs[i].Data()[common.HashLength+8:]) {
+				err := errors.New("checkpoint block should contain same index in txs")
+				return nil, nil, 0, err
+			}
+			count++
+		}
+		if float64(count) < math.Ceil(float64(p.bc.committeeCnt)*2/3) {
+			err := errors.New("checkpoint block should contain more than three-seconds voter with same hashes")
+			return nil, nil, 0, err
+		}
 	}
 
 	// check the txs
@@ -96,7 +122,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		}
 		sender := msg.From()
 		if tx.Flag() == 1 {
-			err := ValidatePbftTx(statedb, big.NewInt(block.Number().Int64()-1), common.GetIndexForVote(block.Time().Int64(), p.bc.GetBlockByNumber(block.NumberU64()-1).Time().Int64()), tx, common.Address(sender))
+			err := ValidatePbftTx(statedb, big.NewInt(block.Number().Int64()-1), false, 0, tx, common.Address(sender))
 			if err != nil {
 				return nil, nil, 0, err
 			}

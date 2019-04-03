@@ -706,7 +706,7 @@ func (pool *TxPool) local() map[common.Address]types.Transactions {
 }
 
 // validatePbftTx checks whether a pbft transaction is valid
-func ValidatePbftTx(state *state.StateDB, h *big.Int, index uint64, tx *types.Transaction, from common.Address) error {
+func ValidatePbftTx(state *state.StateDB, h *big.Int, checkIndex bool, index uint64, tx *types.Transaction, from common.Address) error {
 	if *tx.To() != common.HexToAddress("0x0000000000000000000000000000000000000000") {
 		return ErrPbftTo
 	}
@@ -736,7 +736,7 @@ func ValidatePbftTx(state *state.StateDB, h *big.Int, index uint64, tx *types.Tr
 	if number < h.Uint64() {
 		return ErrOverduePbftHeight
 	}
-	if index != common.BytesToUint64(payload[common.HashLength+8:]) {
+	if checkIndex && index != common.BytesToUint64(payload[common.HashLength+8:]) {
 		return ErrPbftIndex
 	}
 	return nil
@@ -769,7 +769,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 
 	// If it's vote transaction
 	if tx.Flag() == 1 {
-		return ValidatePbftTx(pool.currentState, pool.chain.CurrentBlock().Number(), common.GetIndexForVote(time.Now().Unix(), pool.chain.CurrentBlock().Time().Int64()), tx, from)
+		return ValidatePbftTx(pool.currentState, pool.chain.CurrentBlock().Number(), true, common.GetIndexForVote(time.Now().Unix(), pool.chain.CurrentBlock().Time().Int64()), tx, from)
 	}
 
 	//If the transaction is authentication, check txCert Signature

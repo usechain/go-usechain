@@ -239,6 +239,7 @@ contract CreditSystem is SignerRole{
         onlyCommittee(msg.sender)
         returns(bool){
             require(IDs[addr].useId != address(0));
+            require(DataSet[hash].verify == false);
             DataSet[hash].verify = true;
             for(uint i=0; i<IDs[addr].hl.hashes.length; i++){
                 if(hash == IDs[addr].hl.hashes[i]){

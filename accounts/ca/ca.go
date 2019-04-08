@@ -305,7 +305,7 @@ func GetUserCert(filename string) ([]byte, error) {
 func readData(filename string) ([]byte, error) {
 	userData, err := ioutil.ReadFile(filename)
 	if err != nil {
-		log.Error("Can not read user data", err)
+		log.Error("Can not read user data", "err", err)
 	}
 	return userData, err
 }

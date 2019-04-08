@@ -94,7 +94,7 @@ func postVerifactionData(info string, filename []string, caUrl string) (string, 
 			log.Error("Create form file failed,", "err", err)
 			return "", err
 		}
-		log.Info("v:", v)
+		log.Info("Read photo:", "Name", v)
 		if v == "" {
 			log.Error("photo path can not be empty")
 			return "", errors.New("photo path can not be empty")
@@ -305,7 +305,7 @@ func GetUserCert(filename string) ([]byte, error) {
 func readData(filename string) ([]byte, error) {
 	userData, err := ioutil.ReadFile(filename)
 	if err != nil {
-		log.Error("Can not read user data", err)
+		log.Error("Can not read user data", "err", err)
 	}
 	return userData, err
 }

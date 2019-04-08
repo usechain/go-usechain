@@ -5526,6 +5526,13 @@ var methods = function () {
         inputFormatter: [null,formatters.inputDefaultBlockNumberFormatter]
     });
 
+    var isPunishedMiner = new Method({
+        name: 'isPunishedMiner',
+        call: 'use_isPunishedMiner',
+        params: 2,
+        inputFormatter: [null,formatters.inputDefaultBlockNumberFormatter]
+    });
+
     var sendCreditRegisterTransaction = new Method({
         name: 'sendCreditRegisterTransaction',
         call: 'use_sendCreditRegisterTransaction',
@@ -5578,6 +5585,7 @@ var methods = function () {
         sendCreditRegisterTransaction,
         queryAddr,
         isMiner,
+        isPunishedMiner,
         minerRegister,
         minerUnRegister
     ];

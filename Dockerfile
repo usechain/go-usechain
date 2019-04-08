@@ -14,7 +14,7 @@ RUN apk add --no-cache ca-certificates
 COPY --from=builder /go-usechain/build/bin/used /usr/local/bin/
 RUN mkdir -p /root/.usechain
 COPY --from=builder /go-usechain/build/config/profile/mainnetCA.pem /root/.usechain
-COPY --from=builder /go-usechain/build/config/profile/moonetCA.pem/root/.usechain
+COPY --from=builder /go-usechain/build/config/profile/moonetCA.pem /root/.usechain
 
 EXPOSE 8848 8849 40404 40404/udp 40405/udp
 ENTRYPOINT ["used"]

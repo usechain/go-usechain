@@ -1660,8 +1660,10 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 	hashKey := [32]byte{}
 	copy(hashKey[:], key)
 	identity := GetIdentityData(ud, committeePub)
-	issuer := GetIssuerData(ud, args.From, pub)
-
+	issuer, err := GetIssuerData(ud, args.From, pub)
+	if err != nil {
+		return common.Hash{}, err
+	}
 	bytesData := GetABIBytesData(common.CreditABI, "register", pub, hashKey, identity, issuer)
 
 	if args.Data == nil {
@@ -1677,22 +1679,23 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 		return common.Hash{}, err
 	}
 	return submitTransaction(ctx, s.b, signed)
-
 }
 
-func GetIssuerData(ud *types.UserData, useId common.Address, pubKey string) []byte {
+func GetIssuerData(ud *types.UserData, useId common.Address, pubKey string) ([]byte, error) {
 	cert, err := ca.GetUserCert("user.crt")
 	if err != nil {
 		log.Error("Get user.crt failed", "err", err)
+		return nil, err
 	}
 	pemBlock, _ := pem.Decode(cert)
 	if pemBlock == nil {
 		log.Error("Parse certificate failed ", "err", errors.New("invalid certificate"))
-		return nil
+		return nil, err
 	}
 	parsed, _ := x509.ParseCertificate(pemBlock.Bytes)
 	if err != nil {
 		log.Error("Parse certificate failed, invalid certificate", "err", err)
+		return nil, err
 	}
 
 	issuer := types.NewIssuer()
@@ -1705,7 +1708,7 @@ func GetIssuerData(ud *types.UserData, useId common.Address, pubKey string) []by
 	issuer.Edate = parsed.NotAfter.String()
 
 	data, _ := json.Marshal(issuer)
-	return data
+	return data, nil
 }
 
 func GetIdentityData(ud *types.UserData, pubKey *ecdsa.PublicKey) []byte {

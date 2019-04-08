@@ -64,6 +64,22 @@ func IsMiner(statedb *state.StateDB, miner common.Address, totalMinerNum *big.In
 	return false
 }
 
+// Return whether the miner is legal or not
+// "legal" means the right to participate in mining
+func IsPunishedMiner(statedb *state.StateDB, miner common.Address, totalMinerNum *big.Int) bool {
+	//add for solo mining
+	if totalMinerNum.Cmp(common.Big0) == 0 {
+		return true
+	}
+
+	for i := int64(0); i < totalMinerNum.Int64(); i++ {
+		if checkAddress(statedb, miner, i) {
+			return isPunishMiner(statedb, miner, totalMinerNum)
+		}
+	}
+	return false
+}
+
 // Return whether the miner is valid or not , difficultlevel and preMinerid
 func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common.Address, preSignatureQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, offset *big.Int) (bool, int64, int64) {
 	//TODO: add time penalty mechanism

@@ -1766,3 +1766,17 @@ func (s *PublicBlockChainAPI) IsMiner(ctx context.Context, addr common.Address, 
 	}
 	return 1
 }
+
+func (s *PublicBlockChainAPI) IsPunishedMiner(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) uint64 {
+	stateDb, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if stateDb == nil || err != nil {
+		return 0
+	}
+
+	totalMinerNum := minerlist.ReadMinerNum(stateDb)
+	if minerlist.IsPunishedMiner(stateDb, addr, totalMinerNum) == false {
+		return 0
+	}
+	return 1
+}
+

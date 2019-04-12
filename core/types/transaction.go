@@ -36,6 +36,18 @@ import (
 
 //go:generate gencodec -type txdata -field-override txdataMarshaling -out gen_tx_json.go
 
+type txType uint8
+
+const (
+	TxNormal txType = iota
+	TxPbft
+	TxMain
+	TxSub
+	TxGroup
+	TxAppeal
+	TxExtend
+)
+
 var (
 	ErrInvalidSig = errors.New("invalid transaction v, r, s values")
 	errNoSigner   = errors.New("missing signing methods")
@@ -59,7 +71,7 @@ type Transaction struct {
 }
 
 type txdata struct {
-	Flag         uint8           `json:"flag"     gencodec:"required"` // 0: common tx; 1: pbft tx(payload is the last block hash in best chain)
+	Flag         txType          `json:"flag"     gencodec:"required"` // 0: common tx; 1: pbft tx(payload is the last block hash in best chain)
 	AccountNonce uint64          `json:"nonce"    gencodec:"required"`
 	Price        *big.Int        `json:"gasPrice" gencodec:"required"`
 	GasLimit     uint64          `json:"gas"      gencodec:"required"`
@@ -88,8 +100,12 @@ type txdataMarshaling struct {
 	S            *hexutil.Big
 }
 
-func NewTransaction(flag uint8, nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(flag, nonce, &to, amount, gasLimit, gasPrice, data)
+func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+	return newTransaction(TxNormal, nonce, &to, amount, gasLimit, gasPrice, data)
+}
+
+func NewSpecialTransaction(flag uint8, nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+	return newTransaction(txType(flag), nonce, &to, amount, gasLimit, gasPrice, data)
 }
 
 func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
@@ -98,10 +114,10 @@ func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPric
 
 func NewPbftMessage(nonce uint64, data []byte) *Transaction {
 	addr := common.HexToAddress("0x0000000000000000000000000000000000000000")
-	return newTransaction(1, nonce, &addr, nil, 0, nil, data)
+	return newTransaction(TxPbft, nonce, &addr, nil, 0, nil, data)
 }
 
-func newTransaction(flag uint8, nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+func newTransaction(flag txType, nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
 	}
@@ -190,7 +206,7 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
-func (tx *Transaction) Flag() uint8        { return tx.data.Flag }
+func (tx *Transaction) Flag() uint8        { return uint8(tx.data.Flag) }
 func (tx *Transaction) Data() []byte       { return common.CopyBytes(tx.data.Payload) }
 func (tx *Transaction) Gas() uint64        { return tx.data.GasLimit }
 func (tx *Transaction) GasPrice() *big.Int { return new(big.Int).Set(tx.data.Price) }
@@ -563,7 +579,7 @@ func (t *TransactionsByPriceAndNonce) Pop() {
 //
 // NOTE: In a future PR this will be removed.
 type Message struct {
-	flag       uint8
+	flag       txType
 	to         *common.Address
 	from       common.Address
 	nonce      uint64
@@ -587,7 +603,7 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 	}
 }
 
-func (m Message) Flag() uint8          { return m.flag }
+func (m Message) Flag() uint8          { return uint8(m.flag) }
 func (m Message) From() common.Address { return m.from }
 func (m Message) To() *common.Address  { return m.to }
 func (m Message) GasPrice() *big.Int   { return m.gasPrice }

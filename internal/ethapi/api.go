@@ -353,6 +353,22 @@ func (s *PrivateAccountAPI) NewAccount(password string) (common.Address, error) 
 	return common.Address{}, err
 }
 
+// NewSubAccount will create a new sub account and returns the address for the new account.
+func (s *PrivateAccountAPI) NewSubAccount(ctx context.Context, address common.Address,password string) (common.Address, error) {
+	account := accounts.Account{Address: address}
+	blockHeight := s.b.CurrentBlock().Number()
+	stateDb, _, err := s.b.StateAndHeaderByNumber(ctx, rpc.BlockNumber(blockHeight.Int64()))
+	CommitteePub, err := manager.GetCommitteePublicKey(stateDb)
+	if err != nil {
+		return common.Address{}, err
+	}
+	acc,_,err := fetchKeystore(s.am).NewSubAccount(account, password, CommitteePub)
+	if err == nil {
+		return acc.Address, nil
+	}
+	return common.Address{}, err
+}
+
 // fetchKeystore retrives the encrypted keystore from the account manager.
 func fetchKeystore(am *accounts.Manager) *keystore.KeyStore {
 	return am.Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)

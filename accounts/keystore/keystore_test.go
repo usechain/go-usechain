@@ -402,7 +402,7 @@ func TestComputeABKeys(t *testing.T) {
 		t.Errorf("unlock fail. err:%s", err.Error())
 	}
 
-	abaccount, abadd, err := ks.NewABaccount(a, auth)
+	abaccount, abadd, err := ks.NewSubAccount(a, auth)
 	fmt.Println(abadd)
 	if err != nil {
 		t.Fatal(err)
@@ -414,12 +414,12 @@ func TestComputeABKeys(t *testing.T) {
 
 	fmt.Println("abaccount", abaccount)
 
-	//var abAddr common.ABaddress
+	//var abAddr common.SubAddress
 	pubbbbbb, err := ks.GetPublicKey(abaccount)
 	fmt.Println("pbbbbbbbbbbbbbbbbbbbbbbbbbbb", pubbbbbb)
 
 	abAddr, err := ks.GetABaddr(abaccount)
-	if err != nil && len(abAddr) != common.ABaddressLength {
+	if err != nil && len(abAddr) != common.SubAddressLength {
 		t.Errorf("Generate waddress error: %v", err)
 	}
 }
@@ -437,7 +437,7 @@ func TestNewABaccount(t *testing.T) {
 		t.Error(err)
 	}
 
-	ABacc, ABaddr, err := ks.NewABaccount(acc, "123456")
+	ABacc, ABaddr, err := ks.NewSubAccount(acc, "123456")
 
 	if err != nil {
 		t.Error(err)
@@ -466,8 +466,8 @@ func TestGenerateBaseABaddress(t *testing.T) {
 	reader := crand.Reader
 	curve := btcec.S256()
 	ecdsaPrivKey, _ := ecdsa.GenerateKey(curve, reader)
-	tmp := GenerateBaseABaddress(&ecdsaPrivKey.PublicKey)
+	tmp := GenerateCombineAddress(&ecdsaPrivKey.PublicKey)
 	if len(*tmp) != 66 {
-		t.Error("GenerateBaseABaddress error")
+		t.Error("GenerateCombineAddress error")
 	}
 }

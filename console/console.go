@@ -179,8 +179,8 @@ func (c *Console) init(preload []string) error {
 			if _, err = c.jsre.Run(`jeth.newAccount = personal.newAccount;`); err != nil {
 				return fmt.Errorf("personal.newAccount: %v", err)
 			}
-			if _, err = c.jsre.Run(`jeth.newABaccount = personal.newABaccount;`); err != nil {
-				return fmt.Errorf("personal.newABaccount: %v", err)
+			if _, err = c.jsre.Run(`jeth.newSubAccount = personal.newSubAccount;`); err != nil {
+				return fmt.Errorf("personal.newSubAccount: %v", err)
 			}
 			if _, err = c.jsre.Run(`jeth.sign = personal.sign;`); err != nil {
 				return fmt.Errorf("personal.sign: %v", err)
@@ -194,7 +194,7 @@ func (c *Console) init(preload []string) error {
 			obj.Set("openWallet", bridge.OpenWallet)
 			obj.Set("unlockAccount", bridge.UnlockAccount)
 			obj.Set("newAccount", bridge.NewAccount)
-			obj.Set("newABaccount", bridge.NewABaccount)
+			obj.Set("newSubAccount", bridge.NewSubAccount)
 			obj.Set("sign", bridge.Sign)
 			obj.Set("verify", bridge.Verify)
 			obj.Set("verifyQuery", bridge.VerifyQuery)

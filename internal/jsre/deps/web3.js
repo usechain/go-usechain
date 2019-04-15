@@ -5788,12 +5788,14 @@ var methods = function () {
         params: 2,
         inputFormatter: [null, null]
     });
+
     var verifyQuery = new Method({
         name: 'verifyQuery',
         call: 'personal_verifyQuery',
         params: 1,
         inputFormatter: [null]
     });
+
     var newAccount = new Method({
         name: 'newAccount',
         call: 'personal_newAccount',
@@ -5801,6 +5803,12 @@ var methods = function () {
         inputFormatter: [null]
     });
 
+    var newSubAccount = new Method({
+        name:'newSubAccount',
+        call:'personal_newSubAccount',
+        params: 2,
+        inputFormatter: [formatters.inputAddressFormatter,null]
+    });
 
     var importRawKey = new Method({
         name: 'importRawKey',
@@ -5846,6 +5854,7 @@ var methods = function () {
         verify,
         verifyQuery,
         newAccount,
+        newSubAccount,
         importRawKey,
         unlockAccount,
         ecRecover,

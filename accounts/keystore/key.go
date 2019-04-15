@@ -307,6 +307,9 @@ func newSubKey(committeePub string, AprivKey *ecdsa.PrivateKey) (*Key, error) {
 		return nil, err
 	}
 
+	A := common.ToHex(crypto.FromECDSAPub(&AprivKey.PublicKey))
+	log.Info("newSubAccount infomation", "A", A)
+
 	//HSstring := strings.Replace(strings.Join(HS, ""), "0x", "", -1)
 	//
 	//rawHS, err := hexutil.Decode("0x" + HSstring)
@@ -330,7 +333,8 @@ func newSubKey(committeePub string, AprivKey *ecdsa.PrivateKey) (*Key, error) {
 
 	var addr common.Address
 	addr = crypto.PubkeyToAddress(h.PublicKey)
-	return newSubKeyFromECDSA(h, s, addr), nil
+
+	return newSubKeyFromECDSA(h, s, AprivKey, addr), nil
 }
 
 // ComputeSubKey genetate public key and private key of AB account
@@ -341,7 +345,7 @@ func ComputeSubKey( aPrivKey *ecdsa.PrivateKey, s *ecdsa.PrivateKey, CommitteePu
 }
 
 // newSubKeyFromECDSA assign private key and address to Key
-func newSubKeyFromECDSA(sk1 *ecdsa.PrivateKey, sk2 *ecdsa.PrivateKey, addr common.Address) *Key {
+func newSubKeyFromECDSA(sk1 *ecdsa.PrivateKey, sk2 *ecdsa.PrivateKey, sk3 *ecdsa.PrivateKey, addr common.Address) *Key {
 	id := uuid.NewRandom()
 	key := &Key{
 		Id:          id,
@@ -349,11 +353,12 @@ func newSubKeyFromECDSA(sk1 *ecdsa.PrivateKey, sk2 *ecdsa.PrivateKey, addr commo
 		PrivateKey:  sk1,
 		PrivateKey2: sk2,
 	}
-	updateSubAddress(key)
+	updateSubAddress(key, sk3)
 	return key
 }
 
-func updateSubAddress(k *Key) {
-	k.SubAddress = *GenerateABaddressFromPK(&k.PrivateKey.PublicKey, &k.PrivateKey2.PublicKey)
+// update AS
+func updateSubAddress(k *Key, sk *ecdsa.PrivateKey) {
+	k.SubAddress = *GenerateABaddressFromPK(&sk.PublicKey, &k.PrivateKey2.PublicKey)
 	log.Info("newSubAccount infomation", "SubAddress", hexutil.Encode(k.SubAddress[:]))
 }

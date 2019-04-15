@@ -5568,6 +5568,13 @@ var methods = function () {
         inputFormatter: [formatters.inputTransactionFormatter]
     });
 
+    var sendSubAccountTransaction = new Method({
+        name: 'sendSubAccountTransaction',
+        call: 'use_sendSubAccountTransaction',
+        params: 1,
+        inputFormatter: [formatters.inputTransactionFormatter]
+    });
+
     var minerRegister = new Method({
         name: 'minerRegister',
         call: 'use_sendTransaction',
@@ -5613,6 +5620,8 @@ var methods = function () {
         getCertifications,
         sendCreditRegisterTransaction,
         sendAccountLockTransaction,
+        sendSubAccountTransaction,
+
         queryAddr,
         isMiner,
         isPunishedMiner,

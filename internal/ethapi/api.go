@@ -1311,7 +1311,7 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 	}
 
 	if args.Flag == nil {
-		types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
+		return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
 	}
 	return types.NewSpecialTransaction(uint8(*args.Flag), uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
 }
@@ -1729,7 +1729,7 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 	return submitTransaction(ctx, s.b, signed)
 }
 
-func (s *PublicTransactionPoolAPI) SendSubAccountTransaction(ctx context.Context, args SendTxArgs, parent common.Address) (common.Hash, error) {
+func (s *PublicTransactionPoolAPI) SendSubAccountTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: args.From}
 
@@ -1756,14 +1756,16 @@ func (s *PublicTransactionPoolAPI) SendSubAccountTransaction(ctx context.Context
 
 	//public key
 	ks := fetchKeystore(s.b.AccountManager())
-	pub, err := ks.GetPublicKey(account)
-	if err != nil {
-		return common.Hash{}, err
-	}
 	priv, err := ks.GetPrivateKey(account)
 	if err != nil {
 		return common.Hash{}, err
 	}
+	pub, err := ks.GetPublicKey(account)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	//get AS
+	AS, err:= ks.GetABaddr(account)
 
 	// Get the statDb
 	blockHeight := s.b.CurrentBlock().Number()
@@ -1771,27 +1773,26 @@ func (s *PublicTransactionPoolAPI) SendSubAccountTransaction(ctx context.Context
 	if stateDb == nil || err != nil {
 		return common.Hash{}, err
 	}
+
 	pubStr, err := manager.GetCommitteePublicKey(stateDb)
 	if err != nil {
 		return common.Hash{}, err
 	}
-	committeePub := crypto.GenerateCreditPubKey(pubStr, priv)
 
-	key := ud.IdBytes()
-	hashKey := [32]byte{}
-	copy(hashKey[:], key)
-	identity := GetIdentityData(ud, committeePub)
-	issuer, err := GetIssuerData(ud, args.From, pub)
-	if err != nil {
-		return common.Hash{}, err
-	}
-	bytesData := GetABIBytesData(common.CreditABI, "register", pub, hashKey, identity, issuer)
+	hashaBG := crypto.GenerateCreditPubKey(pubStr, priv)
+
+	encrytedData := encryptAS([]byte(AS), hashaBG)
+
+	bytesData := GetABIBytesData(common.CreditABI, "subRegister", pub, encrytedData)
 
 	if args.Data == nil {
 		args.Data = new(hexutil.Bytes)
 	}
 
-	*args.Flag = hexutil.Uint8(types.TxMain)
+	if args.Flag == nil {
+		args.Flag = new(hexutil.Uint8)
+	}
+	*args.Flag = hexutil.Uint8(types.TxSub)
 	*args.Data = hexutil.Bytes(bytesData)[:]
 
 	// Assemble the transaction and sign with the wallet
@@ -1801,6 +1802,12 @@ func (s *PublicTransactionPoolAPI) SendSubAccountTransaction(ctx context.Context
 		return common.Hash{}, err
 	}
 	return submitTransaction(ctx, s.b, signed)
+}
+
+func encryptAS( data []byte, hashaBG *ecdsa.PublicKey) string {
+	encData, _ := EncryptUserData(data, hashaBG)
+	Data := hexutil.Encode(encData)
+	return Data
 }
 
 func GetIssuerData(ud *types.UserData, useId common.Address, pubKey string) ([]byte, error) {
@@ -1857,7 +1864,7 @@ func GetABIBytesData(ABI string, name string, args ...interface{}) []byte {
 	}
 	bytesData, err := creditAbi.Pack(name, args...)
 	if err != nil {
-		log.Error("Pack ABI failed!", err)
+		log.Error("Pack ABI failed!", "err", err)
 	}
 	return bytesData
 }

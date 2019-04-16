@@ -593,6 +593,15 @@ func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.Add
 	return b, state.Error()
 }
 
+func (s *PublicBlockChainAPI) GetAccountLock(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (*common.Lock, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	cr := state.GetAccountLock(address)
+	return (*common.Lock)(cr), state.Error()
+}
+
 // GetTradePoints returns the points of the given address from global state
 func (s *PublicBlockChainAPI) GetTradePoints(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (*hexutil.Uint64, error) {
 	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
@@ -1230,6 +1239,8 @@ type SendTxArgs struct {
 	Data *hexutil.Bytes `json:"data"`
 	//Data  []byte `json:"data"`
 	Input *hexutil.Bytes `json:"input"`
+
+	Flag uint8 `json:"flag"`
 }
 
 // setDefaults is a helper function that fills in default values for unspecified tx fields.
@@ -1283,7 +1294,7 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 	if args.To == nil {
 		return types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
 	}
-	return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
+	return types.NewTransaction(args.Flag, uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
 }
 
 // submitTransaction is a helper function that submits tx to txPool and logs a message.
@@ -1335,9 +1346,8 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 	tx := args.toTransaction()
 
 	var chainID *big.Int
-	if config := s.b.ChainConfig(); config.IsEIP155(s.b.CurrentBlock().Number()) {
-		chainID = config.ChainId
-	}
+	config := s.b.ChainConfig()
+	chainID = config.ChainId
 
 	signed, err := wallet.SignTx(account, tx, chainID)
 	if err != nil {
@@ -1604,6 +1614,21 @@ func (s *PublicNetAPI) Version() string {
 func (s *PrivateAccountAPI) GenerateRSAKeypair() error {
 	err := crypto.GenerateRSAKeypair()
 	return err
+}
+
+func (s *PublicTransactionPoolAPI) SendAccountLockTransaction(ctx context.Context, args SendTxArgs, lockinfo common.Lock) (common.Hash, error) {
+
+	input, err := (json.Marshal(lockinfo))
+	if err != nil {
+		log.Error("Lockinfo not correct", "err", err)
+		return common.Hash{}, err
+	}
+	args.Input = new(hexutil.Bytes)
+	*args.Input = hexutil.ToBytes(input)
+	args.Flag = 7
+
+	return s.SendTransaction(ctx, args)
+
 }
 
 // var B = "0x043b470fd13cfb408c4a4131aa96224dd701432808816025f852d9315e59e08f63a6f324c510f3ba0e226a7dcf1c44233a333b069efdafe532c69b3430b5db57f5"

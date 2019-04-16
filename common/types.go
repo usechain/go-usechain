@@ -18,6 +18,7 @@ package common
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -272,4 +273,19 @@ func (a *UnprefixedAddress) UnmarshalText(input []byte) error {
 // MarshalText encodes the address as hex.
 func (a UnprefixedAddress) MarshalText() ([]byte, error) {
 	return []byte(hex.EncodeToString(a[:])), nil
+}
+
+type Lock struct {
+	Permission    uint16   `json:"permission"`
+	TimeLimit     uint64   `json:"timelimit"`
+	LockedBalance *big.Int `json:"lockedbalance"`
+}
+
+func (l Lock) Marshal() ([]byte, error) {
+	return json.Marshal(l)
+}
+
+func (l Lock) String() string {
+	b, _ := l.Marshal()
+	return string(b[:])
 }

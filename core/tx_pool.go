@@ -128,6 +128,10 @@ var (
 
 	// ErrPbftIndex is returned if vote index is error
 	ErrPbftIndex = errors.New("invalid vote index in a pbft transaction")
+
+	ErrPermission = errors.New("account locked")
+
+	ErrLockedBalance = errors.New("account balance locked")
 )
 
 var (
@@ -621,7 +625,7 @@ func (pool *TxPool) Pending() (map[common.Address]types.Transactions, error) {
 		txs := list.Flatten()
 		tempPendingTxs := make(types.Transactions, 0, txs.Len())
 		for i := 0; i < txs.Len(); i++ {
-			if txs[i].Flag() == 0 {
+			if txs[i].Flag() != 1 {
 				tempPendingTxs = append(tempPendingTxs, txs[i])
 			}
 		}
@@ -767,6 +771,15 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return ErrInvalidSender
 	}
 
+	lock := pool.currentState.GetOrNewStateObject(from).Lock()
+
+	if lock.Permission == 1 {
+		return ErrPermission
+	}
+	if lock.Permission == 2 && pool.currentState.GetBalance(from).Cmp(new(big.Int).Add(tx.Cost(), lock.LockedBalance)) < 0 {
+		return ErrLockedBalance
+	}
+
 	// If it's vote transaction
 	if tx.Flag() == 1 {
 		return ValidatePbftTx(pool.currentState, pool.chain.CurrentBlock().Number(), true, common.GetIndexForVote(time.Now().Unix(), pool.chain.CurrentBlock().Time().Int64()), tx, from)
@@ -819,7 +832,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 	// If the transaction is already known, discard it
 	hash := tx.Hash()
-	if pool.all[hash] != nil && tx.Flag() == 0 {
+	if pool.all[hash] != nil && tx.Flag() != 1 {
 		log.Debug("Discarding already known transaction", "hash", hash)
 		return false, fmt.Errorf("known transaction: %x", hash)
 	}

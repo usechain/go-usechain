@@ -88,8 +88,8 @@ type txdataMarshaling struct {
 	S            *hexutil.Big
 }
 
-func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(0, nonce, &to, amount, gasLimit, gasPrice, data)
+func NewTransaction(flag uint8, nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+	return newTransaction(flag, nonce, &to, amount, gasLimit, gasPrice, data)
 }
 
 func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
@@ -227,6 +227,13 @@ func (tx *Transaction) IsCommitteeTransaction() bool {
 	}
 
 	if bytes.Compare(tx.Data()[:4], []byte{199, 174, 221, 31}) == 0 {
+		return true
+	}
+	return false
+}
+
+func (tx *Transaction) IsAccountLockTransaction() bool {
+	if tx.Flag() == 7 {
 		return true
 	}
 	return false

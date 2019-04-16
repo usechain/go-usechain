@@ -252,6 +252,21 @@ func (self *StateDB) IsCertificationVerified(addr common.Address, flag uint64) b
 	return false
 }
 
+func (self *StateDB) SetAccountLock(addr common.Address, lock *common.Lock) {
+	stateObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		stateObject.SetAccountLock(lock)
+	}
+}
+
+func (self *StateDB) GetAccountLock(addr common.Address) *common.Lock {
+	stateObject := self.getStateObject(addr)
+	if stateObject != nil {
+		return stateObject.Lock()
+	}
+	return new(common.Lock)
+}
+
 func (self *StateDB) GetCode(addr common.Address) []byte {
 	stateObject := self.getStateObject(addr)
 	if stateObject != nil {
@@ -333,6 +348,11 @@ func (self *StateDB) AddBalance(addr common.Address, amount *big.Int) {
 func (self *StateDB) SubBalance(addr common.Address, amount *big.Int) {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
+
+		// lock := stateObject.Lock()
+		// if lock.Permission == 1 && lock.LockedBalance.Cmp(new(big.Int).Sub(stateObject.Balance(), amount)) <= 0 {
+		// }
+
 		stateObject.SubBalance(amount)
 	}
 }
@@ -475,6 +495,7 @@ func (self *StateDB) createObject(addr common.Address) (newobj, prev *stateObjec
 	newobj.setNonce(0) // sets the object to dirty
 	newobj.setTradePoints(0)
 	newobj.setCertifications(0)
+	newobj.setAccountLock(new(common.Lock))
 	if prev == nil {
 		self.journal = append(self.journal, createObjectChange{account: &addr})
 	} else {

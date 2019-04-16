@@ -1749,11 +1749,7 @@ func (s *PublicTransactionPoolAPI) SendSubAccountTransaction(ctx context.Context
 	if err := args.setDefaults(ctx, s.b); err != nil {
 		return common.Hash{}, err
 	}
-
-	d := ca.GetUserData("userData.json")
-	ud := types.NewUserData()
-	json.Unmarshal(d, &ud)
-
+	
 	//public key
 	ks := fetchKeystore(s.b.AccountManager())
 	priv, err := ks.GetPrivateKey(account)

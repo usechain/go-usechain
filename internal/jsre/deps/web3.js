@@ -2235,7 +2235,7 @@ var toTwosComplement = function (number) {
  * @return {Boolean}
  */
 var isStrictAddress = function (address) {
-    return /^0x[0-9a-f]{40}$/i.test(address);
+    return (/^(Um)?[1-9a-z]{33}$/i.test(address)) && (!/[OIl]{1}/.test(address));
 };
 
 /**
@@ -2246,16 +2246,7 @@ var isStrictAddress = function (address) {
  * @return {Boolean}
  */
 var isAddress = function (address) {
-    if (!/^(0x)?[0-9a-f]{40}$/i.test(address)) {
-        // check if it has the basic requirements of an address
-        return false;
-    } else if (/^(0x)?[0-9a-f]{40}$/.test(address) || /^(0x)?[0-9A-F]{40}$/.test(address)) {
-        // If it's all small caps or all all caps, return true
-        return true;
-    } else {
-        // Otherwise check each case
-        return isChecksumAddress(address);
-    }
+    return (/^(Um)?[1-9a-z]{33}$/i.test(address)) && (!/[OIl]{1}/.test(address));
 };
 
 /**
@@ -2317,12 +2308,7 @@ var toAddress = function (address) {
     if (isStrictAddress(address)) {
         return address;
     }
-
-    if (/^[0-9a-f]{40}$/.test(address)) {
-        return '0x' + address;
-    }
-
-    return '0x' + padLeft(toHex(address).substr(2), 40);
+    return address
 };
 
 /**
@@ -4010,13 +3996,8 @@ var outputPostFormatter = function(post){
 };
 
 var inputAddressFormatter = function (address) {
-    var iban = new Iban(address);
-    if (iban.isValid() && iban.isDirect()) {
-        return '0x' + iban.address();
-    } else if (utils.isStrictAddress(address)) {
+    if (utils.isAddress(address)) {
         return address;
-    } else if (utils.isAddress(address)) {
-        return '0x' + address;
     }
     throw new Error('invalid address');
 };

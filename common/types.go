@@ -17,6 +17,7 @@
 package common
 
 import (
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -26,6 +27,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/usechain/go-usechain/common/base58"
 	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/crypto/sha3"
 )
@@ -33,6 +35,7 @@ import (
 const (
 	HashLength                          = 32
 	AddressLength                       = 20
+	Base58AddressLength                 = 35
 	SubAddressLength                    = 66
 )
 
@@ -200,7 +203,7 @@ func IsHexAddress(s string) bool {
 }
 
 // Get the string representation of the underlying address
-func (a Address) Str() string   { return string(a[:]) }
+func (a Address) Str() string   { return AddressToBase58Address(a).String() }
 func (a Address) Bytes() []byte { return a[:] }
 func (a Address) Big() *big.Int { return new(big.Int).SetBytes(a[:]) }
 func (a Address) Hash() Hash    { return BytesToHash(a[:]) }
@@ -235,7 +238,7 @@ func (a Address) String() string {
 // Format implements fmt.Formatter, forcing the byte slice to be formatted as is,
 // without going through the stringer interface used for logging.
 func (a Address) Format(s fmt.State, c rune) {
-	fmt.Fprintf(s, "%"+string(c), a[:])
+	fmt.Fprintf(s, "%"+string(c), a.Str())
 }
 
 // Sets the address to the value of b. If b is larger than len(a) it will panic
@@ -258,17 +261,21 @@ func (a *Address) Set(other Address) {
 
 // MarshalText returns the hex representation of a.
 func (a Address) MarshalText() ([]byte, error) {
-	return hexutil.Bytes(a[:]).MarshalText()
+	return []byte(AddressToBase58Address(a).String()), nil
 }
 
 // UnmarshalText parses a hash in hex syntax.
 func (a *Address) UnmarshalText(input []byte) error {
-	return hexutil.UnmarshalFixedText("Address", input, a[:])
+	address := Base58AddressToAddress(BytesToBase58Address(input[1:1+Base58AddressLength]))
+	*a = address
+	return nil
 }
 
 // UnmarshalJSON parses a hash in hex syntax.
 func (a *Address) UnmarshalJSON(input []byte) error {
-	return hexutil.UnmarshalFixedJSON(addressT, input, a[:])
+	address := Base58AddressToAddress(BytesToBase58Address(input[1:1+Base58AddressLength]))
+	*a = address
+	return nil
 }
 
 // UnprefixedHash allows marshaling an Address without 0x prefix.
@@ -276,12 +283,51 @@ type UnprefixedAddress Address
 
 // UnmarshalText decodes the address from hex. The 0x prefix is optional.
 func (a *UnprefixedAddress) UnmarshalText(input []byte) error {
-	return hexutil.UnmarshalFixedUnprefixedText("UnprefixedAddress", input, a[:])
+	address := Base58AddressToAddress(BytesToBase58Address(input[1:1+Base58AddressLength]))
+	*a = UnprefixedAddress(address)
+	return nil
 }
 
 // MarshalText encodes the address as hex.
 func (a UnprefixedAddress) MarshalText() ([]byte, error) {
-	return []byte(hex.EncodeToString(a[:])), nil
+	return []byte(AddressToBase58Address(Address(a)).Bytes()), nil
+}
+
+// Base58Address represents the 35 byte address of an Usechain account
+type Base58Address [Base58AddressLength]byte
+
+func (a *Base58Address) SetBytes(b []byte) {
+	if len(b) > len(a) {
+		b = b[len(b)-Base58AddressLength:]
+	}
+	copy(a[Base58AddressLength-len(b):], b)
+}
+
+func BytesToBase58Address(b []byte) Base58Address {
+	var a Base58Address
+	a.SetBytes(b)
+	return a
+}
+
+func (a Base58Address) Bytes() []byte { return a[:] }
+func (a Base58Address) String() string   { return string(a[:]) }
+func StringToBase58Address(s string) Base58Address { return BytesToBase58Address([]byte(s)) }
+
+func AddressToBase58Address(a Address) Base58Address {
+	versionBuf := append(base58.PREFIX_ADDR, a.Bytes()...)
+
+	firstSHA := sha256.Sum256(versionBuf)
+	secondSHA := sha256.Sum256(firstSHA[:])
+	checksum := secondSHA[:4]
+
+	allBuf := append(versionBuf, checksum...)
+	address := base58.Base58Encode(allBuf)
+	return BytesToBase58Address(address)
+}
+
+func Base58AddressToAddress(a Base58Address) Address {
+	buf := base58.Base58Decode(a.Bytes())
+	return BytesToAddress(buf[2:2+AddressLength])
 }
 
 type Lock struct {

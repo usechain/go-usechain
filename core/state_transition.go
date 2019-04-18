@@ -278,6 +278,11 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		st.state.SetAccountLock(st.to().Address(), l)
 	}
 
+	lock := st.state.GetAccountLock(st.from().Address())
+	if lock.Expired() {
+		st.state.SetAccountLock(st.from().Address(), new(common.Lock))
+	}
+
 	return ret, st.gasUsed(), vmerr != nil, err
 }
 

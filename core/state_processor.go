@@ -126,10 +126,15 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			if err != nil {
 				return nil, nil, 0, err
 			}
-		} else if statedb.GetAccountLock(sender).Permission == 1 {
-			err := errors.New("transaction send from locked account")
-			return nil, nil, 0, err
-
+		} else if lock := statedb.GetAccountLock(sender); !lock.Expired() {
+			if lock.Permission == 1 {
+				err := errors.New("transaction send from locked account")
+				return nil, nil, 0, err
+			}
+			if lock.Permission == 2 && statedb.GetBalance(sender).Cmp(new(big.Int).Add(tx.Cost(), lock.LockedBalance)) < 0 {
+				err := errors.New("can not sending locked balance")
+				return nil, nil, 0, err
+			}
 		} else if tx.IsRegisterTransaction() {
 			chainid := p.config.ChainId
 			err := tx.CheckCertLegality(common.Address(sender), chainid)

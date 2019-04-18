@@ -17,6 +17,7 @@
 package core
 
 import (
+	"encoding/json"
 	"errors"
 	"math"
 	"math/big"
@@ -136,7 +137,7 @@ func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool) ([]byte, uint64, bool, 
 }
 
 func msgToTransaction(msg Message) *types.Transaction {
-	return types.NewTransaction(msg.Nonce(), *msg.To(), msg.Value(), msg.Gas(), msg.GasPrice(), msg.Data())
+	return types.NewTransaction(msg.Flag(), msg.Nonce(), *msg.To(), msg.Value(), msg.Gas(), msg.GasPrice(), msg.Data())
 }
 
 func (st *StateTransition) from() vm.AccountRef {
@@ -269,6 +270,12 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 				st.state.AddCertifications(addr, common.IDVerified)
 			}
 		}
+	}
+
+	if msg.Flag() == 7 {
+		l := new(common.Lock)
+		json.Unmarshal(st.data, l)
+		st.state.SetAccountLock(st.to().Address(), l)
 	}
 
 	return ret, st.gasUsed(), vmerr != nil, err

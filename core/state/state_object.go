@@ -109,6 +109,7 @@ type Account struct {
 	Root     common.Hash // merkle root of the storage trie
 	CodeHash []byte
 
+	Lock           *common.Lock
 	TradePoints    uint64   // user's trade points
 	Certifications uint64   // user's certifications implements by bits
 	ReviewPoints   *big.Int // user's review points
@@ -369,6 +370,23 @@ func (self *stateObject) setCode(codeHash common.Hash, code []byte) {
 	}
 }
 
+func (self *stateObject) SetAccountLock(lock *common.Lock) {
+	self.db.journal = append(self.db.journal, lockChange{
+		account: &self.address,
+		prev:    self.data.Lock,
+	})
+
+	self.setAccountLock(lock)
+}
+
+func (self *stateObject) setAccountLock(lock *common.Lock) {
+	self.data.Lock = lock
+	if self.onDirty != nil {
+		self.onDirty(self.Address())
+		self.onDirty = nil
+	}
+}
+
 func (self *stateObject) SetCertifications(certification uint64) {
 
 	self.db.journal = append(self.db.journal, certificationChange{
@@ -439,6 +457,10 @@ func (self *stateObject) TradePoints() uint64 {
 
 func (self *stateObject) Certifications() uint64 {
 	return self.data.Certifications
+}
+
+func (self *stateObject) Lock() *common.Lock {
+	return self.data.Lock
 }
 
 // Never called, but must be present to allow stateObject to be used

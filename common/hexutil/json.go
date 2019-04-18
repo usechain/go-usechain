@@ -36,6 +36,10 @@ var (
 // The empty slice marshals as "0x".
 type Bytes []byte
 
+func ToBytes(b []byte) Bytes {
+	return Bytes(b[:])
+}
+
 // MarshalText implements encoding.TextMarshaler
 func (b Bytes) MarshalText() ([]byte, error) {
 	result := make([]byte, len(b)*2+2)
@@ -190,7 +194,7 @@ func (b *Big) String() string {
 // Uint64 marshals/unmarshals as a JSON string with 0x prefix.
 // The zero value marshals as "0x0".
 type Uint64 uint64
-type Uint8  uint8
+type Uint8 uint8
 
 // MarshalText implements encoding.TextMarshaler.
 func (b Uint64) MarshalText() ([]byte, error) {

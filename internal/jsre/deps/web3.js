@@ -3770,6 +3770,19 @@ var inputTransactionFormatter = function (options){
     return options;
 };
 
+var inputAccountLockFormatter = function (options){
+    options.permission = utils.toDecimal(options['permission']);
+    options.timelimit = utils.toDecimal(options['timelimit']);
+    options.lockedbalance = utils.toDecimal(options['lockedbalance']);
+    return options;
+};
+
+var outputAccountLockFormatter = function (lock){
+    options.permission = utils.toDecimal(lock.permission);
+    options.timelimit = utils.toDecimal(lock.timelimit);
+    options.lockedbalance = utils.toDecimal(lock.lockedbalance);
+    return lock;
+};
 /**
  * Formats the input of miner register transaction and converts all values to HEX
  *
@@ -5437,6 +5450,13 @@ var methods = function () {
         inputFormatter: [formatters.inputTransactionFormatter]
     });
 
+    var sendAccountLockTransaction = new Method({
+        name: 'sendAccountLockTransaction',
+        call: 'use_sendAccountLockTransaction',
+        params: 2,
+        inputFormatter: [formatters.inputTransactionFormatter, formatters.inputAccountLockFormatter]
+    });
+
     var signTransaction = new Method({
         name: 'signTransaction',
         call: 'use_signTransaction',
@@ -5494,6 +5514,14 @@ var methods = function () {
         name: 'getWork',
         call: 'use_getWork',
         params: 0
+    });
+
+    var getAccountLock = new Method({
+        name: 'getAccountLock',
+        call: 'use_getAccountLock',
+        params: 2,
+        inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
+        outputFormatter: formatters.outputAccountLockFormatter
     });
 
     var getTradePoints = new Method({
@@ -5580,9 +5608,11 @@ var methods = function () {
         submitWork,
         getWork,
 
+        getAccountLock,
         getTradePoints,
         getCertifications,
         sendCreditRegisterTransaction,
+        sendAccountLockTransaction,
         queryAddr,
         isMiner,
         isPunishedMiner,

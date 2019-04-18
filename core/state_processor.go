@@ -80,7 +80,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			return nil, nil, 0, err
 		}
 		hash := common.BytesToHash(txs[0].Data()[:common.HashLength])
-		height := common.BytesToUint64(txs[0].Data()[common.HashLength:common.HashLength+8])
+		height := common.BytesToUint64(txs[0].Data()[common.HashLength : common.HashLength+8])
 		index := common.BytesToUint64(txs[0].Data()[common.HashLength+8:])
 		count := 1
 		for i := 1; i < txs.Len(); i++ {
@@ -126,6 +126,10 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			if err != nil {
 				return nil, nil, 0, err
 			}
+		} else if statedb.GetAccountLock(sender).Permission == 1 {
+			err := errors.New("transaction send from locked account")
+			return nil, nil, 0, err
+
 		} else if tx.IsRegisterTransaction() {
 			chainid := p.config.ChainId
 			err := tx.CheckCertLegality(common.Address(sender), chainid)

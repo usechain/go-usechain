@@ -339,7 +339,7 @@ func (s *Ethereum) Usebase() (eb common.Address, err error) {
 			s.usebase = usebase
 			s.lock.Unlock()
 
-			log.Info("Usebase automatically configured", "address", usebase)
+			log.Info("Usebase automatically configured", "address", usebase.Str())
 			return usebase, nil
 		}
 	}

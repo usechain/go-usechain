@@ -266,7 +266,7 @@ func (a Address) MarshalText() ([]byte, error) {
 
 // UnmarshalText parses a hash in hex syntax.
 func (a *Address) UnmarshalText(input []byte) error {
-	address := Base58AddressToAddress(BytesToBase58Address(input[1:1+Base58AddressLength]))
+	address := Base58AddressToAddress(BytesToBase58Address(input))
 	*a = address
 	return nil
 }
@@ -283,14 +283,14 @@ type UnprefixedAddress Address
 
 // UnmarshalText decodes the address from hex. The 0x prefix is optional.
 func (a *UnprefixedAddress) UnmarshalText(input []byte) error {
-	address := Base58AddressToAddress(BytesToBase58Address(input[1:1+Base58AddressLength]))
+	address := Base58AddressToAddress(BytesToBase58Address(input))
 	*a = UnprefixedAddress(address)
 	return nil
 }
 
 // MarshalText encodes the address as hex.
 func (a UnprefixedAddress) MarshalText() ([]byte, error) {
-	return []byte(AddressToBase58Address(Address(a)).Bytes()), nil
+	return []byte(AddressToBase58Address(Address(a)).String()), nil
 }
 
 // Base58Address represents the 35 byte address of an Usechain account

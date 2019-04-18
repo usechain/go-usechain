@@ -1,4 +1,4 @@
-package crypto
+package base58
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 // base58
 var b58Alphabet = []byte("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
 
-var prefixAddr = []byte{0x0F, 0xA2} // prefix of address: Um
+var PREFIX_ADDR = []byte{0x0F, 0xA2} // prefix of address: Um
 
 func Base58Encode(input []byte) []byte {
 	var result []byte

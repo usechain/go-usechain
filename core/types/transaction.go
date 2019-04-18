@@ -36,15 +36,18 @@ import (
 
 //go:generate gencodec -type txdata -field-override txdataMarshaling -out gen_tx_json.go
 
-type txType uint8
+type TxFlag uint8
 
 const (
-	TxNormal txType = iota
+	TxNormal TxFlag = iota
 	TxPbft
 	TxMain
 	TxSub
 	TxGroup
 	TxAppeal
+	TxComment
+	TxReward
+	TxLock
 	TxExtend
 )
 
@@ -71,7 +74,7 @@ type Transaction struct {
 }
 
 type txdata struct {
-	Flag         txType          `json:"flag"     gencodec:"required"` // 0: common tx; 1: pbft tx(payload is the last block hash in best chain)
+	Flag         TxFlag          `json:"flag"     gencodec:"required"` // 0: common tx; 1: pbft tx(payload is the last block hash in best chain)
 	AccountNonce uint64          `json:"nonce"    gencodec:"required"`
 	Price        *big.Int        `json:"gasPrice" gencodec:"required"`
 	GasLimit     uint64          `json:"gas"      gencodec:"required"`
@@ -105,7 +108,7 @@ func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit u
 }
 
 func NewSpecialTransaction(flag uint8, nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(txType(flag), nonce, &to, amount, gasLimit, gasPrice, data)
+	return newTransaction(TxFlag(flag), nonce, &to, amount, gasLimit, gasPrice, data)
 }
 
 func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
@@ -117,7 +120,7 @@ func NewPbftMessage(nonce uint64, data []byte) *Transaction {
 	return newTransaction(TxPbft, nonce, &addr, nil, 0, nil, data)
 }
 
-func newTransaction(flag txType, nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+func newTransaction(flag TxFlag, nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
 	}
@@ -206,7 +209,7 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
-func (tx *Transaction) Flag() uint8        { return uint8(tx.data.Flag) }
+func (tx *Transaction) Flag() TxFlag       { return tx.data.Flag }
 func (tx *Transaction) Data() []byte       { return common.CopyBytes(tx.data.Payload) }
 func (tx *Transaction) Gas() uint64        { return tx.data.GasLimit }
 func (tx *Transaction) GasPrice() *big.Int { return new(big.Int).Set(tx.data.Price) }
@@ -401,6 +404,20 @@ func (tx *Transaction) RawSignatureValues() (*big.Int, *big.Int, *big.Int) {
 	return tx.data.V, tx.data.R, tx.data.S
 }
 
+func (tx *Transaction) From() (from common.Address, err error) {
+	if tx.data.V != nil {
+		// make a best guess about the signer and use that to derive
+		// the sender.
+		signer := deriveSigner(tx.data.V)
+		if from, err = Sender(signer, tx); err != nil { // derive but don't cache
+			return common.Address{}, fmt.Errorf("[invalid sender: invalid sig]")
+		}
+	} else {
+		return common.Address{}, fmt.Errorf("[invalid sender: nil V field]")
+	}
+	return
+}
+
 func (tx *Transaction) String() string {
 	var from, to string
 	if tx.data.V != nil {
@@ -579,7 +596,7 @@ func (t *TransactionsByPriceAndNonce) Pop() {
 //
 // NOTE: In a future PR this will be removed.
 type Message struct {
-	flag       txType
+	flag       TxFlag
 	to         *common.Address
 	from       common.Address
 	nonce      uint64

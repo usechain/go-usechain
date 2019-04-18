@@ -242,6 +242,40 @@ func (self *StateDB) AddCertifications(addr common.Address, certifications uint6
 	}
 }
 
+func (self *StateDB) GetReviewPoints(addr common.Address) *big.Int {
+	stateObject := self.getStateObject(addr)
+	if stateObject != nil {
+		return stateObject.ReviewPoints()
+	}
+	return big.NewInt(-1)
+}
+
+// reviewPoints could be negative
+func (self *StateDB) AddReviewPoints(addr common.Address, reviewPoints *big.Int) {
+	stateObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		currentReview := stateObject.ReviewPoints()
+		stateObject.SetReviewPoints(big.NewInt(0).Add(currentReview, reviewPoints))
+	}
+}
+
+func (self *StateDB) GetRewardPoints(addr common.Address) *big.Int {
+	stateObject := self.getStateObject(addr)
+	if stateObject != nil {
+		return stateObject.RewardPoints()
+	}
+	return big.NewInt(-1)
+}
+
+// rewardPoints could be negative
+func (self *StateDB) AddRewardPoints(addr common.Address, rewardPoints *big.Int) {
+	stateObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		currentReward := stateObject.RewardPoints()
+		stateObject.SetRewardPoints(big.NewInt(0).Add(currentReward, rewardPoints))
+	}
+}
+
 func (self *StateDB) IsCertificationVerified(addr common.Address, flag uint64) bool {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {

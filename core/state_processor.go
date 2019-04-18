@@ -106,11 +106,11 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 
 	// check the txs
 	for i, tx := range block.Transactions() {
-		if header.IsCheckPoint.Int64() == 1 && tx.Flag() == 0 {
+		if header.IsCheckPoint.Int64() == 1 && tx.Flag() == types.TxNormal {
 			err := errors.New("checkpoint block can't package common transactions")
 			return nil, nil, 0, err
 		}
-		if header.IsCheckPoint.Int64() == 0 && tx.Flag() == 1 {
+		if header.IsCheckPoint.Int64() == 0 && tx.Flag() == types.TxPbft {
 			err := errors.New("common block can't package checkpoint transactions")
 			return nil, nil, 0, err
 		}
@@ -121,25 +121,40 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			return nil, nil, 0, err2
 		}
 		sender := msg.From()
-		if tx.Flag() == 1 {
+
+		switch tx.Flag() {
+		case types.TxPbft:
+			// If it's vote transaction, verify & return
 			err := ValidatePbftTx(statedb, big.NewInt(block.Number().Int64()-1), false, 0, tx, common.Address(sender))
 			if err != nil {
 				return nil, nil, 0, err
 			}
-		} else if tx.Flag() == 7 {
+		case types.TxLock:
 			if !manager.IsCommittee(statedb, msg.From()) {
 				return nil, nil, 0, ErrLockSender
 			}
-		} else if lock := statedb.GetAccountLock(sender); !lock.Expired() {
-			if lock.Permission == 1 {
-				err := errors.New("transaction send from locked account")
+
+			if lock := statedb.GetAccountLock(sender); !lock.Expired() {
+				if lock.Permission == 1 {
+					err := errors.New("transaction send from locked account")
+					return nil, nil, 0, err
+				}
+				if lock.Permission == 2 && statedb.GetBalance(sender).Cmp(new(big.Int).Add(tx.Cost(), lock.LockedBalance)) < 0 {
+					err := errors.New("can not sending locked balance")
+					return nil, nil, 0, err
+				}
+			}
+		case types.TxComment:
+			err := ValidateCommentTx(p.bc, tx, sender)
+			if err != nil {
 				return nil, nil, 0, err
 			}
-			if lock.Permission == 2 && statedb.GetBalance(sender).Cmp(new(big.Int).Add(tx.Cost(), lock.LockedBalance)) < 0 {
-				err := errors.New("can not sending locked balance")
+		case types.TxReward:
+			err := ValidateRewardTx(statedb, tx, sender)
+			if err != nil {
 				return nil, nil, 0, err
 			}
-		} else if tx.IsRegisterTransaction() {
+		case types.TxMain:
 			chainid := p.config.ChainId
 			err := tx.CheckCertLegality(common.Address(sender), chainid)
 			if err != nil {

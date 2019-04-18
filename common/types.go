@@ -55,6 +55,16 @@ func BytesToHash(b []byte) Hash {
 	h.SetBytes(b)
 	return h
 }
+
+// IsHexAddress verifies whether a string can represent a valid hex-encoded
+// Ethereum address or not.
+func IsHexHash(s string) bool {
+	if hasHexPrefix(s) {
+		s = s[2:]
+	}
+	return len(s) == 2*HashLength && isHex(s)
+}
+
 func StringToHash(s string) Hash { return BytesToHash([]byte(s)) }
 func BigToHash(b *big.Int) Hash  { return BytesToHash(b.Bytes()) }
 func HexToHash(s string) Hash    { return BytesToHash(FromHex(s)) }

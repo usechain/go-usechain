@@ -1772,12 +1772,6 @@ func (s *PublicTransactionPoolAPI) SendSubAccountTransaction(ctx context.Context
 	return submitTransaction(ctx, s.b, signed)
 }
 
-func encryptAS( data []byte, hashaBG *ecdsa.PublicKey) string {
-	encData, _ := EncryptUserData(data, hashaBG)
-	Data := hexutil.Encode(encData)
-	return Data
-}
-
 // SendCommentTransaction creates a comment transaction for the given argument, sign it and submit it to the
 // transaction pool.
 func (s *PublicTransactionPoolAPI) SendCommentTransaction(ctx context.Context, sender common.Address, hash common.Hash, score int8) (common.Hash, error) {
@@ -1924,6 +1918,12 @@ func (s *PublicTransactionPoolAPI) SendRewardTransaction(ctx context.Context, se
 		return common.Hash{}, err
 	}
 	return submitTransaction(ctx, s.b, signed)
+}
+
+func encryptAS( data []byte, hashaBG *ecdsa.PublicKey) string {
+	encData, _ := EncryptUserData(data, hashaBG)
+	Data := hexutil.Encode(encData)
+	return Data
 }
 
 func GetIssuerData(ud *types.UserData, useId common.Address, pubKey string) ([]byte, error) {

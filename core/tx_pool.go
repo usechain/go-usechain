@@ -880,24 +880,18 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return ValidateCommentTx(pool.chain, tx, from)
 	case types.TxReward:
 		return ValidateRewardTx(pool.currentState, tx, from)
-	default:
-	}
-
-	if tx.Flag() == types.TxLock {
+	case types.TxLock:
 		if !manager.IsCommittee(pool.currentState, from) {
 			return ErrLockSender
 		}
-	}
-
-	//If the transaction is authentication, check txCert Signature
-	//If the transaction isn't, check the address legality
-	var chainid = pool.chainconfig.ChainId
-
-	if tx.IsRegisterTransaction() {
+	case types.TxMain:
+		//If the transaction is authentication, check txCert Signature
+		var chainid = pool.chainconfig.ChainId
 		err = tx.CheckCertLegality(from, chainid)
 		if err != nil {
 			return err
 		}
+	default:
 	}
 
 	// Drop non-local transactions under our own minimal accepted gas price

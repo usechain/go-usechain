@@ -138,7 +138,7 @@ func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool) ([]byte, uint64, bool, 
 }
 
 func msgToTransaction(msg Message) *types.Transaction {
-	return types.NewTransaction(msg.Flag(), msg.Nonce(), *msg.To(), msg.Value(), msg.Gas(), msg.GasPrice(), msg.Data())
+	return types.NewSpecialTransaction(msg.Flag(), msg.Nonce(), *msg.To(), msg.Value(), msg.Gas(), msg.GasPrice(), msg.Data())
 }
 
 func (st *StateTransition) from() vm.AccountRef {

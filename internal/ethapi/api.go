@@ -1618,9 +1618,14 @@ func (s *PrivateAccountAPI) GenerateRSAKeypair() error {
 
 func (s *PublicTransactionPoolAPI) SendAccountLockTransaction(ctx context.Context, args SendTxArgs, lockinfo common.Lock) (common.Hash, error) {
 
-	input, err := (json.Marshal(lockinfo))
+	if len(lockinfo.TimeLimit) > 0 {
+		_, err := time.Parse(time.RFC3339, lockinfo.TimeLimit)
+		if err != nil {
+			return common.Hash{}, err
+		}
+	}
+	input, err := json.Marshal(lockinfo)
 	if err != nil {
-		log.Error("Lockinfo not correct", "err", err)
 		return common.Hash{}, err
 	}
 	args.Input = new(hexutil.Bytes)
@@ -1804,4 +1809,3 @@ func (s *PublicBlockChainAPI) IsPunishedMiner(ctx context.Context, addr common.A
 	}
 	return 1
 }
-

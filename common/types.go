@@ -24,6 +24,7 @@ import (
 	"math/big"
 	"math/rand"
 	"reflect"
+	"time"
 
 	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/crypto/sha3"
@@ -277,7 +278,7 @@ func (a UnprefixedAddress) MarshalText() ([]byte, error) {
 
 type Lock struct {
 	Permission    uint16   `json:"permission"`
-	TimeLimit     uint64   `json:"timelimit"`
+	TimeLimit     string   `json:"timelimit"`
 	LockedBalance *big.Int `json:"lockedbalance"`
 }
 
@@ -288,4 +289,19 @@ func (l Lock) Marshal() ([]byte, error) {
 func (l Lock) String() string {
 	b, _ := l.Marshal()
 	return string(b[:])
+}
+
+func (l Lock) Expired() bool {
+	if l.Permission == 0 {
+		return true
+	}
+	if len(l.TimeLimit) == 0 {
+		return false
+	}
+	now := time.Now()
+	expire, err := time.Parse(time.RFC3339, l.TimeLimit)
+	if err != nil {
+		return false // lock forever if time can not parse correctly
+	}
+	return expire.Before(now)
 }

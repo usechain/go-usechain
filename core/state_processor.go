@@ -126,6 +126,10 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			if err != nil {
 				return nil, nil, 0, err
 			}
+		} else if tx.Flag() == 7 {
+			if !manager.IsCommittee(statedb, msg.From()) {
+				return nil, nil, 0, ErrLockSender
+			}
 		} else if lock := statedb.GetAccountLock(sender); !lock.Expired() {
 			if lock.Permission == 1 {
 				err := errors.New("transaction send from locked account")

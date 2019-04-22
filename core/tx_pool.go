@@ -132,6 +132,8 @@ var (
 	ErrPermission = errors.New("account locked")
 
 	ErrLockedBalance = errors.New("account balance locked")
+
+	ErrLockSender = errors.New("locking account transaction can only send by committee")
 )
 
 var (
@@ -785,6 +787,12 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	// If it's vote transaction
 	if tx.Flag() == 1 {
 		return ValidatePbftTx(pool.currentState, pool.chain.CurrentBlock().Number(), true, common.GetIndexForVote(time.Now().Unix(), pool.chain.CurrentBlock().Time().Int64()), tx, from)
+	}
+
+	if tx.Flag() == 7 {
+		if !manager.IsCommittee(pool.currentState, from) {
+			return ErrLockSender
+		}
 	}
 
 	//If the transaction is authentication, check txCert Signature

@@ -23,11 +23,11 @@ import (
 	"math/big"
 
 	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/core/vm"
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/params"
-	"github.com/usechain/go-usechain/common/hexutil"
 )
 
 var (
@@ -263,12 +263,14 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 
 	// handle with different kinds of transactions
 	switch types.TxFlag(msg.Flag()) {
-		case types.TxNormal:{
+	case types.TxNormal:
+		{
 			st.state.AddTradePoints(sender.Address(), 1)
 		}
-		case types.TxComment: {
+	case types.TxComment:
+		{
 			payload := msg.Data()
-			addr := common.BytesToAddress(payload[common.HashLength:common.HashLength+common.AddressLength])
+			addr := common.BytesToAddress(payload[common.HashLength : common.HashLength+common.AddressLength])
 			evalPoint := hexutil.Encode(payload[common.HashLength+common.AddressLength:])
 			switch evalPoint {
 			case "0x01":
@@ -278,10 +280,11 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 			default:
 			}
 		}
-		case types.TxReward: {
+	case types.TxReward:
+		{
 			payload := msg.Data()
 			addr := common.BytesToAddress(payload[:common.AddressLength])
-			minus := hexutil.Encode(payload[common.AddressLength:common.AddressLength+1])
+			minus := hexutil.Encode(payload[common.AddressLength : common.AddressLength+1])
 			score := big.NewInt(0).SetBytes(payload[common.AddressLength+1:])
 
 			// Check whether punish or reward
@@ -304,7 +307,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		}
 	}
 
-	if msg.Flag() == 7 {
+	if msg.Flag() == 8 {
 		l := new(common.Lock)
 		json.Unmarshal(st.data, l)
 		st.state.SetAccountLock(st.to().Address(), l)

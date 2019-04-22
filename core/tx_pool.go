@@ -27,6 +27,7 @@ import (
 
 	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/contracts/manager"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
@@ -36,7 +37,6 @@ import (
 	"github.com/usechain/go-usechain/metrics"
 	"github.com/usechain/go-usechain/params"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
-	"github.com/usechain/go-usechain/common/hexutil"
 )
 
 const (
@@ -770,11 +770,11 @@ func ValidateCommentTx(bc blockChain, tx *types.Transaction, from common.Address
 
 	payload := tx.Data()
 	len := len(payload)
-	if len != common.HashLength + common.AddressLength + 1 {
+	if len != common.HashLength+common.AddressLength+1 {
 		return fmt.Errorf("error comment Tx length")
 	}
 	hash := common.BytesToHash(payload[:common.HashLength])
-	addr := common.BytesToAddress(payload[common.HashLength:common.HashLength+common.AddressLength])
+	addr := common.BytesToAddress(payload[common.HashLength : common.HashLength+common.AddressLength])
 	evalPoint := hexutil.Encode(payload[common.HashLength+common.AddressLength:])
 
 	if history, _, _, _ := GetTransaction(bc.chainDb(), hash); history != nil {
@@ -818,7 +818,7 @@ func ValidateRewardTx(state *state.StateDB, tx *types.Transaction, from common.A
 
 	payload := tx.Data()
 	len := len(payload)
-	if len < common.AddressLength + 2 {
+	if len < common.AddressLength+2 {
 		return fmt.Errorf("error reward Tx length")
 	}
 

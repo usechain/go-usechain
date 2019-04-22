@@ -175,7 +175,7 @@ func (s *PublicTxPoolAPI) Inspect() map[string]map[string]map[string]string {
 
 	// Define a formatter to flatten a transaction into a string
 	var format = func(tx *types.Transaction) string {
-		if tx.Flag() == types.TxPbft {
+		if tx.Flag() == 1 {
 			payload := tx.Data()
 			blockHash := payload[:common.HashLength]
 			number := common.BytesToUint64(payload[common.HashLength : common.HashLength+8])
@@ -326,6 +326,24 @@ func (s *PrivateAccountAPI) DeriveAccount(url string, path string, pin *bool) (a
 	return wallet.Derive(derivPath, *pin)
 }
 
+// //Verify will register a user id and prints the infomation about this id after register.
+// func (s *PrivateAccountAPI) Verify(id string, photos []string) (string, error) {
+// 	IDKey, err := ca.CAVerify(id, photos)
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	return IDKey, nil
+// }
+
+// //VerifyQuery supports user query their information after register.
+// func (s *PrivateAccountAPI) VerifyQuery(id string) (bool, error) {
+// 	err := ca.VerifyQuery(id)
+// 	if err != nil {
+// 		return false, err
+// 	}
+// 	return true, nil
+// }
+
 // NewAccount will create a new account and returns the address for the new account.
 func (s *PrivateAccountAPI) NewAccount(password string) (common.Address, error) {
 	acc, err := fetchKeystore(s.am).NewAccount(password)
@@ -428,6 +446,39 @@ func (s *PrivateAccountAPI) SendTransaction(ctx context.Context, args SendTxArgs
 		return common.Hash{}, err
 	}
 	return submitTransaction(ctx, s.b, signed)
+}
+
+// Communications between committees
+func (s *PublicTransactionPoolAPI) SendMsg(ctx context.Context, args SendTxArgs) (common.Hash, error) {
+	input := make([]byte, len(*args.Data))
+	copy(input, *args.Data)
+	args.Data = sendMsgWithTag(input)
+
+	return s.SendTransaction(ctx, args)
+}
+
+// Encrypt data
+func SendMsgWithTag(msg []byte) *hexutil.Bytes {
+	return sendMsgWithTag(msg)
+}
+
+func sendMsgWithTag(msg []byte) *hexutil.Bytes {
+	priv := testInfo
+	privateKeyECDSA_text, _ := crypto.HexToECDSA(priv)
+	publicKey := privateKeyECDSA_text.PublicKey
+	eciesPublicKey := ecies.ImportECDSAPublic(&publicKey)
+
+	ct, err := ecies.Encrypt(rand.Reader, eciesPublicKey, msg, nil, nil)
+	if err != nil {
+		log.Info("err in Encrypt the msg info ", err)
+	}
+
+	tag := []byte(TagInformation)
+	output := make([]byte, len(tag)+len(ct))
+	copy(output[:len(tag)], tag[:])
+	copy(output[len(tag):], ct[:])
+	out := hexutil.Bytes(output)
+	return &out
 }
 
 // SignTransaction will create a transaction from the given arguments and
@@ -585,26 +636,6 @@ func (s *PublicBlockChainAPI) GetCertifications(ctx context.Context, address com
 	}
 	cr := state.GetCertifications(address)
 	return (*hexutil.Uint64)(&cr), state.Error()
-}
-
-// GetReviewPoints returns the review points of the given address from global state
-func (s *PublicBlockChainAPI) GetReviewPoints(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (*hexutil.Big, error) {
-	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
-	if state == nil || err != nil {
-		return nil, err
-	}
-	cr := state.GetReviewPoints(address)
-	return (*hexutil.Big)(cr), state.Error()
-}
-
-// GetRewardPoints returns the reward points of the given address from global state
-func (s *PublicBlockChainAPI) GetRewardPoints(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (*hexutil.Big, error) {
-	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
-	if state == nil || err != nil {
-		return nil, err
-	}
-	cr := state.GetRewardPoints(address)
-	return (*hexutil.Big)(cr), state.Error()
 }
 
 // GetBlockByNumber returns the requested block. When blockNr is -1 the chain head is returned. When fullTx is true all
@@ -1290,7 +1321,7 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 	if err := b.SendTx(ctx, tx); err != nil {
 		return common.Hash{}, err
 	}
-	if tx.Flag() == types.TxPbft {
+	if tx.Flag() == 1 {
 		log.Info("Submitted pbft transaction", "fullhash", tx.Hash().Hex())
 	} else if tx.To() == nil {
 		signer := types.MakeSigner(b.ChainConfig(), b.CurrentBlock().Number())
@@ -1605,7 +1636,6 @@ func (s *PrivateAccountAPI) GenerateRSAKeypair() error {
 }
 
 func (s *PublicTransactionPoolAPI) SendAccountLockTransaction(ctx context.Context, args SendTxArgs, lockinfo common.Lock) (common.Hash, error) {
-
 	if len(lockinfo.TimeLimit) > 0 {
 		_, err := time.Parse(time.RFC3339, lockinfo.TimeLimit)
 		if err != nil {
@@ -1618,10 +1648,11 @@ func (s *PublicTransactionPoolAPI) SendAccountLockTransaction(ctx context.Contex
 	}
 	args.Input = new(hexutil.Bytes)
 	*args.Input = hexutil.ToBytes(input)
-	*args.Flag = hexutil.Uint8(7)
+
+	args.Flag = new(hexutil.Uint8)
+	*args.Flag = hexutil.Uint8(types.TxLock)
 
 	return s.SendTransaction(ctx, args)
-
 }
 
 func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
@@ -1685,9 +1716,7 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 	if args.Data == nil {
 		args.Data = new(hexutil.Bytes)
 	}
-	if args.Flag == nil {
-		args.Flag = new(hexutil.Uint8)
-	}
+
 	*args.Flag = hexutil.Uint8(types.TxMain)
 	*args.Data = hexutil.Bytes(bytesData)[:]
 
@@ -1720,7 +1749,11 @@ func (s *PublicTransactionPoolAPI) SendSubAccountTransaction(ctx context.Context
 	if err := args.setDefaults(ctx, s.b); err != nil {
 		return common.Hash{}, err
 	}
-	
+
+	d := ca.GetUserData("userData.json")
+	ud := types.NewUserData()
+	json.Unmarshal(d, &ud)
+
 	//public key
 	ks := fetchKeystore(s.b.AccountManager())
 	priv, err := ks.GetPrivateKey(account)
@@ -1752,7 +1785,6 @@ func (s *PublicTransactionPoolAPI) SendSubAccountTransaction(ctx context.Context
 
 	bytesData := GetABIBytesData(common.CreditABI, "subRegister", pub, encrytedData)
 
-	// set credit transaction
 	if args.Data == nil {
 		args.Data = new(hexutil.Bytes)
 	}
@@ -1766,154 +1798,6 @@ func (s *PublicTransactionPoolAPI) SendSubAccountTransaction(ctx context.Context
 	// Assemble the transaction and sign with the wallet
 	tx := args.toTransaction()
 	signed, err := wallet.SignTx(account, tx, nil)
-	if err != nil {
-		return common.Hash{}, err
-	}
-	return submitTransaction(ctx, s.b, signed)
-}
-
-// SendCommentTransaction creates a comment transaction for the given argument, sign it and submit it to the
-// transaction pool.
-func (s *PublicTransactionPoolAPI) SendCommentTransaction(ctx context.Context, sender common.Address, hash common.Hash, score int8) (common.Hash, error) {
-	var args SendTxArgs
-	// Look up the wallet containing the requested signer
-	args.From = sender
-	account := accounts.Account{Address: args.From}
-	wallet, err := s.b.AccountManager().Find(account)
-	if err != nil {
-		return common.Hash{}, err
-	}
-
-	var evalPoint string
-	switch score {
-		case -1:
-			evalPoint = "f1"
-		case 0:
-			evalPoint = "00"
-		case 1:
-			evalPoint = "01"
-		default:
-			return common.Hash{}, fmt.Errorf("comment tx only accept 1/0/-1 for review point")
-	}
-
-	var buf string
-	if history, _, _, _ := core.GetTransaction(s.b.ChainDb(), hash); history != nil {
-		from, err := history.From()
-		if err != nil {
-			return common.Hash{}, fmt.Errorf("sender not found, comment tx err")
-		}
-		if sender.String() == history.To().String() {
-			buf = hash.String() + from.String()[2:] + evalPoint
-		}else if sender.String() == from.String() {
-			buf = hash.String() + history.To().String()[2:] + evalPoint
-		}else {
-			return common.Hash{}, fmt.Errorf("tx comment not sent from right sender")
-		}
-	} else {
-		return common.Hash{}, fmt.Errorf("tx comment not found")
-	}
-	if args.Data == nil {
-		args.Data = new(hexutil.Bytes)
-	}
-	fmt.Println("buf", buf)
-	*args.Data = hexutil.Bytes(hexutil.MustDecode(buf))
-
-	if args.Flag == nil {
-		args.Flag = new(hexutil.Uint8)
-	}
-	*args.Flag = hexutil.Uint8(types.TxComment)
-
-	if args.To == nil {
-		args.To = new(common.Address)
-	}
-	*args.To = common.HexToAddress("0x0000000000000000000000000000000000000000")
-
-	if args.Nonce == nil {
-		// Hold the addresse's mutex around signing to prevent concurrent assignment of
-		// the same nonce to multiple accounts.
-		s.nonceLock.LockAddr(args.From)
-		defer s.nonceLock.UnlockAddr(args.From)
-	}
-
-	// Set some sanity defaults and terminate on failure
-	if err := args.setDefaults(ctx, s.b); err != nil {
-		return common.Hash{}, err
-	}
-
-	// Assemble the transaction and sign with the wallet
-	tx := args.toTransaction()
-
-	var chainID *big.Int
-	if config := s.b.ChainConfig(); config.IsEIP155(s.b.CurrentBlock().Number()) {
-		chainID = config.ChainId
-	}
-
-	signed, err := wallet.SignTx(account, tx, chainID)
-	if err != nil {
-		return common.Hash{}, err
-	}
-	return submitTransaction(ctx, s.b, signed)
-}
-
-// SendCommentTransaction creates a comment transaction for the given argument, sign it and submit it to the
-// transaction pool.
-func (s *PublicTransactionPoolAPI) SendRewardTransaction(ctx context.Context, sender common.Address, target common.Address, score *big.Int) (common.Hash, error) {
-	var args SendTxArgs
-	// Look up the wallet containing the requested signer
-	args.From = sender
-	account := accounts.Account{Address: args.From}
-	wallet, err := s.b.AccountManager().Find(account)
-	if err != nil {
-		return common.Hash{}, err
-	}
-
-	if args.Nonce == nil {
-		// Hold the addresse's mutex around signing to prevent concurrent assignment of
-		// the same nonce to multiple accounts.
-		s.nonceLock.LockAddr(args.From)
-		defer s.nonceLock.UnlockAddr(args.From)
-	}
-
-	// fill the payload
-	if args.Data == nil {
-		args.Data = new(hexutil.Bytes)
-	}
-	payload := target.Bytes()
-	if score.Cmp(big.NewInt(0)) == -1 {
-		payload = append(payload, 1)
-	} else {
-		payload = append(payload, 0)
-	}
-	for _, s := range score.Bytes() {
-		payload = append(payload, s)
-	}
-	*args.Data = hexutil.Bytes(payload)
-
-	// update the tx flag
-	if args.Flag == nil {
-		args.Flag = new(hexutil.Uint8)
-	}
-	*args.Flag = hexutil.Uint8(types.TxReward)
-
-	// update the receipt
-	if args.To == nil {
-		args.To = new(common.Address)
-	}
-	*args.To = common.HexToAddress("0x0000000000000000000000000000000000000000")
-
-	// Set some sanity defaults and terminate on failure
-	if err := args.setDefaults(ctx, s.b); err != nil {
-		return common.Hash{}, err
-	}
-
-	// Assemble the transaction and sign with the wallet
-	tx := args.toTransaction()
-	var chainID *big.Int
-	if config := s.b.ChainConfig(); config.IsEIP155(s.b.CurrentBlock().Number()) {
-		chainID = config.ChainId
-	}
-
-	signed, err := wallet.SignTx(account, tx, chainID)
 	if err != nil {
 		return common.Hash{}, err
 	}

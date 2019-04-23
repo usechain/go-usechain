@@ -92,6 +92,7 @@ contract CreditSystem is SignerRole{
 // contract CreditSystem is SignerRole{
     event NewUserRegister(address indexed addr, bytes32 indexed hash);
     event NewIdentity(address indexed addr, bytes32 indexed hash);
+    uint public unConfirmedSubAddressLen  = 0;
 
     mapping (address => UseID) IDs;
     mapping (bytes32 => UseData) DataSet;
@@ -126,6 +127,16 @@ contract CreditSystem is SignerRole{
         bool[] verifies;            // certificate's status
     }
 
+    struct subAddr {
+        bool confirmed;
+        string pubKey;
+        string encryptedAS;
+    }
+
+    mapping (address => subAddr) public SubAddr;
+
+    address[] public UnConfirmedSubAddress;
+
     /// @notice only committee can do
     modifier onlyCommittee(address _user) {
         require (Committee(CommitteeAddr).IsOndutyCommittee(_user) == true);
@@ -154,6 +165,58 @@ contract CreditSystem is SignerRole{
         IDs[addr].hl.hashes.push(_hashKey);
         IDs[addr].hl.verifies.push(false);
         NewUserRegister(addr, _hashKey);
+        return true;
+    }
+
+     // @notice modifier
+    modifier subAddrNotAdded(address _addr) {
+        require(!SubAddr[_addr].confirmed);
+        _;
+    }
+
+   function subRegister(string _pubkey, string _encryptedAS)
+        subAddrNotAdded(msg.sender)
+        public
+        payable
+        returns (bool)
+    {
+        SubAddr[msg.sender].confirmed = false;
+        SubAddr[msg.sender].pubKey = _pubkey;
+        SubAddr[msg.sender].encryptedAS = _encryptedAS;
+        for (uint i= 0; i < unConfirmedSubAddressLen; i++) {
+                if (UnConfirmedSubAddress[i] == msg.sender) {
+                  return false;
+                }
+            }
+        UnConfirmedSubAddress.push(msg.sender);
+        unConfirmedSubAddressLen = UnConfirmedSubAddress.length;
+        return true;
+    }
+
+    // @dev check that subAddr confirmed
+    function checkSubAddr(address _addr) public view returns (bool) {
+        return SubAddr[_addr].confirmed;
+    }
+
+    function getUnConfirmedSubAddressLen()
+        public
+        view
+        returns(uint){
+        return UnConfirmedSubAddress.length;
+    }
+
+    function verifySub(address addr)
+        public
+        // onlyCommittee(msg.sender)
+        returns(bool){
+           SubAddr[addr].confirmed = true;
+           for (uint i= 0; i < unConfirmedSubAddressLen; i++) {
+                if (UnConfirmedSubAddress[i] == addr) {
+                    UnConfirmedSubAddress[i] = UnConfirmedSubAddress[unConfirmedSubAddressLen - 1];
+                    UnConfirmedSubAddress.length -= 1;
+                    unConfirmedSubAddressLen = UnConfirmedSubAddress.length;
+                }
+            }
         return true;
     }
 
@@ -252,5 +315,4 @@ contract CreditSystem is SignerRole{
             }
         return false;
     }
-
 }

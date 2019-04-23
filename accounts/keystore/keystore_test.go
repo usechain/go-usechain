@@ -401,8 +401,9 @@ func TestComputeABKeys(t *testing.T) {
 	if err != nil {
 		t.Errorf("unlock fail. err:%s", err.Error())
 	}
+	pubStr := "0x04bafe5a9fa0f74a257d8521e37d18850e711f49653718dd88dddc5da2c8124c373de9f5e33d69e2996780256780222d162bf90f5e9d105984cb47c390cf3e21ac"
 
-	abaccount, abadd, err := ks.NewABaccount(a, auth)
+	abaccount, abadd, err := ks.NewSubAccount(a, auth, pubStr)
 	fmt.Println(abadd)
 	if err != nil {
 		t.Fatal(err)
@@ -414,12 +415,12 @@ func TestComputeABKeys(t *testing.T) {
 
 	fmt.Println("abaccount", abaccount)
 
-	//var abAddr common.ABaddress
+	//var abAddr common.SubAddress
 	pubbbbbb, err := ks.GetPublicKey(abaccount)
 	fmt.Println("pbbbbbbbbbbbbbbbbbbbbbbbbbbb", pubbbbbb)
 
 	abAddr, err := ks.GetABaddr(abaccount)
-	if err != nil && len(abAddr) != common.ABaddressLength {
+	if err != nil && len(abAddr) != common.SubAddressLength {
 		t.Errorf("Generate waddress error: %v", err)
 	}
 }
@@ -436,8 +437,9 @@ func TestNewABaccount(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	pubStr := "0x04bafe5a9fa0f74a257d8521e37d18850e711f49653718dd88dddc5da2c8124c373de9f5e33d69e2996780256780222d162bf90f5e9d105984cb47c390cf3e21ac"
 
-	ABacc, ABaddr, err := ks.NewABaccount(acc, "123456")
+	ABacc, ABaddr, err := ks.NewSubAccount(acc, "123456", pubStr)
 
 	if err != nil {
 		t.Error(err)
@@ -462,12 +464,3 @@ func TestECDSAPKCompression(t *testing.T) {
 	}
 }
 
-func TestGenerateBaseABaddress(t *testing.T) {
-	reader := crand.Reader
-	curve := btcec.S256()
-	ecdsaPrivKey, _ := ecdsa.GenerateKey(curve, reader)
-	tmp := GenerateBaseABaddress(&ecdsaPrivKey.PublicKey)
-	if len(*tmp) != 66 {
-		t.Error("GenerateBaseABaddress error")
-	}
-}

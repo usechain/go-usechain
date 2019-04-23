@@ -205,57 +205,35 @@ func zeroBytes(bytes []byte) {
 }
 
 // Generate account interface
-func GenerateABKey(AX string, AY string, BX string, BY string, AprivKey *ecdsa.PrivateKey) (ret []string, s *ecdsa.PrivateKey, err error) {
-	bytesAX, err := hexutil.Decode(AX)
-	if err != nil {
-		return
-	}
-	bytesAY, err := hexutil.Decode(AY)
-	if err != nil {
-		return
-	}
-	bytesBX, err := hexutil.Decode(BX)
-	if err != nil {
-		return
-	}
-	bytesBY, err := hexutil.Decode(BY)
-	if err != nil {
-		return
-	}
-	bnAX := new(big.Int).SetBytes(bytesAX)
-	bnAY := new(big.Int).SetBytes(bytesAY)
-	bnBX := new(big.Int).SetBytes(bytesBX)
-	bnBY := new(big.Int).SetBytes(bytesBY)
+func GenerateSubPubKey(committeePub *ecdsa.PublicKey, AprivKey *ecdsa.PrivateKey) (ret []string, s *ecdsa.PrivateKey, err error) {
 
-	pa := &ecdsa.PublicKey{X: bnAX, Y: bnAY}
-	pb := &ecdsa.PublicKey{X: bnBX, Y: bnBY}
-	generatedA1, generatedS, s, err := GenerateABPrivKey(pa, pb, AprivKey)
+	generatedH, generatedS, s, err := GenerateSubPrivKey(committeePub, AprivKey)
 
-	A1 := common.ToHex(FromECDSAPub(generatedA1))
-	SS := common.ToHex(FromECDSAPub(generatedS))
+	H := common.ToHex(FromECDSAPub(generatedH))
+	S := common.ToHex(FromECDSAPub(generatedS))
 
-	log.Info("newABaccount infomation", "A1", A1)
-	log.Info("newABaccount infomation", "S", SS)
+	log.Info("newSubAccount infomation", "H", H)
+	log.Info("newSubAccount infomation", "S", S)
 
-	return hexutil.PKPair2HexSlice(generatedA1, generatedS), s, nil
+	return hexutil.PKPair2HexSlice(generatedH, generatedS), s, nil
 }
 
-// GenerateABPrivKey generates an OTA account for receiver using receiver's publickey
-func GenerateABPrivKey(A *ecdsa.PublicKey, B *ecdsa.PublicKey, AprivKey *ecdsa.PrivateKey) (A1 *ecdsa.PublicKey, S *ecdsa.PublicKey, s *ecdsa.PrivateKey, err error) {
+// GenerateSubPrivKey generates an OTA account for receiver using receiver's publickey
+func GenerateSubPrivKey(B *ecdsa.PublicKey, AprivKey *ecdsa.PrivateKey) (H *ecdsa.PublicKey, S *ecdsa.PublicKey, s *ecdsa.PrivateKey, err error) {
 	s, err = GenerateKey()
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	S = &s.PublicKey
-	A1 = new(ecdsa.PublicKey)
-	*A1 = generateA1(S, B, AprivKey)
-	return A1, S, s, err
+	H = new(ecdsa.PublicKey)
+	*H = generateH(S, B, AprivKey)
+	return H, S, s, err
 }
 
 // A1=[hash([b]A)]G+S
 func ScanA1(b []byte, A *ecdsa.PublicKey, S *ecdsa.PublicKey) ecdsa.PublicKey {
 	bPriv, _ := toECDSA(b, true)
-	return generateA1(S, A, bPriv)
+	return generateH(S, A, bPriv)
 }
 
 // A1=[hash([b]A)]G+S
@@ -274,8 +252,8 @@ func ScanPubSharesA1(bA *ecdsa.PublicKey, S *ecdsa.PublicKey) ecdsa.PublicKey {
 	return *A1
 }
 
-// generateA1 generate one public key of AB account by using algorithm A1=[hash([a]B)]G+S
-func generateA1(S *ecdsa.PublicKey, B *ecdsa.PublicKey, AprivKey *ecdsa.PrivateKey) ecdsa.PublicKey {
+// generateH generate one public key of AB account by using algorithm A1=[hash([a]B)]G+S
+func generateH(S *ecdsa.PublicKey, B *ecdsa.PublicKey, AprivKey *ecdsa.PrivateKey) ecdsa.PublicKey {
 	A1 := new(ecdsa.PublicKey)
 
 	A1.X, A1.Y = S256().ScalarMult(B.X, B.Y, AprivKey.D.Bytes()) //A1=[a]B
@@ -302,51 +280,18 @@ func GenerateCreditPubKey(committeepubkey string, privkey *ecdsa.PrivateKey) *ec
 	return A
 }
 
-// GenerteABPrivateKey generates the privatekey for an AB account using receiver's main account's privatekey
-func GenerteABPrivateKey(privateKey *ecdsa.PrivateKey, privateKey2 *ecdsa.PrivateKey, AX string, AY string, BX string, BY string) (retPub *ecdsa.PublicKey, retPriv1 *ecdsa.PrivateKey, retPriv2 *ecdsa.PrivateKey, err error) {
-	bytesAX, err := hexutil.Decode(AX)
-	if err != nil {
-		return
-	}
-	bytesAY, err := hexutil.Decode(AY)
-	if err != nil {
-		return
-	}
-	bytesBX, err := hexutil.Decode(BX)
-	if err != nil {
-		return
-	}
-	bytesBY, err := hexutil.Decode(BY)
-	if err != nil {
-		return
-	}
-	bnAX := new(big.Int).SetBytes(bytesAX)
-	bnAY := new(big.Int).SetBytes(bytesAY)
-	bnBX := new(big.Int).SetBytes(bytesBX)
-	bnBY := new(big.Int).SetBytes(bytesBY)
-
-	retPub = &ecdsa.PublicKey{X: bnAX, Y: bnAY}
-	pb := &ecdsa.PublicKey{X: bnBX, Y: bnBY}
-	retPriv1, retPriv2, err = GenerateABPrivateKey(privateKey, privateKey2, retPub, pb)
-	return
-}
-
-// GenerteABPrivateKey generates the privatekey for an AB account using receiver's main account's privatekey
-func GenerateABPrivateKey(privateKey *ecdsa.PrivateKey, privateKey2 *ecdsa.PrivateKey, destPubA *ecdsa.PublicKey, destPubB *ecdsa.PublicKey) (retPriv1 *ecdsa.PrivateKey, retPriv2 *ecdsa.PrivateKey, err error) {
+// GenerateHpriv generates the private key for an sub account using receiver's main account's private key
+func GenerateHpriv(privateKey *ecdsa.PrivateKey, privateKey2 *ecdsa.PrivateKey, Bpub *ecdsa.PublicKey) (retPriv1 *ecdsa.PrivateKey, err error) {
 	pub := new(ecdsa.PublicKey)
-	pub.X, pub.Y = S256().ScalarMult(destPubB.X, destPubB.Y, privateKey.D.Bytes()) //[a]B
+	pub.X, pub.Y = S256().ScalarMult(Bpub.X, Bpub.Y, privateKey.D.Bytes()) //[a]B
 
 	//hash
 	k := new(big.Int).SetBytes(Keccak256(FromECDSAPub(pub))) //hash([a]B)
-
 	k.Add(k, privateKey2.D)     //hash([a]B)+s
 	k.Mod(k, S256().Params().N) //mod to feild N
 
 	retPriv1 = new(ecdsa.PrivateKey)
-	retPriv2 = new(ecdsa.PrivateKey)
-
 	retPriv1.D = k
-	retPriv2.D = new(big.Int).SetInt64(0)
 
-	return retPriv1, retPriv2, nil
+	return retPriv1, nil
 }

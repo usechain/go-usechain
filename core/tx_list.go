@@ -251,7 +251,7 @@ func (l *txList) Overlaps(tx *types.Transaction) bool {
 func (l *txList) Add(tx *types.Transaction, priceBump uint64) (bool, *types.Transaction) {
 	// If there's an older better transaction, abort
 	old := l.txs.Get(tx.Nonce())
-	if old != nil && tx.Flag() != 1 {
+	if old != nil && tx.Flag() != types.TxPbft {
 		threshold := new(big.Int).Div(new(big.Int).Mul(old.GasPrice(), big.NewInt(100+int64(priceBump))), big.NewInt(100))
 		// Have to ensure that the new gas price is higher than the old gas
 		// price as well as checking the percentage threshold to ensure that
@@ -437,7 +437,7 @@ func (l *txPricedList) Cap(threshold *big.Int, local *accountSet) types.Transact
 			continue
 		}
 		// Stop the discards if we've reached the threshold
-		if tx.Flag() == 1 || tx.GasPrice().Cmp(threshold) >= 0 {
+		if tx.Flag() == types.TxPbft || tx.GasPrice().Cmp(threshold) >= 0 {
 			save = append(save, tx)
 			break
 		}
@@ -458,7 +458,7 @@ func (l *txPricedList) Cap(threshold *big.Int, local *accountSet) types.Transact
 // lowest priced transaction currently being tracked.
 func (l *txPricedList) Underpriced(tx *types.Transaction, local *accountSet) bool {
 	// Local transactions cannot be underpriced
-	if tx.Flag() == 1 {
+	if tx.Flag() == types.TxPbft {
 		return false
 	}
 	if local.containsTx(tx) {
@@ -498,7 +498,7 @@ func (l *txPricedList) Discard(count int, local *accountSet) types.Transactions 
 			continue
 		}
 		// Non stale transaction found, discard unless local
-		if tx.Flag() == 1 || local.containsTx(tx) {
+		if tx.Flag() == types.TxPbft || local.containsTx(tx) {
 			save = append(save, tx)
 		} else {
 			drop = append(drop, tx)

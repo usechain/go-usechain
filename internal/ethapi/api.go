@@ -354,7 +354,7 @@ func (s *PrivateAccountAPI) NewAccount(password string) (common.Address, error) 
 }
 
 // NewSubAccount will create a new sub account and returns the address for the new account.
-func (s *PrivateAccountAPI) NewSubAccount(ctx context.Context, address common.Address,password string) (common.Address, error) {
+func (s *PrivateAccountAPI) NewSubAccount(ctx context.Context, address common.Address, password string) (common.Address, error) {
 	account := accounts.Account{Address: address}
 	blockHeight := s.b.CurrentBlock().Number()
 	stateDb, _, err := s.b.StateAndHeaderByNumber(ctx, rpc.BlockNumber(blockHeight.Int64()))
@@ -362,7 +362,7 @@ func (s *PrivateAccountAPI) NewSubAccount(ctx context.Context, address common.Ad
 	if err != nil {
 		return common.Address{}, err
 	}
-	acc,_,err := fetchKeystore(s.am).NewSubAccount(account, password, CommitteePub)
+	acc, _, err := fetchKeystore(s.am).NewSubAccount(account, password, CommitteePub)
 	if err == nil {
 		return acc.Address, nil
 	}
@@ -1244,7 +1244,7 @@ func (s *PublicTransactionPoolAPI) sign(addr common.Address, tx *types.Transacti
 
 // SendTxArgs represents the arguments to sumbit a new transaction into the transaction pool.
 type SendTxArgs struct {
-	Flag 	 *hexutil.Uint8  `json:"flag"`
+	Flag     *hexutil.Uint8  `json:"flag"`
 	From     common.Address  `json:"from"`
 	To       *common.Address `json:"to"`
 	Gas      *hexutil.Uint64 `json:"gas"`
@@ -1717,6 +1717,8 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 		args.Data = new(hexutil.Bytes)
 	}
 
+	args.Flag = new(hexutil.Uint8)
+	args.Data = new(hexutil.Bytes)
 	*args.Flag = hexutil.Uint8(types.TxMain)
 	*args.Data = hexutil.Bytes(bytesData)[:]
 
@@ -1765,7 +1767,7 @@ func (s *PublicTransactionPoolAPI) SendSubAccountTransaction(ctx context.Context
 		return common.Hash{}, err
 	}
 	//get AS
-	AS, err:= ks.GetABaddr(account)
+	AS, err := ks.GetABaddr(account)
 
 	// Get the statDb
 	blockHeight := s.b.CurrentBlock().Number()
@@ -1804,7 +1806,7 @@ func (s *PublicTransactionPoolAPI) SendSubAccountTransaction(ctx context.Context
 	return submitTransaction(ctx, s.b, signed)
 }
 
-func encryptAS( data []byte, hashaBG *ecdsa.PublicKey) string {
+func encryptAS(data []byte, hashaBG *ecdsa.PublicKey) string {
 	encData, _ := EncryptUserData(data, hashaBG)
 	Data := hexutil.Encode(encData)
 	return Data

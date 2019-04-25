@@ -32,6 +32,7 @@ import (
 	"github.com/usechain/go-usechain/accounts/abi"
 	"github.com/usechain/go-usechain/accounts/ca"
 	"github.com/usechain/go-usechain/accounts/keystore"
+	"github.com/usechain/go-usechain/accounts/hdwallet"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/common/math"
@@ -252,6 +253,15 @@ func NewPrivateAccountAPI(b Backend, nonceLock *AddrLocker) *PrivateAccountAPI {
 		nonceLock: nonceLock,
 		b:         b,
 	}
+}
+
+func (s *PrivateAccountAPI) NewHDwallet(passwd string) (string, error){
+	_, mnemonic, err := hdwallet.New(passwd)
+	if err == nil {
+		return mnemonic, nil
+	}
+
+	return "", err
 }
 
 // ListAccounts will return a list of addresses for accounts this node manages.

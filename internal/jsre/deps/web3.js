@@ -5843,6 +5843,13 @@ var methods = function () {
         inputFormatter: [null]
     });
 
+    var newMnemonic = new Method({
+        name: 'newMnemonic',
+        call: 'personal_newHDwallet',
+        params: 1,
+        inputFormatter: [null]
+    });
+
     var newAccount = new Method({
         name: 'newAccount',
         call: 'personal_newAccount',
@@ -5900,6 +5907,7 @@ var methods = function () {
     return [
         verify,
         verifyQuery,
+        newMnemonic,
         newAccount,
         newSubAccount,
         importRawKey,

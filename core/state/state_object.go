@@ -106,6 +106,7 @@ func (s *stateObject) empty() bool {
 type Account struct {
 	Nonce    uint64
 	Balance  *big.Int
+	USGBalance *big.Int
 	Root     common.Hash // merkle root of the storage trie
 	CodeHash []byte
 
@@ -315,6 +316,47 @@ func (self *stateObject) setBalance(amount *big.Int) {
 	}
 }
 
+/*
+ *	USG balance setter
+ */
+// AddUSGBalance is used to add funds to the destination account of a transfer.
+func (c *stateObject) AddUSGBalance(amount *big.Int) {
+	// EIP158: We must check emptiness for the objects such that the account
+	// clearing (0,0,0 objects) can take effect.
+	if amount.Sign() == 0 {
+		if c.empty() {
+			c.touch()
+		}
+		return
+	}
+	c.SetUSGBalance(new(big.Int).Add(c.USGBalance(), amount))
+}
+
+// SubBalance removes amount from c's balance.
+// It is used to remove funds from the origin account of a transfer.
+func (c *stateObject) SubUSGBalance(amount *big.Int) {
+	if amount.Sign() == 0 {
+		return
+	}
+	c.SetUSGBalance(new(big.Int).Sub(c.USGBalance(), amount))
+}
+
+func (self *stateObject) SetUSGBalance(amount *big.Int) {
+	self.db.journal = append(self.db.journal, usgbalanceChange{
+		account: &self.address,
+		prev:    new(big.Int).Set(self.data.USGBalance),
+	})
+	self.setUSGBalance(amount)
+}
+
+func (self *stateObject) setUSGBalance(amount *big.Int) {
+	self.data.USGBalance = amount
+	if self.onDirty != nil {
+		self.onDirty(self.Address())
+		self.onDirty = nil
+	}
+}
+
 // Return the gas back to the origin. Used by the Virtual machine or Closures
 func (c *stateObject) ReturnGas(gas *big.Int) {}
 
@@ -500,6 +542,10 @@ func (self *stateObject) CodeHash() []byte {
 
 func (self *stateObject) Balance() *big.Int {
 	return self.data.Balance
+}
+
+func (self *stateObject) USGBalance() *big.Int {
+	return self.data.USGBalance
 }
 
 func (self *stateObject) Nonce() uint64 {

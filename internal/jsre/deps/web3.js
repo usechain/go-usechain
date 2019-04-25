@@ -5429,6 +5429,14 @@ var methods = function () {
         outputFormatter: formatters.outputBigNumberFormatter
     });
 
+    var getUSGBalance = new Method({
+        name: 'getUSGBalance',
+        call: 'use_getUSGBalance',
+        params: 2,
+        inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
+        outputFormatter: formatters.outputBigNumberFormatter
+    });
+
     var getStorageAt = new Method({
         name: 'getStorageAt',
         call: 'use_getStorageAt',
@@ -5710,6 +5718,7 @@ var methods = function () {
 
     return [
         getBalance,
+        getUSGBalance,
         getStorageAt,
         getCode,
         getBlock,

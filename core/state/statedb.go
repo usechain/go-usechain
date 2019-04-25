@@ -201,6 +201,15 @@ func (self *StateDB) GetBalance(addr common.Address) *big.Int {
 	return common.Big0
 }
 
+// Retrieve the USGbalance from the given address or 0 if object not found
+func (self *StateDB) GetUSGBalance(addr common.Address) *big.Int {
+	stateObject := self.getStateObject(addr)
+	if stateObject != nil {
+		return stateObject.USGBalance()
+	}
+	return common.Big0
+}
+
 func (self *StateDB) GetNonce(addr common.Address) uint64 {
 	stateObject := self.getStateObject(addr)
 	if stateObject != nil {
@@ -413,6 +422,29 @@ func (self *StateDB) SetBalance(addr common.Address, amount *big.Int) {
 	}
 }
 
+// AddUSGBalance adds certain amount of USG to the account associated with addr
+func (self *StateDB) AddUSGBalance(addr common.Address, amount *big.Int) {
+	stateObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		stateObject.AddUSGBalance(amount)
+	}
+}
+
+// SubUSGBalance subtracts certain amount of USG from the account associated with addr
+func (self *StateDB) SubUSGBalance(addr common.Address, amount *big.Int) {
+	stateObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		stateObject.SubUSGBalance(amount)
+	}
+}
+
+func (self *StateDB) SetUSGBalance(addr common.Address, amount *big.Int) {
+	stateObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		stateObject.SetUSGBalance(amount)
+	}
+}
+
 func (self *StateDB) SetTradePoints(addr common.Address, credit uint64) {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
@@ -578,6 +610,7 @@ func (self *StateDB) CreateAccount(addr common.Address) {
 	new, prev := self.createObject(addr)
 	if prev != nil {
 		new.setBalance(prev.data.Balance)
+		new.setUSGBalance(prev.data.USGBalance)
 	}
 }
 

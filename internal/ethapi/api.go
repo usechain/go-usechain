@@ -610,6 +610,18 @@ func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.Add
 	return b, state.Error()
 }
 
+// GetUSGBalance returns the amount for the given address in the state of the
+// given block number. The rpc.LatestBlockNumber and rpc.PendingBlockNumber meta
+// block numbers are also allowed.
+func (s *PublicBlockChainAPI) GetUSGBalance(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (*big.Int, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	b := state.GetUSGBalance(address)
+	return b, state.Error()
+}
+
 func (s *PublicBlockChainAPI) GetAccountLock(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (*common.Lock, error) {
 	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if state == nil || err != nil {

@@ -47,6 +47,10 @@ type (
 		account *common.Address
 		prev    *big.Int
 	}
+	usgbalanceChange struct {
+		account *common.Address
+		prev    *big.Int
+	}
 	lockChange struct {
 		account *common.Address
 		prev    *common.Lock
@@ -131,6 +135,10 @@ func (ch touchChange) undo(s *StateDB) {
 
 func (ch balanceChange) undo(s *StateDB) {
 	s.getStateObject(*ch.account).setBalance(ch.prev)
+}
+
+func (ch usgbalanceChange) undo(s *StateDB) {
+	s.getStateObject(*ch.account).setUSGBalance(ch.prev)
 }
 
 func (ch lockChange) undo(s *StateDB) {

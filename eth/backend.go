@@ -20,11 +20,6 @@ package eth
 import (
 	"errors"
 	"fmt"
-	"math/big"
-	"runtime"
-	"sync"
-	"sync/atomic"
-
 	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/hexutil"
@@ -49,6 +44,10 @@ import (
 	"github.com/usechain/go-usechain/rlp"
 	"github.com/usechain/go-usechain/rpc"
 	"github.com/usechain/go-usechain/vote"
+	"math/big"
+	"runtime"
+	"sync"
+	"sync/atomic"
 )
 
 type LesServer interface {
@@ -85,11 +84,11 @@ type Ethereum struct {
 
 	ApiBackend *EthApiBackend
 
-	miner     *miner.Miner
-	gasPrice  *big.Int
-	usebase common.Address
+	miner    *miner.Miner
+	gasPrice *big.Int
+	usebase  common.Address
 
-	voter     *vote.Voter
+	voter *vote.Voter
 
 	networkId     uint64
 	netRPCService *ethapi.PublicNetAPI
@@ -133,7 +132,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		stopDbUpgrade:  stopDbUpgrade,
 		networkId:      config.NetworkId,
 		gasPrice:       config.GasPrice,
-		usebase:      	config.Usebase,
+		usebase:        config.Usebase,
 		bloomRequests:  make(chan chan *bloombits.Retrieval),
 		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks),
 	}
@@ -267,7 +266,7 @@ func (s *Ethereum) APIs() []rpc.API {
 			Version:   "1.0",
 			Service:   filters.NewPublicFilterAPI(s.ApiBackend, false),
 			Public:    true,
-		},{
+		}, {
 			Namespace: "miner",
 			Version:   "1.0",
 			Service:   NewPrivateMinerAPI(s),
@@ -292,7 +291,7 @@ func (s *Ethereum) APIs() []rpc.API {
 			Version:   "1.0",
 			Service:   downloader.NewPublicDownloaderAPI(s.protocolManager.downloader, s.eventMux),
 			Public:    true,
-		},{
+		}, {
 			Namespace: "use",
 			Version:   "1.0",
 			Service:   filters.NewPublicFilterAPI(s.ApiBackend, false),
@@ -361,6 +360,7 @@ func (s *Ethereum) StartMining(local bool) error {
 		log.Error("Cannot start mining without usebase", "err", err)
 		return fmt.Errorf("usebase missing: %v", err)
 	}
+	var wallet accounts.Wallet
 	if clique, ok := s.engine.(*clique.Clique); ok {
 		wallet, err := s.accountManager.Find(accounts.Account{Address: eb})
 		if wallet == nil || err != nil {
@@ -376,8 +376,42 @@ func (s *Ethereum) StartMining(local bool) error {
 		// will ensure that private networks work in single miner mode too.
 		atomic.StoreUint32(&s.protocolManager.acceptTxs, 1)
 	}
+
+	//Sign the miner on line tx, and broadcast it
+	wallet, err = s.accountManager.Find(accounts.Account{Address: eb})
+	if wallet == nil || err != nil {
+		log.Error("Usebase account unavailable locally", "err", err)
+		return fmt.Errorf("signer missing: %v", err)
+	}
+
+	if !sendMinerOnLine(s.txPool, eb, wallet) {
+		log.Error("Miner start failed, Please try miner.start() again")
+		return nil
+	}
+
 	go s.miner.Start(eb)
 	return nil
+}
+
+func sendMinerOnLine(pool *core.TxPool, eb common.Address, wallet accounts.Wallet) bool {
+	//new a transaction
+	nonce := pool.StateDB().GetNonce(eb)
+	data, _ := hexutil.Decode("0xb1d80a7b")
+	tx := types.NewMinerOnOffLine(nonce, data)
+	signedTx, err := wallet.SignTx(accounts.Account{Address: eb}, tx, nil)
+	if err != nil {
+		log.Error("Sign the miner on line Msg failed, Please unlock the verifier account", "err", err)
+		return false
+	}
+
+	log.Info("Miner on line Msg is sent", "hash", signedTx.Hash().String())
+	//add tx to the txpool
+	err = pool.AddLocal(signedTx)
+	if err != nil {
+		log.Warn("Miner on line Msg sent failed", "err", err)
+		return false
+	}
+	return true
 }
 
 //Get the vote base
@@ -414,16 +448,65 @@ func (s *Ethereum) StartVoting() error {
 	return nil
 }
 
-func (s *Ethereum) StopMining()         { s.miner.Stop() }
+func (s *Ethereum) StopMining() {
+	if !s.IsMining() {
+		s.miner.Stop()
+		return
+	}
+	eb, err := s.Usebase()
+	if err != nil {
+		log.Error("Cannot stop mining without usebase", "err", err)
+		return
+	}
+	var wallet accounts.Wallet
+	if clique, ok := s.engine.(*clique.Clique); ok {
+		wallet, err := s.accountManager.Find(accounts.Account{Address: eb})
+		if wallet == nil || err != nil {
+			log.Error("Usebase account unavailable locally", "err", err)
+			return
+		}
+		clique.Authorize(eb, wallet.SignHash)
+	}
+
+	//Sign the miner off line tx, and broadcast it
+	wallet, err = s.accountManager.Find(accounts.Account{Address: eb})
+	if !sendMinerOffLine(s.txPool, eb, wallet) {
+		fmt.Println("Miner stop failed, Please try miner.stop() again")
+		return
+	}
+	s.miner.Stop()
+}
+
+func sendMinerOffLine(pool *core.TxPool, eb common.Address, wallet accounts.Wallet) bool {
+	//new a transaction
+	nonce := pool.StateDB().GetNonce(eb)
+	data, _ := hexutil.Decode("0x92915992")
+	tx := types.NewMinerOnOffLine(nonce, data)
+	signedTx, err := wallet.SignTx(accounts.Account{Address: eb}, tx, nil)
+	if err != nil {
+		log.Error("Sign the miner off line Msg failed, Please unlock the verifier account", "err", err)
+		return false
+	}
+
+	log.Info("Miner off line Msg is sent", "hash", signedTx.Hash().String())
+	//add tx to the txpool
+	err = pool.AddLocal(signedTx)
+	if err != nil {
+		log.Warn("Miner off line Msg sent failed", "err", err)
+		return false
+	}
+	return true
+}
+
 func (s *Ethereum) IsMining() bool      { return s.miner.Mining() }
 func (s *Ethereum) Miner() *miner.Miner { return s.miner }
 
-func (s *Ethereum) StopVoting() 		{ s.voter.Stop() }
-func (s *Ethereum) IsVoting() bool 		{ return s.voter.Voting() }
+func (s *Ethereum) StopVoting()    { s.voter.Stop() }
+func (s *Ethereum) IsVoting() bool { return s.voter.Voting() }
 
 func (s *Ethereum) AccountManager() *accounts.Manager  { return s.accountManager }
 func (s *Ethereum) BlockChain() *core.BlockChain       { return s.blockchain }
-func (s *Ethereum) ChainID()  *big.Int                 { return s.chainConfig.ChainId }
+func (s *Ethereum) ChainID() *big.Int                  { return s.chainConfig.ChainId }
 func (s *Ethereum) TxPool() *core.TxPool               { return s.txPool }
 func (s *Ethereum) EventMux() *event.TypeMux           { return s.eventMux }
 func (s *Ethereum) Engine() consensus.Engine           { return s.engine }

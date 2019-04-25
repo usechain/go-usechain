@@ -1746,8 +1746,11 @@ func (s *PublicBlockChainAPI) IsMiner(ctx context.Context, addr common.Address, 
 		return 0
 	}
 
+	blockHeight := s.b.CurrentBlock().Number()
 	totalMinerNum := minerlist.ReadMinerNum(stateDb)
-	if minerlist.IsMiner(stateDb, addr, totalMinerNum) == false {
+
+	isMiner, _ := minerlist.IsMiner(stateDb, addr, totalMinerNum, blockHeight)
+	if isMiner == false {
 		return 0
 	}
 	return 1

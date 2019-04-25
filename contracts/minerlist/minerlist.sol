@@ -40,15 +40,20 @@ contract MinerList {
     address public CreditAddr = address(0xfFffffffffFfFFffFffFfFFfFfffFfFff0000001);
 
     // missed block mining chance for miners
-    uint256 constant public MisconductLimits = 100;
+    uint256 constant public MisconductLimitsLevel1 = 15;
+    uint256 constant public MisconductLimitsLevel2 = 30;
+    uint256 constant public MisconductLimitsLevel3 = 45;
     mapping (address => uint256) public Misconducts;
 
+    mapping (address => uint) public IsOnLine;
+    mapping (address => uint) public PunishHeight;
+
     /// @notice only miner can call
-    modifier onlyMiner(address _miner) {
+    modifier onlyUSAMiner(address _miner) {
         bool isMiner = false;
-        uint len=Miner.length;
+        uint len=USA_Miner.length;
         for (uint i = 0; i<len; i++){
-            if(_miner == Miner[i]){
+            if(_miner == USA_Miner[i]){
                 isMiner = true;
                 break;
             }
@@ -80,20 +85,38 @@ contract MinerList {
         _;
     }
 
+     modifier onlyNotPermanentPunishMiner(address _miner) {
+        bool isPunishMiner = false;
+        if (Misconducts[_miner] >= MisconductLimitsLevel3) {
+            isPunishMiner = true;
+        }
+        require (isPunishMiner == false);
+        _;
+    }
+
     // calculate ticket should return to miners
     function dealTicket(address _miner) internal returns(uint256) {
-        if (Misconducts[_miner] >= MisconductLimits) {
+        if (Misconducts[_miner] >= MisconductLimitsLevel3) {
             return ticket/2;
         }
         return ticket;
     }
 
-    // // add misconducts found by other miners
-    // // the legality will be checked in validateTx stage
-    // function addMisconducts(address _miner) public onlyMiner(_miner) onlyMiner(msg.sender) returns(bool) {
-    //     Misconducts[_miner] = Misconducts[_miner] + 5;
-    //     return true;
-    // }
+    /// @notice set IsOnLine 1 , when miner.start()
+    function setOnLine()
+    public
+    payable
+    onlyMiner(msg.sender) {
+        IsOnLine[msg.sender] = 1;
+    }
+
+    /// @notice set IsOnLine 0 , when miner.stop()
+    function setOffLine()
+    public
+    payable
+    onlyMiner(msg.sender) {
+        IsOnLine[msg.sender] = 0;
+    }
 
     /// @notice add miner
     function addMiner()
@@ -101,6 +124,7 @@ contract MinerList {
     payable
     onlyNotMiner(msg.sender)
     onlyMainAccount(msg.sender)
+    onlyNotPermanentPunishMiner(msg.sender)
     returns(bool) {
         require(msg.value >= ticket);
         if (msg.value > ticket) {
@@ -108,18 +132,23 @@ contract MinerList {
             msg.sender.transfer(refundFee);
         }
         Miner.push(msg.sender);
+        IsOnLine[msg.sender] = 0;
         return true;
     }
 
     /// @dev del miner
-    function delMinerBySelf() public payable onlyMiner(msg.sender) returns(bool) {
+    function delMinerBySelf()
+    public
+    payable
+    onlyMiner(msg.sender)
+    returns(bool) {
         uint len=Miner.length;
         for (uint i = 0; i<len; i++){
             if(msg.sender == Miner[i]){
                 msg.sender.transfer(dealTicket(msg.sender));
-                Misconducts[msg.sender] = 0;
                 Miner[i] = Miner[len-1];
                 Miner.length--;
+                IsOnLine[msg.sender] = 0;
                 break;
             }
         }
@@ -127,13 +156,19 @@ contract MinerList {
     }
 
     /// @notice only committee can del miner
-    function delMinerByCommittee(address _miner) public payable onlyMiner(_miner) onlyCommittee(msg.sender) returns(bool) {
+    /// Miners removed by the committee cannot be added to the miner list
+    function delMinerByCommittee(address _miner)
+    public
+    payable
+    onlyMiner(_miner)
+    onlyCommittee(msg.sender)
+    returns(bool) {
         uint len=Miner.length;
         for (uint i = 0; i<len; i++){
             if(_miner == Miner[i]){
-                _miner.transfer(dealTicket(msg.sender));
                 Miner[i] = Miner[len-1];
                 Miner.length--;
+                Misconducts[_miner] = MisconductLimitsLevel3;
                 break;
             }
         }

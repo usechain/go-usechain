@@ -17,8 +17,8 @@
 package common
 
 import (
-	"math/big"
 	"github.com/usechain/go-usechain/common/hexutil"
+	"math/big"
 )
 
 // Common big integers often used
@@ -35,12 +35,16 @@ var (
 	BlockSlot               = big.NewInt(25)
 	VoteSlot                = big.NewInt(10)
 	VoteSlotForGenesis      = int64(1000)
-	MisconductLimits        = big.NewInt(100)
+	MisconductLimits        = big.NewInt(15)
+	PenaltyBlockTime        = int64(20)
+	MisconductLimitsLevel1  = int64(15)
+	MisconductLimitsLevel2  = int64(30)
+	MisconductLimitsLevel3  = int64(45)
 	MaxCommitteemanCount    = 5
 	BlockInterval           = 5
 	GenesisMinerQrSignature = hexutil.MustDecode("0xf0a1b27e725547bcac710bac16e6fa2e78354669aa8b4fa77b1b35fe36b78f70158125bec14a9cef5fee276cb9e739a27a8e08c544b8d625b07fe17ce19ebed3009ce48800a25f57fd492e9374cb78a4ef2b91921ed3df829fcee4220de99e2b54")
 
-	VoteInterval            = uint64(300)
+	VoteInterval = uint64(300)
 )
 
 func GetIndexForVote(t1 int64, t2 int64) uint64 {

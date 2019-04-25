@@ -64,9 +64,13 @@ var (
 	// with a different one without the required price bump.
 	ErrReplaceUnderpriced = errors.New("replacement transaction underpriced")
 
+	// ErrInsufficientUSE is returned if the tx value
+	// is higher than the balance of the user's account.
+	ErrInsufficientUSE = errors.New("insufficient funds for USE value")
+
 	// ErrInsufficientFunds is returned if the total cost of executing a transaction
 	// is higher than the balance of the user's account.
-	ErrInsufficientFunds = errors.New("insufficient funds for gas * price + value")
+	ErrInsufficientFunds = errors.New("insufficient funds for gas * price")
 
 	// ErrInvalidAuthenticationsig is returned if the authentication signature is invaild
 	ErrInvalidAuthenticationsig = errors.New("invalid authentication signature")
@@ -868,7 +872,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		if lock.Permission == 1 {
 			return ErrPermission
 		}
-		if lock.Permission == 2 && pool.currentState.GetBalance(from).Cmp(new(big.Int).Add(tx.Cost(), lock.LockedBalance)) < 0 {
+		if lock.Permission == 2 && pool.currentState.GetBalance(from).Cmp(new(big.Int).Add(tx.Value(), lock.LockedBalance)) < 0 {
 			return ErrLockedBalance
 		}
 	}
@@ -920,6 +924,22 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	local = local || pool.locals.contains(from) // account may be local even if the transaction arrived from the network
 	if !local && pool.gasPrice.Cmp(tx.GasPrice()) > 0 {
 		return ErrUnderpriced
+	}
+
+	// Ensure the transaction adheres to nonce ordering
+	if pool.currentState.GetNonce(from) > tx.Nonce() {
+		return ErrNonceTooLow
+	}
+
+	// Transactor should have enough funds to cover the costs
+	// USEcost == V
+	// USGcost == GP * GL
+	if pool.currentState.GetBalance(from).Cmp(tx.Value()) < 0 {
+		return ErrInsufficientUSE
+	}
+
+	if pool.currentState.GetUSGBalance(from).Cmp(tx.Cost()) < 0 {
+		return ErrInsufficientFunds
 	}
 
 	intrGas, err := IntrinsicGas(tx.Data(), tx.To() == nil, pool.homestead)
@@ -1114,6 +1134,7 @@ func (pool *TxPool) addTx(tx *types.Transaction, local bool) error {
 	if err != nil {
 		return err
 	}
+
 	// If we added a new transaction, run promotion checks and return
 	if !replace {
 		from, _ := types.Sender(pool.signer, tx) // already validated
@@ -1204,6 +1225,7 @@ func (pool *TxPool) Get(hash common.Hash) *types.Transaction {
 // removeTx removes a single transaction from the queue, moving all subsequent
 // transactions back to the future queue.
 func (pool *TxPool) removeTx(hash common.Hash) {
+	fmt.Println("remove tx", hash.String())
 	// Fetch the transaction we wish to delete
 	tx, ok := pool.all[hash]
 	if !ok {
@@ -1258,6 +1280,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 			accounts = append(accounts, addr)
 		}
 	}
+
 	// Iterate over all accounts and promote any executable transactions
 	for _, addr := range accounts {
 		list := pool.queue[addr]
@@ -1272,7 +1295,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 			pool.priced.Removed()
 		}
 		// Drop all transactions that are too costly (low balance or out of gas)
-		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas)
+		drops, _ := list.Filter(pool.currentState.GetUSGBalance(addr), pool.currentMaxGas)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			log.Trace("Removed unpayable queued transaction", "hash", hash)
@@ -1436,7 +1459,7 @@ func (pool *TxPool) demoteUnexecutables() {
 			pool.priced.Removed()
 		}
 		// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
-		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas)
+		drops, invalids := list.Filter(pool.currentState.GetUSGBalance(addr), pool.currentMaxGas)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			log.Trace("Removed unpayable pending transaction", "hash", hash)

@@ -174,13 +174,14 @@ func (st *StateTransition) useGas(amount uint64) error {
 	return nil
 }
 
+// Caution: now gas is counted by USG
 func (st *StateTransition) buyGas() error {
 	var (
 		state  = st.state
 		sender = st.from()
 	)
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
-	if state.GetBalance(sender.Address()).Cmp(mgval) < 0 {
+	if state.GetUSGBalance(sender.Address()).Cmp(mgval) < 0 {
 		return errInsufficientBalanceForGas
 	}
 	if err := st.gp.SubGas(st.msg.Gas()); err != nil {
@@ -189,7 +190,7 @@ func (st *StateTransition) buyGas() error {
 	st.gas += st.msg.Gas()
 
 	st.initialGas = st.msg.Gas()
-	state.SubBalance(sender.Address(), mgval)
+	state.SubUSGBalance(sender.Address(), mgval)
 	return nil
 }
 
@@ -258,8 +259,9 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 			return nil, 0, false, vmerr
 		}
 	}
+	// gas refund handle
 	st.refundGas()
-	st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+	st.state.AddUSGBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 
 	// handle with different kinds of transactions
 	switch types.TxFlag(msg.Flag()) {
@@ -328,6 +330,12 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	}
 
 	// change the account lock
+	if msg.Flag() == uint8(types.TxLock) {
+		l := new(common.Lock)
+		json.Unmarshal(st.data, l)
+		st.state.SetAccountLock(st.to().Address(), l)
+	}
+
 	lock := st.state.GetAccountLock(st.from().Address())
 	if lock.Expired() {
 		st.state.SetAccountLock(st.from().Address(), new(common.Lock))
@@ -336,6 +344,9 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	return ret, st.gasUsed(), vmerr != nil, err
 }
 
+/*
+ **	Caution: now gas is counted by USG!!!
+ */
 func (st *StateTransition) refundGas() {
 	// Apply refund counter, capped to half of the used gas.
 	refund := st.gasUsed() / 2
@@ -344,11 +355,11 @@ func (st *StateTransition) refundGas() {
 	}
 	st.gas += refund
 
-	// Return ETH for remaining gas, exchanged at the original rate.
+	// Return USE for remaining gas, exchanged at the original rate.
 	sender := st.from()
 
 	remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
-	st.state.AddBalance(sender.Address(), remaining)
+	st.state.AddUSGBalance(sender.Address(), remaining)
 
 	// Also return remaining gas to the block gas counter so it is
 	// available for the next transaction.

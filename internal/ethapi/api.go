@@ -1363,7 +1363,7 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 	if err := b.SendTx(ctx, tx); err != nil {
 		return common.Hash{}, err
 	}
-	if tx.Flag() == 1 {
+	if tx.Flag() == types.TxPbft {
 		log.Info("Submitted pbft transaction", "fullhash", tx.Hash().Hex())
 	} else if tx.To() == nil {
 		signer := types.MakeSigner(b.ChainConfig(), b.CurrentBlock().Number())
@@ -1414,6 +1414,7 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 	if err != nil {
 		return common.Hash{}, err
 	}
+	fmt.Println("tx", signed.String())
 	return submitTransaction(ctx, s.b, signed)
 }
 

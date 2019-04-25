@@ -25,6 +25,7 @@ import (
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/log"
+	"fmt"
 )
 
 // nonceHeap is a heap.Interface implementation over 64bit unsigned integers for
@@ -323,6 +324,7 @@ func (l *txList) Cap(threshold int) types.Transactions {
 // transaction was found, and also returning any transaction invalidated due to
 // the deletion (strict mode only).
 func (l *txList) Remove(tx *types.Transaction) (bool, types.Transactions) {
+	fmt.Println("txlist remove", tx.Hash().String())
 	// Remove the transaction from the set
 	nonce := tx.Nonce()
 	if removed := l.txs.Remove(nonce); !removed {

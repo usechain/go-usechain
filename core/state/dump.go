@@ -34,6 +34,7 @@ type DumpAccount struct {
 	Code     string            `json:"code"`
 	Storage  map[string]string `json:"storage"`
 
+	TimePoint	   string	   `json:"timepoint"`
 	TradePoints    uint64      `json:"tradepoints"`
 	Certifications uint64      `json:"certifications"`
 	CertPoints     uint64      `json:"certpoints"`
@@ -71,6 +72,7 @@ func (self *StateDB) RawDump() Dump {
 			Code:     common.Bytes2Hex(obj.Code(self.db)),
 			Storage:  make(map[string]string),
 
+			TimePoint:		data.TimePoint.String(),
 			TradePoints:    data.TradePoints,
 			Certifications: data.Certifications,
 			CertPoints:     data.CertPoints,

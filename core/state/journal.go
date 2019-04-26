@@ -51,6 +51,10 @@ type (
 		account *common.Address
 		prev    *big.Int
 	}
+	timepointChange struct {
+		account *common.Address
+		prev    *big.Int
+	}
 	lockChange struct {
 		account *common.Address
 		prev    *common.Lock
@@ -139,6 +143,10 @@ func (ch balanceChange) undo(s *StateDB) {
 
 func (ch usgbalanceChange) undo(s *StateDB) {
 	s.getStateObject(*ch.account).setUSGBalance(ch.prev)
+}
+
+func (ch timepointChange) undo(s *StateDB) {
+	s.getStateObject(*ch.account).setTimePoint(ch.prev)
 }
 
 func (ch lockChange) undo(s *StateDB) {

@@ -35,6 +35,9 @@ type StateDB interface {
 	AddUSGBalance(common.Address, *big.Int)
 	GetUSGBalance(common.Address) *big.Int
 
+	GetTimePoint(common.Address) *big.Int
+	SetTimePoint(common.Address, *big.Int)
+
 	GetNonce(common.Address) uint64
 	SetNonce(common.Address, uint64)
 

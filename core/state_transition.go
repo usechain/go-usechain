@@ -211,6 +211,23 @@ func (st *StateTransition) preCheck() (err error) {
 	return st.buyGas()
 }
 
+func (st *StateTransition) interestCalculate(addr common.Address) {
+	lastChanges := st.state.GetTimePoint(addr)
+	interval := big.NewInt(0).Sub(st.evm.BlockNumber, lastChanges)
+	interests := big.NewInt(0).Mul(interval, st.state.GetBalance(addr))
+
+	st.state.AddUSGBalance(addr, interests)
+	st.state.SetTimePoint(addr, st.evm.BlockNumber)
+}
+
+func (st *StateTransition) interestDistribution() {
+	msg := st.msg
+	if msg.Flag() != uint8(types.TxUSG) {
+		st.interestCalculate(st.from().Address())
+		st.interestCalculate(st.to().Address())
+	}
+}
+
 // TransitionDb will transition the state by applying the current message and
 // returning the result including the the used gas. It returns an error if it
 // failed. An error indicates a consensus issue.
@@ -243,6 +260,10 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		// error.
 		vmerr error
 	)
+
+	// distribute USG interest
+	st.interestDistribution()
+
 	// if be a contract creation tx, must be normal transaction
 	if contractCreation {
 		ret, _, st.gas, vmerr = evm.Create(sender, st.data, st.gas, st.value)

@@ -110,6 +110,7 @@ type Account struct {
 	Root     common.Hash // merkle root of the storage trie
 	CodeHash []byte
 
+	TimePoint	   *big.Int	// block number which contain last tx about USE
 	Lock           *common.Lock
 	TradePoints    uint64   // user's trade points
 	Certifications uint64   // user's certifications implements by bits
@@ -360,6 +361,22 @@ func (self *stateObject) setUSGBalance(amount *big.Int) {
 	}
 }
 
+func (self *stateObject) SetTimePoint(height *big.Int) {
+	self.db.journal = append(self.db.journal, timepointChange{
+		account: &self.address,
+		prev:    new(big.Int).Set(self.data.TimePoint),
+	})
+	self.setTimePoint(height)
+}
+
+func (self *stateObject) setTimePoint(height *big.Int) {
+	self.data.TimePoint = height
+	if self.onDirty != nil {
+		self.onDirty(self.Address())
+		self.onDirty = nil
+	}
+}
+
 // Return the gas back to the origin. Used by the Virtual machine or Closures
 func (c *stateObject) ReturnGas(gas *big.Int) {}
 
@@ -549,6 +566,10 @@ func (self *stateObject) Balance() *big.Int {
 
 func (self *stateObject) USGBalance() *big.Int {
 	return self.data.USGBalance
+}
+
+func (self *stateObject) TimePoint() *big.Int {
+	return self.data.TimePoint
 }
 
 func (self *stateObject) Nonce() uint64 {

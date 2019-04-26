@@ -210,6 +210,14 @@ func (self *StateDB) GetUSGBalance(addr common.Address) *big.Int {
 	return common.Big0
 }
 
+func (self *StateDB) GetTimePoint(addr common.Address) *big.Int {
+	stateObject := self.getStateObject(addr)
+	if stateObject != nil {
+		return stateObject.TimePoint()
+	}
+	return common.Big0
+}
+
 func (self *StateDB) GetNonce(addr common.Address) uint64 {
 	stateObject := self.getStateObject(addr)
 	if stateObject != nil {
@@ -445,6 +453,13 @@ func (self *StateDB) SetUSGBalance(addr common.Address, amount *big.Int) {
 	}
 }
 
+func (self *StateDB) SetTimePoint(addr common.Address, height *big.Int) {
+	stateObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		stateObject.SetTimePoint(height)
+	}
+}
+
 func (self *StateDB) SetTradePoints(addr common.Address, credit uint64) {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
@@ -581,6 +596,7 @@ func (self *StateDB) createObject(addr common.Address) (newobj, prev *stateObjec
 	prev = self.getStateObject(addr)
 	newobj = newObject(self, addr, Account{}, self.MarkStateObjectDirty)
 	newobj.setNonce(0) // sets the object to dirty
+	newobj.setTimePoint(big.NewInt(0))
 	newobj.setTradePoints(0)
 	newobj.setCertifications(0)
 	newobj.setCertPoints(0)

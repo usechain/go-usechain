@@ -5534,6 +5534,13 @@ var methods = function () {
         inputFormatter: [formatters.inputTransactionFormatter]
     });
 
+    var sendUSGTransaction = new Method({
+        name: 'sendUSGTransaction',
+        call: 'use_sendUSGTransaction',
+        params: 1,
+        inputFormatter: [formatters.inputTransactionFormatter]
+    });
+
     var sendAccountLockTransaction = new Method({
         name: 'sendAccountLockTransaction',
         call: 'use_sendAccountLockTransaction',
@@ -5735,6 +5742,7 @@ var methods = function () {
         sendRawTransaction,
         signTransaction,
         sendTransaction,
+        sendUSGTransaction,
 
         sign,
         compileSolidity,

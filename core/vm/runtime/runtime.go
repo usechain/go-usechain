@@ -27,6 +27,7 @@ import (
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/ethdb"
 	"github.com/usechain/go-usechain/params"
+	"github.com/usechain/go-usechain/core/types"
 )
 
 // Config is a basic type specifying certain configuration flags for running
@@ -119,6 +120,7 @@ func Execute(code, input []byte, cfg *Config) ([]byte, *state.StateDB, error) {
 		input,
 		cfg.GasLimit,
 		cfg.Value,
+		uint8(types.TxNormal),
 	)
 
 	return ret, cfg.State, err
@@ -168,6 +170,7 @@ func Call(address common.Address, input []byte, cfg *Config) ([]byte, uint64, er
 		input,
 		cfg.GasLimit,
 		cfg.Value,
+		uint8(types.TxNormal),
 	)
 
 	return ret, leftOverGas, err

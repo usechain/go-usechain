@@ -68,6 +68,10 @@ var (
 	// is higher than the balance of the user's account.
 	ErrInsufficientUSE = errors.New("insufficient funds for USE value")
 
+	// ErrInsufficientUSG is returned if the tx value
+	// is higher than the balance of the user's account.
+	ErrInsufficientUSG = errors.New("insufficient funds for USG value")
+
 	// ErrInsufficientFunds is returned if the total cost of executing a transaction
 	// is higher than the balance of the user's account.
 	ErrInsufficientFunds = errors.New("insufficient funds for gas * price")
@@ -932,14 +936,24 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 
 	// Transactor should have enough funds to cover the costs
-	// USEcost == V
-	// USGcost == GP * GL
-	if pool.currentState.GetBalance(from).Cmp(tx.Value()) < 0 {
-		return ErrInsufficientUSE
-	}
+	if tx.Flag() == types.TxUSG {
+		// For usg transfer tx
+		// USGcost == V + GP * GL
+		USGcost := big.NewInt(0).Add(tx.Value(), tx.Cost())
+		if pool.currentState.GetUSGBalance(from).Cmp(USGcost) < 0 {
+			return ErrInsufficientUSG
+		}
+	} else {
+		// For other tx
+		// USEcost == V
+		// USGcost == GP * GL
+		if pool.currentState.GetBalance(from).Cmp(tx.Value()) < 0 {
+			return ErrInsufficientUSE
+		}
 
-	if pool.currentState.GetUSGBalance(from).Cmp(tx.Cost()) < 0 {
-		return ErrInsufficientFunds
+		if pool.currentState.GetUSGBalance(from).Cmp(tx.Cost()) < 0 {
+			return ErrInsufficientFunds
+		}
 	}
 
 	intrGas, err := IntrinsicGas(tx.Data(), tx.To() == nil, pool.homestead)
@@ -1225,7 +1239,7 @@ func (pool *TxPool) Get(hash common.Hash) *types.Transaction {
 // removeTx removes a single transaction from the queue, moving all subsequent
 // transactions back to the future queue.
 func (pool *TxPool) removeTx(hash common.Hash) {
-	fmt.Println("remove tx", hash.String())
+
 	// Fetch the transaction we wish to delete
 	tx, ok := pool.all[hash]
 	if !ok {

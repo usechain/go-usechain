@@ -25,7 +25,9 @@ import (
 func NewEnv(cfg *Config) *vm.EVM {
 	context := vm.Context{
 		CanTransfer: core.CanTransfer,
+		CanUSGTransfer: core.CanUSGTransfer,
 		Transfer:    core.Transfer,
+		USGTransfer: core.USGTransfer,
 		GetHash:     func(uint64) common.Hash { return common.Hash{} },
 
 		Origin:      cfg.Origin,

@@ -176,7 +176,7 @@ func (s *PublicTxPoolAPI) Inspect() map[string]map[string]map[string]string {
 
 	// Define a formatter to flatten a transaction into a string
 	var format = func(tx *types.Transaction) string {
-		if tx.Flag() == 1 {
+		if tx.Flag() == types.TxPbft {
 			payload := tx.Data()
 			blockHash := payload[:common.HashLength]
 			number := common.BytesToUint64(payload[common.HashLength : common.HashLength+8])
@@ -1382,7 +1382,6 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 // SendTransaction creates a transaction for the given argument, sign it and submit it to the
 // transaction pool.
 func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
-
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: args.From}
 
@@ -1414,7 +1413,54 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 	if err != nil {
 		return common.Hash{}, err
 	}
-	fmt.Println("tx", signed.String())
+
+	return submitTransaction(ctx, s.b, signed)
+}
+
+// SendTransaction creates a transaction for the given argument, sign it and submit it to the
+// transaction pool.
+func (s *PublicTransactionPoolAPI) SendUSGTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
+	// Look up the wallet containing the requested signer
+	account := accounts.Account{Address: args.From}
+
+	wallet, err := s.b.AccountManager().Find(account)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	if args.Flag != nil {
+		if *args.Flag != hexutil.Uint8(types.TxUSG) {
+			return common.Hash{}, fmt.Errorf("wrong tx flag for usg transfer")
+		}
+	} else {
+		args.Flag = new(hexutil.Uint8)
+		*args.Flag = hexutil.Uint8(types.TxUSG)
+	}
+
+	if args.Nonce == nil {
+		// Hold the addresse's mutex around signing to prevent concurrent assignment of
+		// the same nonce to multiple accounts.
+		s.nonceLock.LockAddr(args.From)
+		defer s.nonceLock.UnlockAddr(args.From)
+	}
+
+	// Set some sanity defaults and terminate on failure
+	if err := args.setDefaults(ctx, s.b); err != nil {
+		return common.Hash{}, err
+	}
+
+	// Assemble the transaction and sign with the wallet
+	tx := args.toTransaction()
+
+	var chainID *big.Int
+	config := s.b.ChainConfig()
+	chainID = config.ChainId
+
+	signed, err := wallet.SignTx(account, tx, chainID)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
 	return submitTransaction(ctx, s.b, signed)
 }
 

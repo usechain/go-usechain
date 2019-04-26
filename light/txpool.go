@@ -31,6 +31,7 @@ import (
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/params"
 	"github.com/usechain/go-usechain/rlp"
+	"math/big"
 )
 
 const (
@@ -372,14 +373,24 @@ func (pool *TxPool) validateTx(ctx context.Context, tx *types.Transaction) error
 	}
 
 	// Transactor should have enough funds to cover the costs
-	// USEcost == V
-	// USGcost == GP * GL
-	if b := currentState.GetBalance(from); b.Cmp(tx.Value()) < 0 {
-		return core.ErrInsufficientUSE
-	}
+	if tx.Flag() == types.TxUSG {
+		// For usg transfer tx
+		// USGcost == V + GP * GL
+		USGcost := big.NewInt(0).Add(tx.Value(), tx.Cost())
+		if b := currentState.GetUSGBalance(from); b.Cmp(USGcost) < 0 {
+			return core.ErrInsufficientUSG
+		}
+	} else {
+		// For other tx
+		// USEcost == V
+		// USGcost == GP * GL
+		if b := currentState.GetBalance(from); b.Cmp(tx.Value()) < 0 {
+			return core.ErrInsufficientUSE
+		}
 
-	if u := currentState.GetUSGBalance(from); u.Cmp(tx.Cost()) < 0 {
-		return core.ErrInsufficientFunds
+		if u := currentState.GetUSGBalance(from); u.Cmp(tx.Cost()) < 0 {
+			return core.ErrInsufficientFunds
+		}
 	}
 
 	// Should supply enough intrinsic gas

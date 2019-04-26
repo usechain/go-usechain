@@ -24,6 +24,7 @@ import (
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/params"
+	"github.com/usechain/go-usechain/core/types"
 )
 
 // emptyCodeHash is used by create to ensure deployment is disallowed to already
@@ -56,10 +57,15 @@ func run(evm *EVM, contract *Contract, input []byte) ([]byte, error) {
 // it shouldn't be modified.
 type Context struct {
 	// CanTransfer returns whether the account contains
-	// sufficient ether to transfer the value
+	// sufficient USE to transfer the value
 	CanTransfer CanTransferFunc
-	// Transfer transfers ether from one account to the other
+	// CanUSGTransfer returns whether the account contains
+	// sufficient USG to transfer the value
+	CanUSGTransfer CanTransferFunc
+	// Transfer transfers USE from one account to the other
 	Transfer TransferFunc
+	// Transfer transfers USG from one account to the other
+	USGTransfer TransferFunc
 	// GetHash returns the hash corresponding to n
 	GetHash GetHashFunc
 
@@ -136,7 +142,7 @@ func (evm *EVM) Cancel() {
 // parameters. It also handles any necessary value transfer required and takes
 // the necessary steps to create accounts and reverses the state in case of an
 // execution error or failed value transfer.
-func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
+func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int, flag uint8) (ret []byte, leftOverGas uint64, err error) {
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -150,10 +156,6 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	if evm.depth > int(params.CallCreateDepth) {
 		return nil, gas, ErrDepth
 	}
-	// Fail if we're trying to transfer more than the available balance
-	if !evm.Context.CanTransfer(evm.StateDB, caller.Address(), &addr, value) {
-		return nil, gas, ErrInsufficientBalance
-	}
 
 	if !evm.StateDB.Exist(addr) {
 		precompiles := PrecompiledContractsHomestead
@@ -165,7 +167,21 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		}
 		evm.StateDB.CreateAccount(addr)
 	}
-	evm.Transfer(evm.StateDB, caller.Address(), to.Address(), value)
+
+	// if it's USG transfer
+	if flag == uint8(types.TxUSG) {
+		// Fail if we're trying to transfer more than the available balance
+		if !evm.Context.CanUSGTransfer(evm.StateDB, caller.Address(), &addr, value) {
+			return nil, gas, ErrInsufficientBalance
+		}
+		evm.USGTransfer(evm.StateDB, caller.Address(), to.Address(), value)
+	} else {
+		// Fail if we're trying to transfer more than the available balance
+		if !evm.Context.CanTransfer(evm.StateDB, caller.Address(), &addr, value) {
+			return nil, gas, ErrInsufficientBalance
+		}
+		evm.Transfer(evm.StateDB, caller.Address(), to.Address(), value)
+	}
 
 	// Initialise a new contract and set the code that is to be used by the EVM.
 	// The contract is a scoped environment for this execution context only.

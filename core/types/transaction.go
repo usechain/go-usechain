@@ -17,6 +17,7 @@
 package types
 
 import (
+	"bytes"
 	"container/heap"
 	"encoding/json"
 	"errors"
@@ -41,6 +42,7 @@ type TxFlag uint8
 const (
 	TxNormal TxFlag = iota
 	TxPbft
+	TxUSG
 	TxMain
 	TxSub
 	TxGroup
@@ -229,6 +231,25 @@ func (tx *Transaction) To() *common.Address {
 }
 
 var CreditABI, _ = abi.JSON(strings.NewReader(credit.ABI))
+
+func (tx *Transaction) IsCommitteeTransaction() bool {
+	// TODO: sender addr need to be fixed
+	if len(tx.Data()) <= 4+32 {
+		return false
+	}
+
+	if bytes.Compare(tx.Data()[:4], []byte{199, 174, 221, 31}) == 0 {
+		return true
+	}
+	return false
+}
+
+func (tx *Transaction) IsAccountLockTransaction() bool {
+	if tx.Flag() == TxLock {
+		return true
+	}
+	return false
+}
 
 func (tx *Transaction) GetVerifiedAddress() (common.Address, bool) {
 	method, exist := CreditABI.Methods["verifyHash"]

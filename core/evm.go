@@ -46,16 +46,18 @@ func NewEVMContext(msg Message, header *types.Header, chain ChainContext, author
 		beneficiary = *author
 	}
 	return vm.Context{
-		CanTransfer: CanTransfer,
-		Transfer:    Transfer,
-		GetHash:     GetHashFn(header, chain),
-		Origin:      msg.From(),
-		Coinbase:    beneficiary,
-		BlockNumber: new(big.Int).Set(header.Number),
-		Time:        new(big.Int).Set(header.Time),
-		Difficulty:  new(big.Int).Set(header.Difficulty),
-		GasLimit:    header.GasLimit,
-		GasPrice:    new(big.Int).Set(msg.GasPrice()),
+		CanTransfer: 	CanTransfer,
+		CanUSGTransfer: CanUSGTransfer,
+		Transfer:    	Transfer,
+		USGTransfer: 	USGTransfer,
+		GetHash:     	GetHashFn(header, chain),
+		Origin:      	msg.From(),
+		Coinbase:    	beneficiary,
+		BlockNumber: 	new(big.Int).Set(header.Number),
+		Time:        	new(big.Int).Set(header.Time),
+		Difficulty:  	new(big.Int).Set(header.Difficulty),
+		GasLimit:    	header.GasLimit,
+		GasPrice:    	new(big.Int).Set(msg.GasPrice()),
 	}
 }
 
@@ -75,20 +77,22 @@ func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 // CanTransfer checks wether there are enough funds in the address' account to make a transfer.
 // This does not take the necessary gas in to account to make the transfer valid.
 func CanTransfer(db vm.StateDB, addr common.Address, recipient *common.Address, amount *big.Int) bool {
-	//if recipient != nil {
-	//	///TODO: the code shielded for smart contract test
-	//	/*
-	//	if db.CheckAddrAuthenticateStat(*recipient) == 0 && db.GetCode(*recipient) == nil {
-	//		fmt.Println("The internal tx authentication check failed, the recipient:", (*recipient).Hex())
-	//		return false
-	//	}
-	//	*/
-	//}
 	return db.GetBalance(addr).Cmp(amount) >= 0
 }
 
+// CanUSGTransfer checks wether there are enough funds in the address' account to make a transfer.
+// This does not take the necessary gas in to account to make the transfer valid.
+func CanUSGTransfer(db vm.StateDB, addr common.Address, recipient *common.Address, amount *big.Int) bool {
+	return db.GetUSGBalance(addr).Cmp(amount) >= 0
+}
 // Transfer subtracts amount from sender and adds amount to recipient using the given Db
 func Transfer(db vm.StateDB, sender, recipient common.Address, amount *big.Int) {
 	db.SubBalance(sender, amount)
 	db.AddBalance(recipient, amount)
+}
+
+// USGTransfer subtracts USG amount from sender and adds USG amount to recipient using the given Db
+func USGTransfer(db vm.StateDB, sender, recipient common.Address, amount *big.Int) {
+	db.SubUSGBalance(sender, amount)
+	db.AddUSGBalance(recipient, amount)
 }

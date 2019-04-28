@@ -353,6 +353,22 @@ func (s *PrivateAccountAPI) NewAccount(password string) (common.Address, error) 
 	return common.Address{}, err
 }
 
+// NewSubAccount will create a new sub account and returns the address for the new account.
+func (s *PrivateAccountAPI) NewSubAccount(ctx context.Context, address common.Address, password string) (common.Address, error) {
+	account := accounts.Account{Address: address}
+	blockHeight := s.b.CurrentBlock().Number()
+	stateDb, _, err := s.b.StateAndHeaderByNumber(ctx, rpc.BlockNumber(blockHeight.Int64()))
+	CommitteePub, err := manager.GetCommitteePublicKey(stateDb)
+	if err != nil {
+		return common.Address{}, err
+	}
+	acc, _, err := fetchKeystore(s.am).NewSubAccount(account, password, CommitteePub)
+	if err == nil {
+		return acc.Address, nil
+	}
+	return common.Address{}, err
+}
+
 // fetchKeystore retrives the encrypted keystore from the account manager.
 func fetchKeystore(am *accounts.Manager) *keystore.KeyStore {
 	return am.Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
@@ -591,6 +607,15 @@ func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.Add
 	}
 	b := state.GetBalance(address)
 	return b, state.Error()
+}
+
+func (s *PublicBlockChainAPI) GetAccountLock(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (*common.Lock, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	cr := state.GetAccountLock(address)
+	return (*common.Lock)(cr), state.Error()
 }
 
 // GetTradePoints returns the points of the given address from global state
@@ -1219,6 +1244,7 @@ func (s *PublicTransactionPoolAPI) sign(addr common.Address, tx *types.Transacti
 
 // SendTxArgs represents the arguments to sumbit a new transaction into the transaction pool.
 type SendTxArgs struct {
+	Flag     *hexutil.Uint8  `json:"flag"`
 	From     common.Address  `json:"from"`
 	To       *common.Address `json:"to"`
 	Gas      *hexutil.Uint64 `json:"gas"`
@@ -1283,7 +1309,11 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 	if args.To == nil {
 		return types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
 	}
-	return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
+
+	if args.Flag == nil {
+		return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
+	}
+	return types.NewSpecialTransaction(uint8(*args.Flag), uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
 }
 
 // submitTransaction is a helper function that submits tx to txPool and logs a message.
@@ -1335,9 +1365,8 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 	tx := args.toTransaction()
 
 	var chainID *big.Int
-	if config := s.b.ChainConfig(); config.IsEIP155(s.b.CurrentBlock().Number()) {
-		chainID = config.ChainId
-	}
+	config := s.b.ChainConfig()
+	chainID = config.ChainId
 
 	signed, err := wallet.SignTx(account, tx, chainID)
 	if err != nil {
@@ -1606,7 +1635,25 @@ func (s *PrivateAccountAPI) GenerateRSAKeypair() error {
 	return err
 }
 
-// var B = "0x043b470fd13cfb408c4a4131aa96224dd701432808816025f852d9315e59e08f63a6f324c510f3ba0e226a7dcf1c44233a333b069efdafe532c69b3430b5db57f5"
+func (s *PublicTransactionPoolAPI) SendAccountLockTransaction(ctx context.Context, args SendTxArgs, lockinfo common.Lock) (common.Hash, error) {
+	if len(lockinfo.TimeLimit) > 0 {
+		_, err := time.Parse(time.RFC3339, lockinfo.TimeLimit)
+		if err != nil {
+			return common.Hash{}, err
+		}
+	}
+	input, err := json.Marshal(lockinfo)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	args.Input = new(hexutil.Bytes)
+	*args.Input = hexutil.ToBytes(input)
+
+	args.Flag = new(hexutil.Uint8)
+	*args.Flag = hexutil.Uint8(types.TxLock)
+
+	return s.SendTransaction(ctx, args)
+}
 
 func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
 	// Look up the wallet containing the requested signer
@@ -1660,14 +1707,19 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 	hashKey := [32]byte{}
 	copy(hashKey[:], key)
 	identity := GetIdentityData(ud, committeePub)
-	issuer := GetIssuerData(ud, args.From, pub)
-
+	issuer, err := GetIssuerData(ud, args.From, pub)
+	if err != nil {
+		return common.Hash{}, err
+	}
 	bytesData := GetABIBytesData(common.CreditABI, "register", pub, hashKey, identity, issuer)
 
 	if args.Data == nil {
 		args.Data = new(hexutil.Bytes)
 	}
 
+	args.Flag = new(hexutil.Uint8)
+	args.Data = new(hexutil.Bytes)
+	*args.Flag = hexutil.Uint8(types.TxMain)
 	*args.Data = hexutil.Bytes(bytesData)[:]
 
 	// Assemble the transaction and sign with the wallet
@@ -1677,13 +1729,106 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 		return common.Hash{}, err
 	}
 	return submitTransaction(ctx, s.b, signed)
-
 }
 
-func GetIssuerData(ud *types.UserData, useId common.Address, pubKey string) []byte {
-	cert, _ := ca.GetUserCert("user.crt")
+func (s *PublicTransactionPoolAPI) SendSubAccountTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
+	// Look up the wallet containing the requested signer
+	account := accounts.Account{Address: args.From}
+
+	wallet, err := s.b.AccountManager().Find(account)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	if args.Nonce == nil {
+		// Hold the addresse's mutex around signing to prevent concurrent assignment of
+		// the same nonce to multiple accounts.
+		s.nonceLock.LockAddr(args.From)
+		defer s.nonceLock.UnlockAddr(args.From)
+	}
+
+	// Set some sanity defaults and terminate on failure
+	if err := args.setDefaults(ctx, s.b); err != nil {
+		return common.Hash{}, err
+	}
+
+	d := ca.GetUserData("userData.json")
+	ud := types.NewUserData()
+	json.Unmarshal(d, &ud)
+
+	//public key
+	ks := fetchKeystore(s.b.AccountManager())
+	priv, err := ks.GetPrivateKey(account)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	pub, err := ks.GetPublicKey(account)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	//get AS
+	AS, err := ks.GetABaddr(account)
+
+	// Get the statDb
+	blockHeight := s.b.CurrentBlock().Number()
+	stateDb, _, err := s.b.StateAndHeaderByNumber(ctx, rpc.BlockNumber(blockHeight.Int64()))
+	if stateDb == nil || err != nil {
+		return common.Hash{}, err
+	}
+
+	pubStr, err := manager.GetCommitteePublicKey(stateDb)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	hashaBG := crypto.GenerateCreditPubKey(pubStr, priv)
+
+	encrytedData := encryptAS([]byte(AS), hashaBG)
+
+	bytesData := GetABIBytesData(common.CreditABI, "subRegister", pub, encrytedData)
+
+	if args.Data == nil {
+		args.Data = new(hexutil.Bytes)
+	}
+
+	if args.Flag == nil {
+		args.Flag = new(hexutil.Uint8)
+	}
+	*args.Flag = hexutil.Uint8(types.TxSub)
+	*args.Data = hexutil.Bytes(bytesData)[:]
+
+	// Assemble the transaction and sign with the wallet
+	tx := args.toTransaction()
+	signed, err := wallet.SignTx(account, tx, nil)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return submitTransaction(ctx, s.b, signed)
+}
+
+func encryptAS(data []byte, hashaBG *ecdsa.PublicKey) string {
+	encData, _ := EncryptUserData(data, hashaBG)
+	Data := hexutil.Encode(encData)
+	return Data
+}
+
+func GetIssuerData(ud *types.UserData, useId common.Address, pubKey string) ([]byte, error) {
+	cert, err := ca.GetUserCert("user.crt")
+	if err != nil {
+		log.Error("Get user.crt failed", "err", err)
+		return nil, err
+	}
 	pemBlock, _ := pem.Decode(cert)
+	if pemBlock == nil {
+		log.Error("Parse certificate failed ", "err", errors.New("invalid certificate"))
+		return nil, err
+	}
 	parsed, _ := x509.ParseCertificate(pemBlock.Bytes)
+	if err != nil {
+		log.Error("Parse certificate failed, invalid certificate", "err", err)
+		return nil, err
+	}
+
 	issuer := types.NewIssuer()
 
 	issuer.Cert = string(cert[:])
@@ -1694,12 +1839,13 @@ func GetIssuerData(ud *types.UserData, useId common.Address, pubKey string) []by
 	issuer.Edate = parsed.NotAfter.String()
 
 	data, _ := json.Marshal(issuer)
-	return data
+	return data, nil
 }
 
 func GetIdentityData(ud *types.UserData, pubKey *ecdsa.PublicKey) []byte {
 	identity := types.NewIdentity()
 	data, _ := ud.Marshal()
+
 	encData, _ := EncryptUserData(data, pubKey)
 	identity.Data = hexutil.Encode(encData)
 	identity.Alg = "ECIES"
@@ -1720,7 +1866,7 @@ func GetABIBytesData(ABI string, name string, args ...interface{}) []byte {
 	}
 	bytesData, err := creditAbi.Pack(name, args...)
 	if err != nil {
-		log.Error("Pack ABI failed!", err)
+		log.Error("Pack ABI failed!", "err", err)
 	}
 	return bytesData
 }
@@ -1751,6 +1897,19 @@ func (s *PublicBlockChainAPI) IsMiner(ctx context.Context, addr common.Address, 
 
 	isMiner, _ := minerlist.IsMiner(stateDb, addr, totalMinerNum, blockHeight)
 	if isMiner == false {
+		return 0
+	}
+	return 1
+}
+
+func (s *PublicBlockChainAPI) IsPunishedMiner(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) uint64 {
+	stateDb, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if stateDb == nil || err != nil {
+		return 0
+	}
+
+	totalMinerNum := minerlist.ReadMinerNum(stateDb)
+	if minerlist.IsPunishedMiner(stateDb, addr, totalMinerNum) == false {
 		return 0
 	}
 	return 1

@@ -63,7 +63,7 @@ func (t *txdata) UnmarshalJSON(input []byte) error {
 	if dec.Flag == nil {
 		return errors.New("missing required field 'flag' for txdata")
 	}
-	t.Flag = uint8(*dec.Flag)
+	t.Flag = TxFlag(*dec.Flag)
 	if dec.AccountNonce == nil {
 		return errors.New("missing required field 'nonce' for txdata")
 	}

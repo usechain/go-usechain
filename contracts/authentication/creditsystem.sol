@@ -92,6 +92,7 @@ contract CreditSystem is SignerRole{
 // contract CreditSystem is SignerRole{
     event NewUserRegister(address indexed addr, bytes32 indexed hash);
     event NewIdentity(address indexed addr, bytes32 indexed hash);
+    uint public unConfirmedSubAddressLen  = 0;
 
     mapping (address => UseID) IDs;
     mapping (bytes32 => UseData) DataSet;
@@ -102,7 +103,7 @@ contract CreditSystem is SignerRole{
 
     struct Hash {
         bytes32 hash;
-        bool verify;
+        uint8 status;
     }
 
     struct UseID {
@@ -116,15 +117,25 @@ contract CreditSystem is SignerRole{
     struct UseData {
         bytes identity;             // certificate's data
         bytes issuer;               // certificate's issuer
-        bool verify;                // same flag with HashList verifies
+        uint8 status;                // same flag with HashList verifies
         uint index;                 // index in the unregistered array
         string publicKey;           // user's publicKey
     }
 
     struct HashList {
         bytes32[] hashes;           // keccak(idtype + idnum)
-        bool[] verifies;            // certificate's status
+        uint8[] status;            // certificate's status
     }
+
+    struct subAddr {
+        bool confirmed;
+        string pubKey;
+        string encryptedAS;
+    }
+
+    mapping (address => subAddr) public SubAddr;
+
+    address[] public UnConfirmedSubAddress;
 
     /// @notice only committee can do
     modifier onlyCommittee(address _user) {
@@ -145,31 +156,83 @@ contract CreditSystem is SignerRole{
         payable
         returns(bool){
         address addr = msg.sender;
-        require(IDs[addr].useId == address(0)); // unregistered user
+        require(IDs[addr].useId == address(0) || DataSet[_hashKey].status == 4); // unregistered or rejected
         uint index = unregister.push(_hashKey) - 1;
-        UseData memory ud = UseData(_identity, _issuer, false, index, _publicKey);
+        UseData memory ud = UseData(_identity, _issuer, 1, index, _publicKey);
         DataSet[_hashKey] = ud;
-        UseID memory user = UseID(addr, _publicKey, Hash(_hashKey, false), HashList(new bytes32[](0), new bool[](0)));
+        UseID memory user = UseID(addr, _publicKey, Hash(_hashKey, 1), HashList(new bytes32[](0), new uint8[](0)));
         IDs[addr] = user;
         IDs[addr].hl.hashes.push(_hashKey);
-        IDs[addr].hl.verifies.push(false);
+        IDs[addr].hl.status.push(1);
         NewUserRegister(addr, _hashKey);
+        return true;
+    }
+
+     // @notice modifier
+    modifier subAddrNotAdded(address _addr) {
+        require(!SubAddr[_addr].confirmed);
+        _;
+    }
+
+   function subRegister(string _pubkey, string _encryptedAS)
+        subAddrNotAdded(msg.sender)
+        public
+        payable
+        returns (bool)
+    {
+        SubAddr[msg.sender].confirmed = false;
+        SubAddr[msg.sender].pubKey = _pubkey;
+        SubAddr[msg.sender].encryptedAS = _encryptedAS;
+        for (uint i= 0; i < unConfirmedSubAddressLen; i++) {
+                if (UnConfirmedSubAddress[i] == msg.sender) {
+                  return false;
+                }
+            }
+        UnConfirmedSubAddress.push(msg.sender);
+        unConfirmedSubAddressLen = UnConfirmedSubAddress.length;
+        return true;
+    }
+
+    // @dev check that subAddr confirmed
+    function checkSubAddr(address _addr) public view returns (bool) {
+        return SubAddr[_addr].confirmed;
+    }
+
+    function getUnConfirmedSubAddressLen()
+        public
+        view
+        returns(uint){
+        return UnConfirmedSubAddress.length;
+    }
+
+    function verifySub(address addr)
+        public
+        // onlyCommittee(msg.sender)
+        returns(bool){
+           SubAddr[addr].confirmed = true;
+           for (uint i= 0; i < unConfirmedSubAddressLen; i++) {
+                if (UnConfirmedSubAddress[i] == addr) {
+                    UnConfirmedSubAddress[i] = UnConfirmedSubAddress[unConfirmedSubAddressLen - 1];
+                    UnConfirmedSubAddress.length -= 1;
+                    unConfirmedSubAddressLen = UnConfirmedSubAddress.length;
+                }
+            }
         return true;
     }
 
     function getUserInfo(address addr)
         public
         view
-        returns(address, string memory, bytes32, bytes32[] memory, bool[] memory){
+        returns(address, string memory, bytes32, bytes32[] memory, uint8[] memory){
         return (IDs[addr].useId,
         IDs[addr].publicKey,
         IDs[addr].baseHash.hash,
         IDs[addr].hl.hashes,
-        IDs[addr].hl.verifies);
+        IDs[addr].hl.status);
     }
 
-    function isMainAccount(address _user) public view returns (bool){
-        return DataSet[IDs[_user].baseHash.hash].verify == true;
+    function getAccountStatus(address _user) public view returns (uint8){
+        return DataSet[IDs[_user].baseHash.hash].status;
     }
 
     function addNewIdentity(bytes32 hashKey, bytes memory _identity, bytes memory _issuer)
@@ -178,10 +241,10 @@ contract CreditSystem is SignerRole{
         returns(bool){
         require(IDs[msg.sender].useId != address(0)); // registered user
         uint index = unregister.push(hashKey) - 1;
-        UseData memory ud = UseData(_identity, _issuer, false, index, IDs[msg.sender].publicKey);
+        UseData memory ud = UseData(_identity, _issuer, 1, index, IDs[msg.sender].publicKey);
         DataSet[hashKey] = ud;
         IDs[msg.sender].hl.hashes.push(hashKey);
-        IDs[msg.sender].hl.verifies.push(false);
+        IDs[msg.sender].hl.status.push(1);
         NewIdentity(msg.sender, hashKey);
         return true;
     }
@@ -189,17 +252,17 @@ contract CreditSystem is SignerRole{
     function getBaseData(address addr)
         public
         view
-        returns(bytes32, bool){
+        returns(bytes32, uint8){
             Hash memory h = IDs[addr].baseHash;
-            return (h.hash, h.verify);
+            return (h.hash, h.status);
         }
 
     function getHashData(bytes32 hash)
         public
         view
-        returns(bytes memory, bytes memory, bool, string memory){
+        returns(bytes memory, bytes memory, uint8, string memory){
             UseData memory ud = DataSet[hash];
-            return (ud.identity, ud.issuer, ud.verify, ud.publicKey);
+            return (ud.identity, ud.issuer, ud.status, ud.publicKey);
     }
 
     function getUnregisterHash()
@@ -216,33 +279,17 @@ contract CreditSystem is SignerRole{
         return unregister.length;
     }
 
-    function verifyBase(address addr)
-        public
-        onlySigner
-        returns(bool){
-        require(IDs[addr].useId != address(0));
-        IDs[addr].baseHash.verify = true;
-        bytes32 h = bytes32(IDs[addr].baseHash.hash);
-        DataSet[h].verify = true;
-        for(uint i=0; i<IDs[addr].hl.hashes.length; i++){
-            if(h == IDs[addr].hl.hashes[i]) {
-                IDs[addr].hl.verifies[i] = true;
-                return true;
-            }
-        }
-        return false;
-    }
-
     function verifyHash(address addr, bytes32 hash)
         public
         // onlySigner
-        onlyCommittee(msg.sender)
+        //onlyCommittee(msg.sender)
         returns(bool){
             require(IDs[addr].useId != address(0));
-            DataSet[hash].verify = true;
+            require(DataSet[hash].status == 1);
+            DataSet[hash].status = 3;
             for(uint i=0; i<IDs[addr].hl.hashes.length; i++){
                 if(hash == IDs[addr].hl.hashes[i]){
-                    IDs[addr].hl.verifies[i] = true;
+                    IDs[addr].hl.status[i] = 3;
                     unregister[DataSet[hash].index] = unregister[unregister.length - 1];        // move the last element to the index
                     DataSet[unregister[unregister.length - 1]].index = DataSet[hash].index;     // update former last emement's index
                     unregister.length--;
@@ -252,4 +299,23 @@ contract CreditSystem is SignerRole{
         return false;
     }
 
+    function rejectHash(address addr, bytes32 hash)
+        public
+        // onlySigner
+        //onlyCommittee(msg.sender)
+        returns(bool){
+            require(IDs[addr].useId != address(0));
+            require(DataSet[hash].status == 1);
+            DataSet[hash].status = 4;
+            for(uint i=0; i<IDs[addr].hl.hashes.length; i++){
+                if(hash == IDs[addr].hl.hashes[i]){
+                    IDs[addr].hl.status[i] = 4;
+                    unregister[DataSet[hash].index] = unregister[unregister.length - 1];        // move the last element to the index
+                    DataSet[unregister[unregister.length - 1]].index = DataSet[hash].index;     // update former last emement's index
+                    unregister.length--;
+                    return true;
+                }
+            }
+        return false;
+    }
 }

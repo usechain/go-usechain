@@ -27,9 +27,11 @@ import (
 
 	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/contracts/manager"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
+	"github.com/usechain/go-usechain/ethdb"
 	"github.com/usechain/go-usechain/event"
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/metrics"
@@ -42,6 +44,8 @@ const (
 	chainHeadChanSize = 10
 	// rmTxChanSize is the size of channel listening to RemovedTransactionEvent.
 	rmTxChanSize = 10
+	// scoreLimit in rewardTx
+	scoreLimit = 100000
 )
 
 var (
@@ -128,6 +132,18 @@ var (
 
 	// ErrPbftIndex is returned if vote index is error
 	ErrPbftIndex = errors.New("invalid vote index in a pbft transaction")
+
+	ErrPermission = errors.New("account locked")
+
+	ErrLockedBalance = errors.New("account balance locked")
+
+	ErrLockSender = errors.New("locking account transaction can only send by committee")
+
+	// ErrCommentTo is returned if comment receipt
+	ErrCommentTo = errors.New("invalid receiver in comment transaction")
+
+	// ErrCommentAmount is returned if amount is not zero in a comment transaction
+	ErrCommentAmount = errors.New("invalid amount in comment transaction")
 )
 
 var (
@@ -170,6 +186,7 @@ type blockChain interface {
 	CurrentBlock() *types.Block
 	GetBlock(hash common.Hash, number uint64) *types.Block
 	StateAt(root common.Hash) (*state.StateDB, error)
+	chainDb() ethdb.Database
 
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
 }
@@ -561,7 +578,7 @@ func (pool *TxPool) stats() (int, int, int) {
 	for _, list := range pool.pending {
 		txs := list.Flatten()
 		for i := 0; i < len(txs); i++ {
-			if txs[i].Flag() == 1 {
+			if txs[i].Flag() == types.TxPbft {
 				pbft++
 			} else {
 				pending++
@@ -588,7 +605,7 @@ func (pool *TxPool) Content() (map[common.Address]types.Transactions, map[common
 		tempPendingTxs := make(types.Transactions, 0, txs.Len())
 		tempPbftTxs := make(types.Transactions, 0, txs.Len())
 		for i := 0; i < txs.Len(); i++ {
-			if txs[i].Flag() == 1 {
+			if txs[i].Flag() == types.TxPbft {
 				tempPbftTxs = append(tempPbftTxs, txs[i])
 			} else {
 				tempPendingTxs = append(tempPendingTxs, txs[i])
@@ -621,7 +638,7 @@ func (pool *TxPool) Pending() (map[common.Address]types.Transactions, error) {
 		txs := list.Flatten()
 		tempPendingTxs := make(types.Transactions, 0, txs.Len())
 		for i := 0; i < txs.Len(); i++ {
-			if txs[i].Flag() == 0 {
+			if txs[i].Flag() != types.TxPbft {
 				tempPendingTxs = append(tempPendingTxs, txs[i])
 			}
 		}
@@ -644,7 +661,7 @@ func (pool *TxPool) Pbft() (map[common.Address]types.Transactions, error) {
 		txs := list.Flatten()
 		tempPbftTxs := make(types.Transactions, 0, txs.Len())
 		for i := 0; i < txs.Len(); i++ {
-			if txs[i].Flag() == 1 {
+			if txs[i].Flag() == types.TxPbft {
 				tempPbftTxs = append(tempPbftTxs, txs[i])
 			}
 		}
@@ -668,7 +685,7 @@ func (pool *TxPool) GetValidPbft(number uint64, index uint64) (map[common.Addres
 		tempPbftTxs := make(types.Transactions, 0, txs.Len())
 		for i := 0; i < txs.Len(); i++ {
 			tx := txs[i]
-			if tx.Flag() != 1 {
+			if tx.Flag() != types.TxPbft {
 				continue
 			}
 
@@ -742,6 +759,83 @@ func ValidatePbftTx(state *state.StateDB, h *big.Int, checkIndex bool, index uin
 	return nil
 }
 
+// comment tx validater
+func ValidateCommentTx(bc blockChain, tx *types.Transaction, from common.Address) error {
+	if *tx.To() != common.HexToAddress("0x0000000000000000000000000000000000000000") {
+		return ErrCommentTo
+	}
+	if tx.Value().Int64() != 0 {
+		return ErrCommentAmount
+	}
+
+	payload := tx.Data()
+	len := len(payload)
+	if len != common.HashLength+common.AddressLength+1 {
+		return fmt.Errorf("error comment Tx length")
+	}
+	hash := common.BytesToHash(payload[:common.HashLength])
+	addr := common.BytesToAddress(payload[common.HashLength : common.HashLength+common.AddressLength])
+	evalPoint := hexutil.Encode(payload[common.HashLength+common.AddressLength:])
+
+	if history, _, _, _ := GetTransaction(bc.chainDb(), hash); history != nil {
+		if history.Flag() != types.TxNormal {
+			return fmt.Errorf("the target tx is not a normal transaction")
+		}
+		sender, err := history.From()
+		if err != nil {
+			return fmt.Errorf("sender not found, comment tx err")
+		}
+		// can't comment self
+		if from.String() == addr.String() {
+			return fmt.Errorf("can't comment yourself")
+		}
+		// from must in the history tx
+		if from.String() != history.To().String() && from.String() != sender.String() {
+			return fmt.Errorf("from address not in the tx")
+		}
+		// commented address must in the history tx
+		if addr.String() != history.To().String() && addr.String() != sender.String() {
+			return fmt.Errorf("commented address not in the tx")
+		}
+		// evalPoint format
+		if evalPoint != "0xf1" && evalPoint != "0x00" && evalPoint != "0x01" {
+			return fmt.Errorf("wrong format in evalPoint")
+		}
+		return nil
+	}
+
+	return fmt.Errorf("history tx not found")
+}
+
+// reward tx validater
+func ValidateRewardTx(state *state.StateDB, tx *types.Transaction, from common.Address) error {
+	if *tx.To() != common.HexToAddress("0x0000000000000000000000000000000000000000") {
+		return fmt.Errorf("wrong receipt address in reward tx")
+	}
+	if tx.Value().Int64() != 0 {
+		return fmt.Errorf("wrong value in reward tx")
+	}
+
+	payload := tx.Data()
+	len := len(payload)
+	if len < common.AddressLength+2 {
+		return fmt.Errorf("error reward Tx length")
+	}
+
+	// check the score limit
+	score := big.NewInt(0).SetBytes(payload[common.AddressLength+1:])
+	if score.Cmp(big.NewInt(scoreLimit)) == 1 {
+		return fmt.Errorf("score exceed the limit")
+	}
+
+	// check the sender legality
+	if !manager.IsCommittee(state, from) {
+		return fmt.Errorf("rewardTx sent not from legal committee account")
+	}
+
+	return nil
+}
+
 // validateTx checks whether a transaction is valid according to the consensus
 // rules and adheres to some heuristic limits of the local node (price and size).
 func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
@@ -767,20 +861,36 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return ErrInvalidSender
 	}
 
-	// If it's vote transaction
-	if tx.Flag() == 1 {
-		return ValidatePbftTx(pool.currentState, pool.chain.CurrentBlock().Number(), true, common.GetIndexForVote(time.Now().Unix(), pool.chain.CurrentBlock().Time().Int64()), tx, from)
+	lock := pool.currentState.GetOrNewStateObject(from).Lock()
+	if !lock.Expired() {
+		if lock.Permission == 1 {
+			return ErrPermission
+		}
+		if lock.Permission == 2 && pool.currentState.GetBalance(from).Cmp(new(big.Int).Add(tx.Cost(), lock.LockedBalance)) < 0 {
+			return ErrLockedBalance
+		}
 	}
 
-	//If the transaction is authentication, check txCert Signature
-	//If the transaction isn't, check the address legality
-	var chainid = pool.chainconfig.ChainId
-
-	if tx.IsRegisterTransaction() {
+	switch tx.Flag() {
+	case types.TxPbft:
+		// If it's vote transaction, verify & return
+		return ValidatePbftTx(pool.currentState, pool.chain.CurrentBlock().Number(), true, common.GetIndexForVote(time.Now().Unix(), pool.chain.CurrentBlock().Time().Int64()), tx, from)
+	case types.TxComment:
+		return ValidateCommentTx(pool.chain, tx, from)
+	case types.TxReward:
+		return ValidateRewardTx(pool.currentState, tx, from)
+	case types.TxLock:
+		if !manager.IsCommittee(pool.currentState, from) {
+			return ErrLockSender
+		}
+	case types.TxMain:
+		//If the transaction is authentication, check txCert Signature
+		var chainid = pool.chainconfig.ChainId
 		err = tx.CheckCertLegality(from, chainid)
 		if err != nil {
 			return err
 		}
+	default:
 	}
 
 	// Drop non-local transactions under our own minimal accepted gas price
@@ -819,7 +929,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 	// If the transaction is already known, discard it
 	hash := tx.Hash()
-	if pool.all[hash] != nil && tx.Flag() == 0 {
+	if pool.all[hash] != nil && tx.Flag() == types.TxNormal {
 		log.Debug("Discarding already known transaction", "hash", hash)
 		return false, fmt.Errorf("known transaction: %x", hash)
 	}
@@ -830,7 +940,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 		return false, err
 	}
 	// If the transaction pool is full, discard underpriced transactions
-	if uint64(len(pool.all)) >= pool.config.GlobalSlots+pool.config.GlobalQueue && tx.Flag() != 1 {
+	if uint64(len(pool.all)) >= pool.config.GlobalSlots+pool.config.GlobalQueue && tx.Flag() != types.TxPbft {
 		return false, ErrTxpoolFull
 	}
 	// If the transaction is replacing an already pending one, do directly
@@ -1345,7 +1455,7 @@ func (pool *TxPool) demoteUnexecutables() {
 		txs := list.Flatten()
 		for i := 0; i < txs.Len(); i++ {
 			tx := txs[i]
-			if tx.Flag() != 1 {
+			if tx.Flag() != types.TxPbft {
 				continue
 			}
 

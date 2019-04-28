@@ -43,6 +43,15 @@ type StateDB interface {
 	GetCertifications(common.Address) uint64
 	IsCertificationVerified(common.Address, uint64) bool
 
+	SetAccountLock(common.Address, *common.Lock)
+	GetAccountLock(common.Address) *common.Lock
+
+	AddReviewPoints(common.Address, *big.Int)
+	GetReviewPoints(common.Address) *big.Int
+
+	AddRewardPoints(common.Address, *big.Int)
+	GetRewardPoints(common.Address) *big.Int
+
 	GetCodeHash(common.Address) common.Hash
 	GetCode(common.Address) []byte
 	SetCode(common.Address, []byte)

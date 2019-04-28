@@ -147,13 +147,13 @@ func (b *bridge) NewAccount(call otto.FunctionCall) (response otto.Value) {
 	return ret
 }
 
-// NewABaccount is a wrapper around the personal.NewABaccount RPC method that uses a
+// NewSubAccount is a wrapper around the personal.NewSubAccount RPC method that uses a
 // non-echoing password prompt to acquire the passphrase and executes the original
-// RPC method (saved in jeth.NewABaccount) with it to actually execute the RPC call.
-func (b *bridge) NewABaccount(call otto.FunctionCall) (response otto.Value) {
+// RPC method (saved in jeth.NewSubAccount) with it to actually execute the RPC call.
+func (b *bridge) NewSubAccount(call otto.FunctionCall) (response otto.Value) {
 	// Make sure we have an account specified to generate AB acount
 	if !call.Argument(0).IsString() {
-		throwJSException("first argument must be the account to generate AB acount")
+		throwJSException("first argument must be the account to generate sub acount")
 	}
 	account := call.Argument(0)
 
@@ -162,6 +162,7 @@ func (b *bridge) NewABaccount(call otto.FunctionCall) (response otto.Value) {
 		confirm  string
 		err      error
 	)
+
 	switch {
 	// No password was specified, prompt the user for it
 	case len(call.ArgumentList) == 1:
@@ -184,7 +185,7 @@ func (b *bridge) NewABaccount(call otto.FunctionCall) (response otto.Value) {
 		throwJSException("expected 1 or 2 argument")
 	}
 	// Password acquired, execute the call and return
-	ret, err := call.Otto.Call("jeth.newABaccount", nil, account, password)
+	ret, err := call.Otto.Call("jeth.newSubAccount", nil, account, password)
 	if err != nil {
 		throwJSException(err.Error())
 	}

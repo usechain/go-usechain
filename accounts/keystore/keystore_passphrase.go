@@ -76,7 +76,7 @@ type keyStorePassphrase struct {
 
 /////////////////////////////////////greg add /////////////////
 var (
-	ErrABaddressInvalid       = errors.New("invalid ABaddress address")
+	ErrABaddressInvalid       = errors.New("invalid SubAddress address")
 )
 
 
@@ -138,23 +138,23 @@ func GenerateKeyWithWAddress(keyjson []byte) (*Key, error) {
 		return nil, err
 	}
 
-	ABaddress, ok := m["ABaddress"].(string)
+	SubAddress, ok := m["SubAddress"].(string)
 
-	if !ok || ABaddress == "" {
+	if !ok || SubAddress == "" {
 		return nil, ErrABaddressFieldNotExist
 	}
 
-	waddressRaw, err := hex.DecodeString(ABaddress)
+	waddressRaw, err := hex.DecodeString(SubAddress)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(waddressRaw) != common.ABaddressLength {
+	if len(waddressRaw) != common.SubAddressLength {
 		return nil, ErrABaddressInvalid
 	}
 
 	key := new(Key)
-	copy(key.ABaddress[:], waddressRaw)
+	copy(key.SubAddress[:], waddressRaw)
 	return key, nil
 }
 //////////////////////////////////////////////////////////////////////////
@@ -215,7 +215,7 @@ func EncryptKey(key *Key, auth string, scryptN, scryptP int) ([]byte, error) {
 		cryptoStruct,
 		key.Id.String(),
 		version,
-		hex.EncodeToString(key.ABaddress[:]),
+		hex.EncodeToString(key.SubAddress[:]),
 	}
 	return json.Marshal(encryptedKeyJSONV3)
 }

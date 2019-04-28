@@ -17,11 +17,13 @@
 package core
 
 import (
+	"encoding/json"
 	"errors"
 	"math"
 	"math/big"
 
 	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/core/vm"
 	"github.com/usechain/go-usechain/log"
@@ -136,7 +138,7 @@ func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool) ([]byte, uint64, bool, 
 }
 
 func msgToTransaction(msg Message) *types.Transaction {
-	return types.NewTransaction(msg.Nonce(), *msg.To(), msg.Value(), msg.Gas(), msg.GasPrice(), msg.Data())
+	return types.NewSpecialTransaction(msg.Flag(), msg.Nonce(), *msg.To(), msg.Value(), msg.Gas(), msg.GasPrice(), msg.Data())
 }
 
 func (st *StateTransition) from() vm.AccountRef {
@@ -227,7 +229,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	}
 
 	// If it's vote transaction
-	if msg.Flag() != 1 {
+	if msg.Flag() != uint8(types.TxPbft) {
 		if err = st.useGas(gas); err != nil {
 			return nil, 0, false, err
 		}
@@ -258,7 +260,41 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	}
 	st.refundGas()
 	st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
-	st.state.AddTradePoints(sender.Address(), 1)
+
+	// handle with different kinds of transactions
+	switch types.TxFlag(msg.Flag()) {
+	case types.TxNormal:
+		{
+			st.state.AddTradePoints(sender.Address(), 1)
+		}
+	case types.TxComment:
+		{
+			payload := msg.Data()
+			addr := common.BytesToAddress(payload[common.HashLength : common.HashLength+common.AddressLength])
+			evalPoint := hexutil.Encode(payload[common.HashLength+common.AddressLength:])
+			switch evalPoint {
+			case "0x01":
+				st.state.AddReviewPoints(addr, big.NewInt(1))
+			case "0xf1":
+				st.state.AddReviewPoints(addr, big.NewInt(-1))
+			default:
+			}
+		}
+	case types.TxReward:
+		{
+			payload := msg.Data()
+			addr := common.BytesToAddress(payload[:common.AddressLength])
+			minus := hexutil.Encode(payload[common.AddressLength : common.AddressLength+1])
+			score := big.NewInt(0).SetBytes(payload[common.AddressLength+1:])
+
+			// Check whether punish or reward
+			if minus == "0x01" {
+				st.state.AddRewardPoints(addr, big.NewInt(0).Neg(score))
+			} else {
+				st.state.AddRewardPoints(addr, score)
+			}
+		}
+	}
 
 	if !contractCreation {
 		transactionFormat := msgToTransaction(msg)
@@ -269,6 +305,17 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 				st.state.AddCertifications(addr, common.IDVerified)
 			}
 		}
+	}
+
+	if msg.Flag() == 8 {
+		l := new(common.Lock)
+		json.Unmarshal(st.data, l)
+		st.state.SetAccountLock(st.to().Address(), l)
+	}
+
+	lock := st.state.GetAccountLock(st.from().Address())
+	if lock.Expired() {
+		st.state.SetAccountLock(st.from().Address(), new(common.Lock))
 	}
 
 	return ret, st.gasUsed(), vmerr != nil, err

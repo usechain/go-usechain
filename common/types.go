@@ -18,11 +18,13 @@ package common
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
 	"math/rand"
 	"reflect"
+	"time"
 
 	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/crypto/sha3"
@@ -31,9 +33,9 @@ import (
 const (
 	HashLength                          = 32
 	AddressLength                       = 20
-	ABaddressLength                     = 66
+	SubAddressLength                     = 66
 	AuthenticationContractAddressString = "0xfffffffffffffffffffffffffffffffff0000001"
-	CreditABI                           = `[{"constant":false,"inputs":[{"name":"hashKey","type":"bytes32"},{"name":"_identity","type":"bytes"},{"name":"_issuer","type":"bytes"}],"name":"addNewIdentity","outputs":[{"name":"","type":"bool"}],"payable":true,"stateMutability":"payable","type":"function"},{"constant":false,"inputs":[{"name":"account","type":"address"}],"name":"addSigner","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"_publicKey","type":"string"},{"name":"_hashKey","type":"bytes32"},{"name":"_identity","type":"bytes"},{"name":"_issuer","type":"bytes"}],"name":"register","outputs":[{"name":"","type":"bool"}],"payable":true,"stateMutability":"payable","type":"function"},{"constant":false,"inputs":[],"name":"renounceSigner","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"addr","type":"address"}],"name":"verifyBase","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"addr","type":"address"},{"name":"hash","type":"bytes32"}],"name":"verifyHash","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"anonymous":false,"inputs":[{"indexed":true,"name":"addr","type":"address"},{"indexed":true,"name":"hash","type":"bytes32"}],"name":"NewUserRegister","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"addr","type":"address"},{"indexed":true,"name":"hash","type":"bytes32"}],"name":"NewIdentity","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"account","type":"address"}],"name":"SignerAdded","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"account","type":"address"}],"name":"SignerRemoved","type":"event"},{"constant":true,"inputs":[{"name":"addr","type":"address"}],"name":"getBaseData","outputs":[{"name":"","type":"bytes32"},{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"hash","type":"bytes32"}],"name":"getHashData","outputs":[{"name":"","type":"bytes"},{"name":"","type":"bytes"},{"name":"","type":"bool"},{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"getUnregisterHash","outputs":[{"name":"","type":"bytes32[]"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"getUnregisterLen","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"addr","type":"address"}],"name":"getUserInfo","outputs":[{"name":"","type":"address"},{"name":"","type":"string"},{"name":"","type":"bytes32"},{"name":"","type":"bytes32[]"},{"name":"","type":"bool[]"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"account","type":"address"}],"name":"isSigner","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"","type":"uint256"}],"name":"unregister","outputs":[{"name":"","type":"bytes32"}],"payable":false,"stateMutability":"view","type":"function"}]`
+	CreditABI                           = `[{"constant":true,"inputs":[{"name":"","type":"address"}],"name":"SubAddr","outputs":[{"name":"confirmed","type":"bool"},{"name":"pubKey","type":"string"},{"name":"encryptedAS","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"","type":"uint256"}],"name":"UnConfirmedSubAddress","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_pubkey","type":"string"},{"name":"_encryptedAS","type":"string"}],"name":"subRegister","outputs":[{"name":"","type":"bool"}],"payable":true,"stateMutability":"payable","type":"function"},{"constant":true,"inputs":[],"name":"getUnConfirmedSubAddressLen","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"CommitteeAddr","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"hash","type":"bytes32"}],"name":"getHashData","outputs":[{"name":"","type":"bytes"},{"name":"","type":"bytes"},{"name":"","type":"bool"},{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"getUnregisterHash","outputs":[{"name":"","type":"bytes32[]"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"addr","type":"address"}],"name":"getUserInfo","outputs":[{"name":"","type":"address"},{"name":"","type":"string"},{"name":"","type":"bytes32"},{"name":"","type":"bytes32[]"},{"name":"","type":"bool[]"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"_user","type":"address"}],"name":"isMainAccount","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"hashKey","type":"bytes32"},{"name":"_identity","type":"bytes"},{"name":"_issuer","type":"bytes"}],"name":"addNewIdentity","outputs":[{"name":"","type":"bool"}],"payable":true,"stateMutability":"payable","type":"function"},{"constant":true,"inputs":[{"name":"account","type":"address"}],"name":"isSigner","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"addr","type":"address"}],"name":"verifySub","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"","type":"uint256"}],"name":"unregister","outputs":[{"name":"","type":"bytes32"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"addr","type":"address"}],"name":"verifyBase","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"_addr","type":"address"}],"name":"checkSubAddr","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"_user","type":"address"}],"name":"test","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"addr","type":"address"},{"name":"hash","type":"bytes32"}],"name":"verifyHash","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"addr","type":"address"}],"name":"getBaseData","outputs":[{"name":"","type":"bytes32"},{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"unConfirmedSubAddressLen","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"getUnregisterLen","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[],"name":"renounceSigner","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"account","type":"address"}],"name":"addSigner","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"_publicKey","type":"string"},{"name":"_hashKey","type":"bytes32"},{"name":"_identity","type":"bytes"},{"name":"_issuer","type":"bytes"}],"name":"register","outputs":[{"name":"","type":"bool"}],"payable":true,"stateMutability":"payable","type":"function"},{"anonymous":false,"inputs":[{"indexed":true,"name":"addr","type":"address"},{"indexed":true,"name":"hash","type":"bytes32"}],"name":"NewUserRegister","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"addr","type":"address"},{"indexed":true,"name":"hash","type":"bytes32"}],"name":"NewIdentity","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"account","type":"address"}],"name":"SignerAdded","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"account","type":"address"}],"name":"SignerRemoved","type":"event"}]`
 )
 
 var (
@@ -53,6 +55,16 @@ func BytesToHash(b []byte) Hash {
 	h.SetBytes(b)
 	return h
 }
+
+// IsHexAddress verifies whether a string can represent a valid hex-encoded
+// Ethereum address or not.
+func IsHexHash(s string) bool {
+	if hasHexPrefix(s) {
+		s = s[2:]
+	}
+	return len(s) == 2*HashLength && isHex(s)
+}
+
 func StringToHash(s string) Hash { return BytesToHash([]byte(s)) }
 func BigToHash(b *big.Int) Hash  { return BytesToHash(b.Bytes()) }
 func HexToHash(s string) Hash    { return BytesToHash(FromHex(s)) }
@@ -168,8 +180,8 @@ func IncreaseHexByNum(indexKeyHash []byte, num int64) string {
 // Address represents the 20 byte address of an Ethereum account.
 type Address [AddressLength]byte
 
-// ABaddress represents the 66 byte address of an Usechain sub account
-type ABaddress [ABaddressLength]byte
+// SubAddress represents the 66 byte address of an Usechain sub account
+type SubAddress [SubAddressLength]byte
 
 func BytesToAddress(b []byte) Address {
 	var a Address
@@ -272,4 +284,34 @@ func (a *UnprefixedAddress) UnmarshalText(input []byte) error {
 // MarshalText encodes the address as hex.
 func (a UnprefixedAddress) MarshalText() ([]byte, error) {
 	return []byte(hex.EncodeToString(a[:])), nil
+}
+
+type Lock struct {
+	Permission    uint16   `json:"permission"`
+	TimeLimit     string   `json:"timelimit"`
+	LockedBalance *big.Int `json:"lockedbalance"`
+}
+
+func (l Lock) Marshal() ([]byte, error) {
+	return json.Marshal(l)
+}
+
+func (l Lock) String() string {
+	b, _ := l.Marshal()
+	return string(b[:])
+}
+
+func (l Lock) Expired() bool {
+	if l.Permission == 0 {
+		return true
+	}
+	if len(l.TimeLimit) == 0 {
+		return false
+	}
+	now := time.Now()
+	expire, err := time.Parse(time.RFC3339, l.TimeLimit)
+	if err != nil {
+		return false // lock forever if time can not parse correctly
+	}
+	return expire.Before(now)
 }

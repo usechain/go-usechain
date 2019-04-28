@@ -3701,6 +3701,10 @@ var isPredefinedBlockNumber = function (blockNumber) {
     return blockNumber === 'latest' || blockNumber === 'pending' || blockNumber === 'earliest';
 };
 
+var isHashFormatter = function (hash) {
+    return hash.length === 32;
+};
+
 var inputDefaultBlockNumberFormatter = function (blockNumber) {
     if (blockNumber === undefined) {
         return config.defaultBlock;
@@ -3768,6 +3772,20 @@ var inputTransactionFormatter = function (options){
     });
 
     return options;
+};
+
+var inputAccountLockFormatter = function (options) {
+    options.permission = utils.toDecimal(options['permission']);
+    options.timelimit = options['timelimit'];
+    options.lockedbalance = utils.toDecimal(options['lockedbalance']);
+    return options;
+};
+
+var outputAccountLockFormatter = function (lock) {
+    options.permission = utils.toDecimal(lock.permission);
+    options.timelimit = lock.timelimit;
+    options.lockedbalance = utils.toDecimal(lock.lockedbalance);
+    return lock;
 };
 
 /**
@@ -5437,6 +5455,13 @@ var methods = function () {
         inputFormatter: [formatters.inputTransactionFormatter]
     });
 
+    var sendAccountLockTransaction = new Method({
+        name: 'sendAccountLockTransaction',
+        call: 'use_sendAccountLockTransaction',
+        params: 2,
+        inputFormatter: [formatters.inputTransactionFormatter, formatters.inputAccountLockFormatter]
+    });
+
     var signTransaction = new Method({
         name: 'signTransaction',
         call: 'use_signTransaction',
@@ -5496,6 +5521,14 @@ var methods = function () {
         params: 0
     });
 
+    var getAccountLock = new Method({
+        name: 'getAccountLock',
+        call: 'use_getAccountLock',
+        params: 2,
+        inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
+        outputFormatter: formatters.outputAccountLockFormatter
+    });
+
     var getTradePoints = new Method({
         name: 'getTradePoints',
         call: 'use_getTradePoints',
@@ -5526,11 +5559,53 @@ var methods = function () {
         inputFormatter: [null,formatters.inputDefaultBlockNumberFormatter]
     });
 
+    var isPunishedMiner = new Method({
+        name: 'isPunishedMiner',
+        call: 'use_isPunishedMiner',
+        params: 2,
+        inputFormatter: [null,formatters.inputDefaultBlockNumberFormatter]
+    });
+
     var sendCreditRegisterTransaction = new Method({
         name: 'sendCreditRegisterTransaction',
         call: 'use_sendCreditRegisterTransaction',
         params: 1,
         inputFormatter: [formatters.inputTransactionFormatter]
+    });
+
+    var sendSubAccountTransaction = new Method({
+        name: 'sendSubAccountTransaction',
+        call: 'use_sendSubAccountTransaction',
+        params: 1,
+        inputFormatter: [formatters.inputTransactionFormatter]
+    });
+
+    var commentTransaction = new Method({
+        name: 'sendCommentTransaction',
+        call: 'use_sendCommentTransaction',
+        params: 3,
+        inputFormatter: [formatters.inputAddressFormatter, null, null]
+    });
+
+    var getCommentPoints = new Method({
+        name: 'getCommentPoints',
+        call: 'use_getReviewPoints',
+        params: 2,
+        inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter]
+    });
+
+    var rewardTransaction = new Method({
+        name: 'sendRewardTransaction',
+        call: 'use_sendRewardTransaction',
+        params: 3,
+        inputFormatter: [formatters.inputAddressFormatter, formatters.inputAddressFormatter, null]
+    });
+
+    var getRewardPoints = new Method({
+        name: 'getRewardPoints',
+        call: 'use_getRewardPoints',
+        params: 2,
+        inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter]
     });
 
     var minerRegister = new Method({
@@ -5573,13 +5648,23 @@ var methods = function () {
         submitWork,
         getWork,
 
+        getAccountLock,
         getTradePoints,
         getCertifications,
         sendCreditRegisterTransaction,
+        sendAccountLockTransaction,
+        sendSubAccountTransaction,
+
         queryAddr,
         isMiner,
+        isPunishedMiner,
         minerRegister,
-        minerUnRegister
+        minerUnRegister,
+
+        commentTransaction,
+        getCommentPoints,
+        rewardTransaction,
+        getRewardPoints
     ];
 };
 
@@ -5750,12 +5835,14 @@ var methods = function () {
         params: 2,
         inputFormatter: [null, null]
     });
+
     var verifyQuery = new Method({
         name: 'verifyQuery',
         call: 'personal_verifyQuery',
         params: 1,
         inputFormatter: [null]
     });
+
     var newAccount = new Method({
         name: 'newAccount',
         call: 'personal_newAccount',
@@ -5763,6 +5850,12 @@ var methods = function () {
         inputFormatter: [null]
     });
 
+    var newSubAccount = new Method({
+        name:'newSubAccount',
+        call:'personal_newSubAccount',
+        params: 2,
+        inputFormatter: [formatters.inputAddressFormatter,null]
+    });
 
     var importRawKey = new Method({
         name: 'importRawKey',
@@ -5808,6 +5901,7 @@ var methods = function () {
         verify,
         verifyQuery,
         newAccount,
+        newSubAccount,
         importRawKey,
         unlockAccount,
         ecRecover,

@@ -403,9 +403,8 @@ func sendMinerOnLine(pool *core.TxPool, eb common.Address, wallet accounts.Walle
 	args.Nonce = (*hexutil.Uint64)(&nonce)
 	args.From = eb
 	args.To = &addr
-	args.GasPrice = (*hexutil.Big)(big.NewInt(20000000000))
 
-	tx := types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), data)
+	tx := types.NewTransaction(uint64(*args.Nonce), *args.To, nil, 2000000, big.NewInt(20000000000), data)
 
 	signedTx, err := wallet.SignTx(accounts.Account{Address: eb}, tx, nil)
 	if err != nil {
@@ -496,9 +495,8 @@ func sendMinerOffLine(pool *core.TxPool, eb common.Address, wallet accounts.Wall
 	args.Nonce = (*hexutil.Uint64)(&nonce)
 	args.From = eb
 	args.To = &addr
-	args.GasPrice = (*hexutil.Big)(big.NewInt(20000000000))
 
-	tx := types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), data)
+	tx := types.NewTransaction(uint64(*args.Nonce), *args.To, nil, 2000000, big.NewInt(20000000000), data)
 
 	signedTx, err := wallet.SignTx(accounts.Account{Address: eb}, tx, nil)
 	if err != nil {

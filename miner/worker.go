@@ -468,7 +468,6 @@ func (self *worker) commitNewWork() {
 		} else {
 			return
 		}
-		fmt.Println("calMinerQrSignature")
 		// calculate PrimaryMiner and  DifficultyLevel for current block
 		if totalMinerNum.Int64() != 0 {
 			header.PrimaryMiner = common.BytesToAddress(minerlist.ReadMinerAddress(self.current.state, preMinerid))

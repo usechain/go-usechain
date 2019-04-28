@@ -68,7 +68,7 @@ func IsMiner(statedb *state.StateDB, miner common.Address, totalMinerNum *big.In
 
 // Return whether the miner is legal or not
 // "legal" means the right to participate in mining
-func IsPunishedMiner(statedb *state.StateDB, miner common.Address, totalMinerNum *big.Int) bool {
+func IsPunishedMiner(statedb *state.StateDB, miner common.Address, totalMinerNum *big.Int, blockNumber *big.Int) bool {
 	//add for solo mining
 	if totalMinerNum.Cmp(common.Big0) == 0 {
 		return true
@@ -76,7 +76,7 @@ func IsPunishedMiner(statedb *state.StateDB, miner common.Address, totalMinerNum
 
 	for i := int64(0); i < totalMinerNum.Int64(); i++ {
 		if checkAddress(statedb, miner, i) {
-			return isPunishMiner(statedb, miner, totalMinerNum)
+			return isPunishMiner(statedb, miner, totalMinerNum, blockNumber)
 		}
 	}
 	return false

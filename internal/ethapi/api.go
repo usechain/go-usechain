@@ -1909,7 +1909,7 @@ func (s *PublicBlockChainAPI) IsPunishedMiner(ctx context.Context, addr common.A
 	}
 
 	totalMinerNum := minerlist.ReadMinerNum(stateDb)
-	if minerlist.IsPunishedMiner(stateDb, addr, totalMinerNum) == false {
+	if minerlist.IsPunishedMiner(stateDb, addr, totalMinerNum, big.NewInt(int64(blockNr))) == false {
 		return 0
 	}
 	return 1

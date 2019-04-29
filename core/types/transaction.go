@@ -120,11 +120,6 @@ func NewPbftMessage(nonce uint64, data []byte) *Transaction {
 	return newTransaction(TxPbft, nonce, &addr, nil, 0, nil, data)
 }
 
-func NewMinerOnOffLine(nonce uint64, data []byte) *Transaction {
-	addr := common.HexToAddress("0xfffffffffffffffffffffffffffffffff0000002")
-	return newTransaction(0, nonce, &addr, nil, 2000000, big.NewInt(20000000000), data)
-}
-
 func newTransaction(flag TxFlag, nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
 	if len(data) > 0 {
 		data = common.CopyBytes(data)

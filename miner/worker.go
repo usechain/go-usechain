@@ -428,6 +428,13 @@ func (self *worker) commitNewWork() {
 	// prepare head for mining
 	header, blockNumber := self.headPrepare(parent, tstamp)
 
+	// Could potentially happen if starting to mine in an odd state.
+	err := self.makeCurrent(parent, header)
+	if err != nil {
+		log.Error("Failed to create mining context", "err", err)
+		return
+	}
+
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&self.mining) == 1 {
 		totalMinerNum := minerlist.ReadMinerNum(self.current.state)
@@ -492,7 +499,7 @@ func (self *worker) commitNewWork() {
 	}
 
 	// Could potentially happen if starting to mine in an odd state.
-	err := self.makeCurrent(parent, header)
+	err = self.makeCurrent(parent, header)
 	if err != nil {
 		log.Error("Failed to create mining context", "err", err)
 		return
@@ -592,9 +599,10 @@ func (self *worker) headPrepare(parent *types.Block, tstamp int64) (header *type
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
 		//GasLimit:   core.CalcGasLimit(parent),
-		GasLimit: 210000000,
-		Extra:    self.extra,
-		Time:     big.NewInt(tstamp),
+		GasLimit:   210000000,
+		Extra:      self.extra,
+		Time:       big.NewInt(tstamp),
+		Difficulty: big.NewInt(1),
 	}
 	blcokNumber = header.Number
 	if header.Number.Int64() >= common.VoteSlotForGenesis && int64(new(big.Int).Mod(header.Number, common.VoteSlot).Cmp(common.Big0)) == 0 {

@@ -121,9 +121,15 @@ func (v *BlockValidator) ValidateMiner(block, parent *types.Block, statedb *stat
 	totalMinerNum := minerlist.ReadMinerNum(statedb)
 
 	// Verify block miner && verify the minerQrSignature legality
-	if !minerlist.IsMiner(statedb, header.Coinbase, totalMinerNum) && totalMinerNum.Int64() > 1 {
-		return fmt.Errorf("Coinbase should be legal miner address, invalid miner")
+	isMiner, flag := minerlist.IsMiner(statedb, header.Coinbase, totalMinerNum, header.Number)
+	if !isMiner {
+		if flag == 1 {
+			return fmt.Errorf("miner address is being punished, invalid miner")
+		} else {
+			return fmt.Errorf("miner address needs to register as a miner, invalid miner")
+		}
 	}
+
 	preCoinbase := parent.Coinbase()
 	blockNumber := header.Number
 	preQrSignature := parent.MinerQrSignature()

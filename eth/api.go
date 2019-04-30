@@ -30,7 +30,6 @@ import (
 	"github.com/usechain/go-usechain/core"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
-	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/miner"
 	"github.com/usechain/go-usechain/params"
 	"github.com/usechain/go-usechain/rlp"
@@ -117,20 +116,7 @@ func NewPrivateMinerAPI(e *Ethereum) *PrivateMinerAPI {
 // of workers started is equal to the number of logical CPUs that are usable by
 // this process. If mining is already running, this method adjust the number of
 // threads allowed to use.
-func (api *PrivateMinerAPI) Start(threads *int) error {
-	// Set the number of threads if the seal engine supports it
-	if threads == nil {
-		threads = new(int)
-	} else if *threads == 0 {
-		*threads = -1 // Disable the miner from within
-	}
-	type threaded interface {
-		SetThreads(threads int)
-	}
-	if th, ok := api.e.engine.(threaded); ok {
-		log.Info("Updated mining threads", "threads", *threads)
-		th.SetThreads(*threads)
-	}
+func (api *PrivateMinerAPI) Start() error {
 	// Start the miner and return
 	if !api.e.IsMining() {
 		// Propagate the initial price point to the transaction pool

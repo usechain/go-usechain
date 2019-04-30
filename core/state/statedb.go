@@ -206,7 +206,6 @@ func (self *StateDB) GetNonce(addr common.Address) uint64 {
 	if stateObject != nil {
 		return stateObject.Nonce()
 	}
-
 	return 0
 }
 

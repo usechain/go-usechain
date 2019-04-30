@@ -80,7 +80,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			return nil, nil, 0, err
 		}
 		hash := common.BytesToHash(txs[0].Data()[:common.HashLength])
-		height := common.BytesToUint64(txs[0].Data()[common.HashLength : common.HashLength+8])
+		height := common.BytesToUint64(txs[0].Data()[common.HashLength:common.HashLength+8])
 		index := common.BytesToUint64(txs[0].Data()[common.HashLength+8:])
 		count := 1
 		for i := 1; i < txs.Len(); i++ {
@@ -121,7 +121,6 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			return nil, nil, 0, err2
 		}
 		sender := msg.From()
-
 		switch tx.Flag() {
 		case types.TxPbft:
 			// If it's vote transaction, verify & return

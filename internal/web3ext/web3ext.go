@@ -24,7 +24,7 @@ var Modules = map[string]string{
 	"debug":      Debug_JS,
 	"use":        Use_JS,
 	"miner":      Miner_JS,
-	"voter":	  Voter_JS,
+	"voter":      Voter_JS,
 	"net":        Net_JS,
 	"personal":   Personal_JS,
 	"rpc":        RPC_JS,
@@ -470,9 +470,7 @@ web3._extend({
 
 		new web3._extend.Method({
 			name: 'start',
-			call: 'miner_start',
-			params: 1,
-			inputFormatter: [null]
+			call: 'miner_start'
 		}),
 		new web3._extend.Method({
 			name: 'stop',

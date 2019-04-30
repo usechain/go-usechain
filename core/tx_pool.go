@@ -862,7 +862,6 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 
 	lock := pool.currentState.GetOrNewStateObject(from).Lock()
-
 	if !lock.Expired() {
 		if lock.Permission == 1 {
 			return ErrPermission

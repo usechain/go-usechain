@@ -399,15 +399,15 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 func handleMisconducts(state *state.StateDB, header *types.Header) {
 	priAddr := header.PrimaryMiner
 	if !strings.EqualFold(priAddr.String(), header.Coinbase.String()) {
-		recordMisconduct(state, priAddr, false)
+		recordMisconduct(state, priAddr, false, header.Number)
 	} else {
-		recordMisconduct(state, priAddr, true)
+		recordMisconduct(state, priAddr, true, header.Number)
 	}
 }
 
 // recordMisconduct will read & make the misconduct count +5
 // correct primary miner will decrease the misconduct count -1
-func recordMisconduct(state *state.StateDB, address common.Address, reward bool) {
+func recordMisconduct(state *state.StateDB, address common.Address, reward bool, blockNumber *big.Int) {
 	web3key := paramIndexHead + address.Hex()[2:] + common.BigToHash(big.NewInt(4)).Hex()[2:]
 	hash := sha3.NewKeccak256()
 
@@ -418,13 +418,28 @@ func recordMisconduct(state *state.StateDB, address common.Address, reward bool)
 
 	// get data from the contract statedb
 	res := state.GetState(common.HexToAddress(minerlist.MinerListContract), common.BytesToHash(keyIndex))
-	if reward {
+	if !reward {
+		// add publish to the address with +5
+		state.SetState(common.HexToAddress(minerlist.MinerListContract), common.BytesToHash(keyIndex), res.IncreaseHex(big.NewInt(5)))
+		if res.Big().Int64() < common.MisconductLimitsLevel1 && res.Big().Int64()+5 >= common.MisconductLimitsLevel1 || res.Big().Int64() < common.MisconductLimitsLevel2 && res.Big().Int64()+5 >= common.MisconductLimitsLevel2 {
+			recordPunishHeight(state, address, blockNumber)
+		}
+	} else {
 		// add reward to the address with -1
 		if res.Big().Cmp(common.Big0) > 0 {
 			state.SetState(common.HexToAddress(minerlist.MinerListContract), common.BytesToHash(keyIndex), res.DecreaseHex(big.NewInt(1)))
 		}
-	} else {
-		// add publish to the address with +5
-		state.SetState(common.HexToAddress(minerlist.MinerListContract), common.BytesToHash(keyIndex), res.IncreaseHex(big.NewInt(5)))
 	}
+}
+
+func recordPunishHeight(state *state.StateDB, address common.Address, blockNumber *big.Int) {
+	web3key := paramIndexHead + address.Hex()[2:] + common.BigToHash(big.NewInt(6)).Hex()[2:]
+	hash := sha3.NewKeccak256()
+
+	var keyIndex []byte
+	b, _ := hex.DecodeString(web3key)
+	hash.Write(b)
+	keyIndex = hash.Sum(keyIndex)
+
+	state.SetState(common.HexToAddress(minerlist.MinerListContract), common.BytesToHash(keyIndex), common.BigToHash(blockNumber))
 }

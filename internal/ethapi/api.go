@@ -1892,8 +1892,11 @@ func (s *PublicBlockChainAPI) IsMiner(ctx context.Context, addr common.Address, 
 		return 0
 	}
 
+	blockHeight := s.b.CurrentBlock().Number()
 	totalMinerNum := minerlist.ReadMinerNum(stateDb)
-	if minerlist.IsMiner(stateDb, addr, totalMinerNum) == false {
+
+	isMiner, _ := minerlist.IsMiner(stateDb, addr, totalMinerNum, blockHeight)
+	if isMiner == false {
 		return 0
 	}
 	return 1
@@ -1906,7 +1909,7 @@ func (s *PublicBlockChainAPI) IsPunishedMiner(ctx context.Context, addr common.A
 	}
 
 	totalMinerNum := minerlist.ReadMinerNum(stateDb)
-	if minerlist.IsPunishedMiner(stateDb, addr, totalMinerNum) == false {
+	if minerlist.IsPunishedMiner(stateDb, addr, totalMinerNum, big.NewInt(int64(blockNr))) == false {
 		return 0
 	}
 	return 1

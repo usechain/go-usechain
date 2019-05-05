@@ -528,7 +528,7 @@ var SolidityType = require('./type');
  * address[][6][], ...
  */
 var SolidityTypeAddress = function () {
-    this._inputFormatter = f.formatInputInt;
+    this._inputFormatter = f.formatInputAddress;
     this._outputFormatter = f.formatOutputAddress;
 };
 
@@ -915,6 +915,104 @@ var utils = require('../utils/utils');
 var c = require('../utils/config');
 var SolidityParam = require('./param');
 
+var ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+var ALPHABET_MAP = {};
+var BASE = 58;
+for (var i = 0; i < ALPHABET.length; i++) {
+    ALPHABET_MAP[ALPHABET.charAt(i)] = i;
+}
+
+function Base58Encode(arr) {
+    if (arr.length === 0)
+        return '';
+
+    var i, j, digits = [0];
+    for (i = 0; i < arr.length; i++) {
+        for (j = 0; j < digits.length; j++) {
+            digits[j] <<= 8;
+        }
+        digits[0] += arr[i];
+        var carry = 0;
+        for (j = 0; j < digits.length; ++j) {
+            digits[j] += carry;
+            carry = (digits[j] / BASE) | 0;
+            digits[j] %= BASE;
+        }
+        while (carry) {
+            digits.push(carry % BASE);
+            carry = (carry / BASE) | 0;
+        }
+    }
+
+    // deal with leading zeros
+    for (i = 0; arr[i] === 0 && i < arr.length - 1; i++)
+        digits.push(0);
+
+    return digits.reverse().map(function(digit) { return ALPHABET[digit]; }).join('');
+}
+
+function Base58Decode(str) {
+    if (str.length === 0)
+        return [];
+
+    var i, j, bytes = [0];
+    for (i = 0; i < str.length; i++) {
+        var c = str[i];
+        if (!(c in ALPHABET_MAP))
+            throw new Error('Non-base58 character');
+
+        for (j = 0; j < bytes.length; j++)
+            bytes[j] *= BASE;
+        bytes[0] += ALPHABET_MAP[c];
+
+        var carry = 0;
+        for (j = 0; j < bytes.length; ++j) {
+            bytes[j] += carry;
+            carry = bytes[j] >> 8;
+            bytes[j] &= 0xff;
+        }
+        while (carry) {
+            bytes.push(carry & 0xff);
+            carry >>= 8;
+        }
+    }
+
+    // deal with leading zeros
+    for (i = 0; str[i] === '1' && i < str.length - 1; i++)
+        bytes.push(0);
+
+    return bytes.reverse();
+}
+
+function BytesToString(arr) {
+    var str = "";
+    for (var i = 0; i < arr.length; i++) {
+        var tmp = arr[i].toString(16);
+        if (tmp.length == 1) {
+            tmp = "0" + tmp;
+        }
+        str += tmp;
+    }
+    return str;
+}
+
+function StringToBytes(str) {
+    var len = str.length;
+    if (len % 2 != 0) {
+        return null;
+    }
+    len /= 2;
+
+    var arr = new Array();
+    var pos = 0;
+    for (var i = 0; i < len; i++) {
+        var tmp = str.substr(pos, 2);
+        var v = parseInt(tmp, 16);
+        arr.push(v);
+        pos += 2;
+    }
+    return arr;
+}
 
 /**
  * Formats input value to byte representation of int
@@ -1118,12 +1216,35 @@ var formatOutputString = function (param) {
  * @param {SolidityParam} right-aligned input bytes
  * @returns {String} address
  */
+var CryptoJS = require('crypto-js');
 var formatOutputAddress = function (param) {
     var value = param.staticPart();
-    return "0x" + value.slice(value.length - 40, value.length);
+    var buff = '0FA2' + value.slice(value.length - 40, value.length);
+    var hash1 = CryptoJS.SHA256(CryptoJS.enc.Hex.parse(buff));
+    var hash2 = CryptoJS.SHA256(hash1).toString();
+    var address = Base58Encode(StringToBytes(buff + hash2.slice(0, 8)));
+    return address;
+};
+
+/**
+ * Should be use to format input address
+ *
+ * @method formatInputAddress
+ * @param {String} value that must be address string('Um....')
+ * @returns {SolidityParam or Error}
+ */
+var formatInputAddress = function (value) {
+    if ((/^(Um)?[1-9a-z]{33}$/i.test(value)) && (!/[OIl]{1}/.test(value))) {
+        BigNumber.config(c.ETH_BIGNUMBER_ROUNDING_MODE);
+        var buf = "0x" + BytesToString(Base58Decode(value).slice(2, 22));
+        var result = utils.padLeft(utils.toTwosComplement(buf).toString(16), 64);
+        return new SolidityParam(result);
+    }
+    throw new Error('invalid address');
 };
 
 module.exports = {
+    formatInputAddress: formatInputAddress,
     formatInputInt: formatInputInt,
     formatInputBytes: formatInputBytes,
     formatInputDynamicBytes: formatInputDynamicBytes,
@@ -1141,7 +1262,7 @@ module.exports = {
     formatOutputAddress: formatOutputAddress
 };
 
-},{"../utils/config":18,"../utils/utils":20,"./param":11,"bignumber.js":"bignumber.js"}],10:[function(require,module,exports){
+},{"../utils/config":18,"../utils/utils":20,"./param":11,"bignumber.js":"bignumber.js","crypto-js":59}],10:[function(require,module,exports){
 var f = require('./formatters');
 var SolidityType = require('./type');
 

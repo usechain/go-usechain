@@ -22,10 +22,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/karalabe/hid"
 	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/event"
 	"github.com/usechain/go-usechain/log"
-	"github.com/karalabe/hid"
 )
 
 // LedgerScheme is the protocol scheme prefixing account and wallet URLs.

@@ -38,7 +38,7 @@ type testgeth struct {
 	*cmdtest.TestCmd
 
 	// template variables for expect
-	Datadir   string
+	Datadir string
 	Usebase string
 }
 

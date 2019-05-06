@@ -25,8 +25,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/usechain/go-usechain/log"
 	"github.com/jackpal/go-nat-pmp"
+	"github.com/usechain/go-usechain/log"
 )
 
 // An implementation of nat.Interface can map local ports to ports

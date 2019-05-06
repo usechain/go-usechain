@@ -88,7 +88,7 @@ type ProtocolManager struct {
 	txsCh         chan core.NewTxsEvent
 	txsSub        event.Subscription
 	minedBlockSub *event.TypeMuxSubscription
-	txsCache	  []*types.Transaction
+	txsCache      []*types.Transaction
 
 	// channels for fetcher, syncer, txsyncLoop
 	newPeerCh   chan *peer
@@ -741,7 +741,7 @@ func (self *ProtocolManager) txBroadcastLoop() {
 	for {
 		select {
 		case event := <-self.txsCh:
-			for _,tx := range event.Txs {
+			for _, tx := range event.Txs {
 				self.txsCache = append(self.txsCache, tx)
 			}
 			if len(self.txsCache) >= txCacheLimit {
@@ -749,7 +749,7 @@ func (self *ProtocolManager) txBroadcastLoop() {
 				self.txsCache = self.txsCache[:0]
 			}
 		case <-t.C:
-			if len(self.txsCache) > 0{
+			if len(self.txsCache) > 0 {
 				self.BroadcastTxs(self.txsCache)
 				self.txsCache = self.txsCache[:0]
 			}

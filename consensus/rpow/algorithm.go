@@ -17,14 +17,13 @@
 package rpow
 
 import (
-	"hash"
 	"github.com/usechain/go-usechain/crypto/sha3"
+	"hash"
 )
 
 const (
-	epochLength        = 30000   // Blocks per epoch
+	epochLength = 30000 // Blocks per epoch
 )
-
 
 // hasher is a repetitive hasher allowing the same hash data structures to be
 // reused between hash runs instead of requiring new ones to be created.

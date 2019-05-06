@@ -27,9 +27,7 @@ import (
 	"github.com/usechain/go-usechain/params"
 
 	"github.com/usechain/go-usechain/core/vm"
-
 )
-
 
 func ExampleGenerateChain() {
 	var (

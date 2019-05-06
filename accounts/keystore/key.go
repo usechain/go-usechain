@@ -51,7 +51,7 @@ type Key struct {
 	PrivateKey *ecdsa.PrivateKey
 
 	PrivateKey2 *ecdsa.PrivateKey
-	SubAddress   common.SubAddress
+	SubAddress  common.SubAddress
 }
 
 type keyStore interface {
@@ -75,10 +75,10 @@ type plainKeyJSON struct {
 }
 
 type encryptedKeyJSONV3 struct {
-	Address   string     `json:"address"`
-	Crypto    cryptoJSON `json:"crypto"`
-	Id        string     `json:"id"`
-	Version   int        `json:"version"`
+	Address    string     `json:"address"`
+	Crypto     cryptoJSON `json:"crypto"`
+	Id         string     `json:"id"`
+	Version    int        `json:"version"`
 	SubAddress string     `json:"SubAddress"`
 }
 
@@ -338,7 +338,7 @@ func newSubKey(committeePub string, AprivKey *ecdsa.PrivateKey) (*Key, error) {
 }
 
 // ComputeSubKey genetate public key and private key of AB account
-func ComputeSubKey( aPrivKey *ecdsa.PrivateKey, s *ecdsa.PrivateKey, CommitteePub *ecdsa.PublicKey) (string, error) {
+func ComputeSubKey(aPrivKey *ecdsa.PrivateKey, s *ecdsa.PrivateKey, CommitteePub *ecdsa.PublicKey) (string, error) {
 	hPriv, err := crypto.GenerateHpriv(aPrivKey, s, CommitteePub)
 	priv1D := hexutil.Encode(common.LeftPadBytes(hPriv.D.Bytes(), 32))
 	return priv1D, err

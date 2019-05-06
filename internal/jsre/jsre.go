@@ -26,9 +26,9 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/robertkrimen/otto"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/internal/jsre/deps"
-	"github.com/robertkrimen/otto"
 )
 
 var (

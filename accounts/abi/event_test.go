@@ -25,10 +25,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/usechain/go-usechain/common"
-	"github.com/usechain/go-usechain/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/crypto"
 )
 
 var jsonEventTransfer = []byte(`{

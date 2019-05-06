@@ -207,6 +207,7 @@ func (bc *BlockChain) getProcInterrupt() bool {
 func (bc *BlockChain) chainDb() ethdb.Database {
 	return bc.db
 }
+
 // loadLastState loads the last known chain state from the database. This method
 // assumes that the chain manager mutex is held.
 func (bc *BlockChain) loadLastState() error {

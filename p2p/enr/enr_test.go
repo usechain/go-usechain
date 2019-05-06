@@ -24,10 +24,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/usechain/go-usechain/crypto"
-	"github.com/usechain/go-usechain/rlp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/usechain/go-usechain/crypto"
+	"github.com/usechain/go-usechain/rlp"
 )
 
 var (

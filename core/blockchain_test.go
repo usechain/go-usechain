@@ -328,7 +328,7 @@ func TestReorgLongHeaders(t *testing.T) { testReorgLong(t, false) }
 func TestReorgLongBlocks(t *testing.T)  { testReorgLong(t, true) }
 
 func testReorgLong(t *testing.T, full bool) {
-	testReorg(t, []int{1, 2, 4}, []int{1, 2, 3, 4},10, full)
+	testReorg(t, []int{1, 2, 4}, []int{1, 2, 3, 4}, 10, full)
 }
 
 // Tests that reorganising a short difficult chain after a long easy one
@@ -348,10 +348,11 @@ func testReorgShort(t *testing.T, full bool) {
 	for i := 0; i < len(diff); i++ {
 		diff[i] = -9
 	}
-	testReorg(t, []int{1, 2, 3, 4}, []int{1, 10},  11, full)
+	testReorg(t, []int{1, 2, 3, 4}, []int{1, 10}, 11, full)
 }
 
 type bproc struct{}
+
 func (bproc) ValidateBody(*types.Block) error { return nil }
 func (bproc) ValidateState(block, parent *types.Block, state *state.StateDB, receipts types.Receipts, usedGas uint64) error {
 	return nil
@@ -361,7 +362,7 @@ func (bproc) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) 
 }
 
 // newTestBlockChain return BlockChain for test
-func newTestBlockChain(fake bool) (*BlockChain) {
+func newTestBlockChain(fake bool) *BlockChain {
 	db, _ := ethdb.NewMemDatabase()
 	gspec := DefaultRpowTestingGenesisBlock()
 	gspec.Difficulty = big.NewInt(1)
@@ -370,7 +371,7 @@ func newTestBlockChain(fake bool) (*BlockChain) {
 	if !fake {
 		engine = rpow.NewTesterUse(db)
 	}
-	blockchain, err := NewBlockChain(db,nil, gspec.Config, engine, vm.Config{})
+	blockchain, err := NewBlockChain(db, nil, gspec.Config, engine, vm.Config{})
 	if err != nil {
 		panic(err)
 	}

@@ -23,35 +23,33 @@ import (
 	"testing"
 	"time"
 
-	"github.com/usechain/go-usechain/common"
-	"github.com/usechain/go-usechain/accounts/keystore"
 	"github.com/usechain/go-usechain/accounts"
+	"github.com/usechain/go-usechain/accounts/keystore"
+	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/log"
 
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/crypto"
-	"github.com/usechain/go-usechain/node"
 	"github.com/usechain/go-usechain/ethdb"
 	"github.com/usechain/go-usechain/event"
+	"github.com/usechain/go-usechain/node"
+	"github.com/usechain/go-usechain/p2p"
 	"github.com/usechain/go-usechain/params"
 	"io/ioutil"
 	"os"
-	"github.com/usechain/go-usechain/p2p"
 
-	"path/filepath"
 	"math/rand"
+	"path/filepath"
 )
 
 // testTxPoolConfig is a transaction pool configuration without stateful disk
 // sideeffects used during testing.
 var testTxPoolConfig TxPoolConfig
 
-
 const (
-	datadirPrivateKey      = "testKey"
+	datadirPrivateKey = "testKey"
 )
-
 
 func init() {
 	testTxPoolConfig = DefaultTxPoolConfig
@@ -122,7 +120,7 @@ func setupTxPool() (*TxPool, *ecdsa.PrivateKey) {
 	auth := "123456"
 	a, err := newKey.NewAccount(auth)
 	if err != nil {
-		log.Error("account path: ",a.URL.Path)
+		log.Error("account path: ", a.URL.Path)
 	}
 	pool := NewTxPool(testTxPoolConfig, params.TestChainConfig, blockchain, am)
 	return pool, key
@@ -261,7 +259,7 @@ func TestStateChangeDuringTransactionPoolReset(t *testing.T) {
 	auth := "123456"
 	a, err := newKey.NewAccount(auth)
 	if err != nil {
-		log.Error("account path: ",a.URL.Path)
+		log.Error("account path: ", a.URL.Path)
 	}
 	pool := NewTxPool(testTxPoolConfig, params.TestChainConfig, blockchain, am)
 	defer pool.Stop()
@@ -844,7 +842,7 @@ func testTransactionQueueGlobalLimiting(t *testing.T, nolocals bool) {
 	auth := "123456"
 	a, err := newKey.NewAccount(auth)
 	if err != nil {
-		log.Error("account path: ",a.URL.Path)
+		log.Error("account path: ", a.URL.Path)
 	}
 	pool := NewTxPool(config, params.TestChainConfig, blockchain, am)
 	defer pool.Stop()
@@ -961,7 +959,7 @@ func testTransactionQueueTimeLimiting(t *testing.T, nolocals bool) {
 	auth := "123456"
 	a, err := newKey.NewAccount(auth)
 	if err != nil {
-		log.Error("account path: ",a.URL.Path)
+		log.Error("account path: ", a.URL.Path)
 	}
 	pool := NewTxPool(config, params.TestChainConfig, blockchain, am)
 	defer pool.Stop()
@@ -1143,7 +1141,7 @@ func TestTransactionPendingGlobalLimiting(t *testing.T) {
 	auth := "123456"
 	a, err := newKey.NewAccount(auth)
 	if err != nil {
-		log.Error("account path: ",a.URL.Path)
+		log.Error("account path: ", a.URL.Path)
 	}
 	pool := NewTxPool(config, params.TestChainConfig, blockchain, am)
 	defer pool.Stop()
@@ -1220,7 +1218,7 @@ func TestTransactionCapClearsFromAll(t *testing.T) {
 	auth := "123456"
 	a, err := newKey.NewAccount(auth)
 	if err != nil {
-		log.Error("account path: ",a.URL.Path)
+		log.Error("account path: ", a.URL.Path)
 	}
 	pool := NewTxPool(config, params.TestChainConfig, blockchain, am)
 	defer pool.Stop()
@@ -1281,7 +1279,7 @@ func TestTransactionPendingMinimumAllowance(t *testing.T) {
 	auth := "123456"
 	a, err := newKey.NewAccount(auth)
 	if err != nil {
-		log.Error("account path: ",a.URL.Path)
+		log.Error("account path: ", a.URL.Path)
 	}
 	pool := NewTxPool(config, params.TestChainConfig, blockchain, am)
 	defer pool.Stop()
@@ -1355,7 +1353,7 @@ func TestTransactionPoolRepricing(t *testing.T) {
 	auth := "123456"
 	a, err := newKey.NewAccount(auth)
 	if err != nil {
-		log.Error("account path: ",a.URL.Path)
+		log.Error("account path: ", a.URL.Path)
 	}
 	pool := NewTxPool(testTxPoolConfig, params.TestChainConfig, blockchain, am)
 	defer pool.Stop()
@@ -1482,7 +1480,7 @@ func TestTransactionPoolRepricingKeepsLocals(t *testing.T) {
 	auth := "123456"
 	a, err := newKey.NewAccount(auth)
 	if err != nil {
-		log.Error("account path: ",a.URL.Path)
+		log.Error("account path: ", a.URL.Path)
 	}
 	pool := NewTxPool(testTxPoolConfig, params.TestChainConfig, blockchain, am)
 	defer pool.Stop()
@@ -1577,7 +1575,7 @@ func TestTransactionPoolUnderpricing(t *testing.T) {
 	auth := "123456"
 	a, err := newKey.NewAccount(auth)
 	if err != nil {
-		log.Error("account path: ",a.URL.Path)
+		log.Error("account path: ", a.URL.Path)
 	}
 	pool := NewTxPool(config, params.TestChainConfig, blockchain, am)
 	defer pool.Stop()
@@ -1703,7 +1701,7 @@ func TestTransactionReplacement(t *testing.T) {
 	auth := "123456"
 	a, err := newKey.NewAccount(auth)
 	if err != nil {
-		log.Error("account path: ",a.URL.Path)
+		log.Error("account path: ", a.URL.Path)
 	}
 	pool := NewTxPool(testTxPoolConfig, params.TestChainConfig, blockchain, am)
 	defer pool.Stop()
@@ -1830,7 +1828,7 @@ func testTransactionJournaling(t *testing.T, nolocals bool) {
 	auth := "123456"
 	a, err := newKey.NewAccount(auth)
 	if err != nil {
-		log.Error("account path: ",a.URL.Path)
+		log.Error("account path: ", a.URL.Path)
 	}
 	pool := NewTxPool(config, params.TestChainConfig, blockchain, am)
 
@@ -1868,7 +1866,6 @@ func testTransactionJournaling(t *testing.T, nolocals bool) {
 	pool.Stop()
 	statedb.SetNonce(crypto.PubkeyToAddress(local.PublicKey), 1)
 	blockchain = &testBlockChain{statedb, 1000000, new(event.Feed)}
-
 
 	pool = NewTxPool(config, params.TestChainConfig, blockchain, am)
 
@@ -1954,7 +1951,7 @@ func TestTransactionStatusCheck(t *testing.T) {
 	auth := "123456"
 	a, err := newKey.NewAccount(auth)
 	if err != nil {
-		log.Error("account path: ",a.URL.Path)
+		log.Error("account path: ", a.URL.Path)
 	}
 	pool := NewTxPool(testTxPoolConfig, params.TestChainConfig, blockchain, am)
 	defer pool.Stop()

@@ -419,7 +419,7 @@ func (es *EventSystem) eventLoop() {
 		index = make(filterIndex)
 		sub   = es.mux.Subscribe(core.PendingLogsEvent{})
 		// Subscribe TxPreEvent form txpool
-		txsCh = make(chan core.NewTxsEvent, txChanSize)
+		txsCh  = make(chan core.NewTxsEvent, txChanSize)
 		txsSub = es.backend.SubscribeNewTxsEvent(txsCh)
 		// Subscribe RemovedLogsEvent
 		rmLogsCh  = make(chan core.RemovedLogsEvent, rmLogsChanSize)

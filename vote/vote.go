@@ -17,10 +17,6 @@
 package vote
 
 import (
-	"math/big"
-	"sync"
-	"sync/atomic"
-	"time"
 	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/contracts/manager"
@@ -28,6 +24,10 @@ import (
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/event"
 	"github.com/usechain/go-usechain/log"
+	"math/big"
+	"sync"
+	"sync/atomic"
+	"time"
 )
 
 var (

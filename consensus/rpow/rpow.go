@@ -23,8 +23,8 @@ import (
 	"time"
 
 	"github.com/usechain/go-usechain/consensus"
-	"github.com/usechain/go-usechain/rpc"
 	"github.com/usechain/go-usechain/ethdb"
+	"github.com/usechain/go-usechain/rpc"
 )
 
 // Mode defines the type and amount of PoW verification a rpow engine makes.
@@ -40,7 +40,7 @@ const (
 
 // Config are the configuration parameters of the rpow.
 type Config struct {
-	RpowMode        Mode
+	RpowMode Mode
 }
 
 // Rpow is a consensus engine based on proot-of-work implementing the rpow
@@ -49,9 +49,9 @@ type Rpow struct {
 	config Config
 
 	// Mining related fields
-	rand     *rand.Rand    // Properly seeded random source for nonces
-	threads  int           // Number of threads to mine on if mining
-	update   chan struct{} // Notification channel to update mining parameters
+	rand    *rand.Rand    // Properly seeded random source for nonces
+	threads int           // Number of threads to mine on if mining
+	update  chan struct{} // Notification channel to update mining parameters
 
 	// The fields below are hooks for testing
 	shared    *Rpow         // Shared RPoW verifier to avoid cache regeneration
@@ -60,14 +60,14 @@ type Rpow struct {
 
 	lock sync.Mutex // Ensures thread safety for the in-memory caches and mining fields
 
-	db      ethdb.Database
+	db ethdb.Database
 }
 
 // New creates a full sized rpow scheme.
 func New(config Config) *Rpow {
 	return &Rpow{
-		config:   config,
-		update:   make(chan struct{}),
+		config: config,
+		update: make(chan struct{}),
 	}
 }
 
@@ -79,9 +79,9 @@ func NewTester() *Rpow {
 
 func NewTesterUse(db ethdb.Database) *Rpow {
 	return &Rpow{
-		config:Config{RpowMode: ModeFake},
-		update:      make(chan struct{}),
-		db:          db,
+		config: Config{RpowMode: ModeFake},
+		update: make(chan struct{}),
+		db:     db,
 	}
 
 	//return NewWithCfg(Config{CachesInMem: 1, RpowMode: ModeTest})
@@ -106,7 +106,7 @@ func NewFakerUsechain(db ethdb.Database) *Rpow {
 		config: Config{
 			RpowMode: ModeFake,
 		},
-		db:       db,
+		db: db,
 	}
 }
 

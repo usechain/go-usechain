@@ -25,6 +25,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/usechain/go-usechain/cmd/utils"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/console"
@@ -36,7 +37,6 @@ import (
 	"github.com/usechain/go-usechain/event"
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/trie"
-	"github.com/syndtr/goleveldb/leveldb/util"
 	"gopkg.in/urfave/cli.v1"
 )
 

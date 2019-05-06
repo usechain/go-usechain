@@ -101,7 +101,7 @@ func deployNode(client *sshClient, network string, bootnodes []string, config *n
 		"LightFlag": lightFlag,
 		"Bootnodes": strings.Join(bootnodes, ","),
 		"Ethstats":  config.ethstats,
-		"Usebase": config.usebase,
+		"Usebase":   config.usebase,
 		"GasTarget": uint64(1000000 * config.gasTarget),
 		"GasPrice":  uint64(1000000000 * config.gasPrice),
 		"Unlock":    config.keyJSON != "",
@@ -118,7 +118,7 @@ func deployNode(client *sshClient, network string, bootnodes []string, config *n
 		"Light":      config.peersLight > 0,
 		"LightPeers": config.peersLight,
 		"Ethstats":   config.ethstats[:strings.Index(config.ethstats, ":")],
-		"Usebase":  config.usebase,
+		"Usebase":    config.usebase,
 		"GasTarget":  config.gasTarget,
 		"GasPrice":   config.gasPrice,
 	})
@@ -153,7 +153,7 @@ type nodeInfos struct {
 	enode      string
 	peersTotal int
 	peersLight int
-	usebase  string
+	usebase    string
 	keyJSON    string
 	keyPass    string
 	gasTarget  float64

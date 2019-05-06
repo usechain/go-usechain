@@ -287,8 +287,8 @@ func GenerateHpriv(privateKey *ecdsa.PrivateKey, privateKey2 *ecdsa.PrivateKey, 
 
 	//hash
 	k := new(big.Int).SetBytes(Keccak256(FromECDSAPub(pub))) //hash([a]B)
-	k.Add(k, privateKey2.D)     //hash([a]B)+s
-	k.Mod(k, S256().Params().N) //mod to feild N
+	k.Add(k, privateKey2.D)                                  //hash([a]B)+s
+	k.Mod(k, S256().Params().N)                              //mod to feild N
 
 	retPriv1 = new(ecdsa.PrivateKey)
 	retPriv1.D = k

@@ -22,10 +22,10 @@ package storage
 import (
 	"fmt"
 
-	"github.com/usechain/go-usechain/compression/rle"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"
+	"github.com/usechain/go-usechain/compression/rle"
 )
 
 const openFileLimit = 128

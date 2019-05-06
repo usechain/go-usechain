@@ -56,7 +56,7 @@ var (
 		EIP158Block:         big.NewInt(10),
 		ByzantiumBlock:      big.NewInt(1700000),
 		ConstantinopleBlock: nil,
-		Rpow:              new(RpowConfig),
+		Rpow:                new(RpowConfig),
 	}
 
 	// MoonetChainConfig contains the chain parameters to run a node on the Moonet test network.
@@ -71,7 +71,7 @@ var (
 		EIP158Block:         big.NewInt(0),
 		ByzantiumBlock:      big.NewInt(0),
 		ConstantinopleBlock: nil,
-		Rpow:              new(RpowConfig),
+		Rpow:                new(RpowConfig),
 	}
 
 	// AllRpowProtocolChanges contains every protocol change (EIPs) introduced
@@ -116,7 +116,7 @@ type ChainConfig struct {
 	ConstantinopleBlock *big.Int `json:"constantinopleBlock,omitempty"` // Constantinople switch block (nil = no fork, 0 = already activated)
 
 	// Various consensus engines
-	Rpow *RpowConfig `json:"rpow,omitempty"`
+	Rpow   *RpowConfig   `json:"rpow,omitempty"`
 	Clique *CliqueConfig `json:"clique,omitempty"`
 }
 

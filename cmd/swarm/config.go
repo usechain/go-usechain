@@ -28,11 +28,11 @@ import (
 
 	cli "gopkg.in/urfave/cli.v1"
 
+	"github.com/naoina/toml"
 	"github.com/usechain/go-usechain/cmd/utils"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/node"
-	"github.com/naoina/toml"
 
 	bzzapi "github.com/usechain/go-usechain/swarm/api"
 )

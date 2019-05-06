@@ -20,14 +20,14 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/usechain/go-usechain/cmd/utils"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/rlp"
 	whisper "github.com/usechain/go-usechain/whisper/whisperv6"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 type WMailServer struct {

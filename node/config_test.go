@@ -24,9 +24,9 @@ import (
 	"runtime"
 	"testing"
 
+	"fmt"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/p2p"
-	"fmt"
 )
 
 // Tests that datadirs can be successfully created, be them manually configured
@@ -149,8 +149,6 @@ func TestNodeKeyPersistency(t *testing.T) {
 		t.Fatalf("ephemeral node key persisted to disk")
 	}
 }
-
-
 
 func TestDATADIR(t *testing.T) {
 

@@ -47,9 +47,9 @@ type RemoteAgent struct {
 
 func NewRemoteAgent(chain consensus.ChainReader, engine consensus.Engine) *RemoteAgent {
 	return &RemoteAgent{
-		chain:    chain,
-		engine:   engine,
-		work:     make(map[common.Hash]*Work),
+		chain:  chain,
+		engine: engine,
+		work:   make(map[common.Hash]*Work),
 	}
 }
 

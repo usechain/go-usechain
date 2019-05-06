@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"sync"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/ethdb"
 	"github.com/usechain/go-usechain/trie"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 // Trie cache generation limit after which to evic trie nodes from memory.

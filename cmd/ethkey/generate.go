@@ -23,10 +23,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/pborman/uuid"
 	"github.com/usechain/go-usechain/accounts/keystore"
 	"github.com/usechain/go-usechain/cmd/utils"
 	"github.com/usechain/go-usechain/crypto"
-	"github.com/pborman/uuid"
 	"gopkg.in/urfave/cli.v1"
 )
 

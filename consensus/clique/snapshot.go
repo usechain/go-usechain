@@ -20,11 +20,11 @@ import (
 	"bytes"
 	"encoding/json"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/ethdb"
 	"github.com/usechain/go-usechain/params"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 // Vote represents a single vote that an authorized signer made to modify the

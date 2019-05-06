@@ -914,105 +914,7 @@ var BigNumber = require('bignumber.js');
 var utils = require('../utils/utils');
 var c = require('../utils/config');
 var SolidityParam = require('./param');
-
-var ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-var ALPHABET_MAP = {};
-var BASE = 58;
-for (var i = 0; i < ALPHABET.length; i++) {
-    ALPHABET_MAP[ALPHABET.charAt(i)] = i;
-}
-
-function Base58Encode(arr) {
-    if (arr.length === 0)
-        return '';
-
-    var i, j, digits = [0];
-    for (i = 0; i < arr.length; i++) {
-        for (j = 0; j < digits.length; j++) {
-            digits[j] <<= 8;
-        }
-        digits[0] += arr[i];
-        var carry = 0;
-        for (j = 0; j < digits.length; ++j) {
-            digits[j] += carry;
-            carry = (digits[j] / BASE) | 0;
-            digits[j] %= BASE;
-        }
-        while (carry) {
-            digits.push(carry % BASE);
-            carry = (carry / BASE) | 0;
-        }
-    }
-
-    // deal with leading zeros
-    for (i = 0; arr[i] === 0 && i < arr.length - 1; i++)
-        digits.push(0);
-
-    return digits.reverse().map(function(digit) { return ALPHABET[digit]; }).join('');
-}
-
-function Base58Decode(str) {
-    if (str.length === 0)
-        return [];
-
-    var i, j, bytes = [0];
-    for (i = 0; i < str.length; i++) {
-        var c = str[i];
-        if (!(c in ALPHABET_MAP))
-            throw new Error('Non-base58 character');
-
-        for (j = 0; j < bytes.length; j++)
-            bytes[j] *= BASE;
-        bytes[0] += ALPHABET_MAP[c];
-
-        var carry = 0;
-        for (j = 0; j < bytes.length; ++j) {
-            bytes[j] += carry;
-            carry = bytes[j] >> 8;
-            bytes[j] &= 0xff;
-        }
-        while (carry) {
-            bytes.push(carry & 0xff);
-            carry >>= 8;
-        }
-    }
-
-    // deal with leading zeros
-    for (i = 0; str[i] === '1' && i < str.length - 1; i++)
-        bytes.push(0);
-
-    return bytes.reverse();
-}
-
-function BytesToString(arr) {
-    var str = "";
-    for (var i = 0; i < arr.length; i++) {
-        var tmp = arr[i].toString(16);
-        if (tmp.length == 1) {
-            tmp = "0" + tmp;
-        }
-        str += tmp;
-    }
-    return str;
-}
-
-function StringToBytes(str) {
-    var len = str.length;
-    if (len % 2 != 0) {
-        return null;
-    }
-    len /= 2;
-
-    var arr = new Array();
-    var pos = 0;
-    for (var i = 0; i < len; i++) {
-        var tmp = str.substr(pos, 2);
-        var v = parseInt(tmp, 16);
-        arr.push(v);
-        pos += 2;
-    }
-    return arr;
-}
+var Base58 = require('../base58');
 
 /**
  * Formats input value to byte representation of int
@@ -1216,14 +1118,9 @@ var formatOutputString = function (param) {
  * @param {SolidityParam} right-aligned input bytes
  * @returns {String} address
  */
-var CryptoJS = require('crypto-js');
 var formatOutputAddress = function (param) {
     var value = param.staticPart();
-    var buff = '0FA2' + value.slice(value.length - 40, value.length);
-    var hash1 = CryptoJS.SHA256(CryptoJS.enc.Hex.parse(buff));
-    var hash2 = CryptoJS.SHA256(hash1).toString();
-    var address = Base58Encode(StringToBytes(buff + hash2.slice(0, 8)));
-    return address;
+    return Base58.AddressToBase58Address(value);
 };
 
 /**
@@ -1234,10 +1131,9 @@ var formatOutputAddress = function (param) {
  * @returns {SolidityParam or Error}
  */
 var formatInputAddress = function (value) {
-    if ((/^(Um)?[1-9a-z]{33}$/i.test(value)) && (!/[OIl]{1}/.test(value))) {
+    if (utils.isAddress(value)) {
         BigNumber.config(c.ETH_BIGNUMBER_ROUNDING_MODE);
-        var buf = "0x" + BytesToString(Base58Decode(value).slice(2, 22));
-        var result = utils.padLeft(utils.toTwosComplement(buf).toString(16), 64);
+        var result = utils.padLeft(utils.toTwosComplement(Base58.Base58AddressToAddress(value)).toString(16), 64);
         return new SolidityParam(result);
     }
     throw new Error('invalid address');
@@ -1262,7 +1158,7 @@ module.exports = {
     formatOutputAddress: formatOutputAddress
 };
 
-},{"../utils/config":18,"../utils/utils":20,"./param":11,"bignumber.js":"bignumber.js","crypto-js":59}],10:[function(require,module,exports){
+},{"../utils/config":18,"../utils/utils":20,"./param":11,"bignumber.js":"bignumber.js","../base58":87}],10:[function(require,module,exports){
 var f = require('./formatters');
 var SolidityType = require('./type');
 
@@ -13960,7 +13856,128 @@ module.exports = transfer;
 },{}],86:[function(require,module,exports){
 module.exports = XMLHttpRequest;
 
-},{}],"bignumber.js":[function(require,module,exports){
+},{}],87:[function(require,module,exports){
+/**
+ * @file base58.js
+ * @author lemengbin <lemengbin@163.com>
+ * @date 2019
+ */
+var CryptoJS = require('crypto-js');
+var ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'; // 58 characters
+var ALPHABET_MAP = {};
+for (var i = 0; i < 58; i++) {
+    ALPHABET_MAP[ALPHABET.charAt(i)] = i;
+}
+
+var Base58Encode = function (arr) {
+    if (arr.length === 0)
+        return '';
+
+    var i, j, digits = [0];
+    for (i = 0; i < arr.length; i++) {
+        for (j = 0; j < digits.length; j++) {
+            digits[j] <<= 8;
+        }
+
+        digits[0] += arr[i];
+        var carry = 0;
+        for (j = 0; j < digits.length; ++j) {
+            digits[j] += carry;
+            carry = (digits[j] / 58) | 0;
+            digits[j] %= 58;
+        }
+        while (carry) {
+            digits.push(carry % 58);
+            carry = (carry / 58) | 0;
+        }
+    }
+
+    // deal with leading zeros
+    for (i = 0; arr[i] === 0 && i < arr.length - 1; i++)
+        digits.push(0);
+    return digits.reverse().map(function(digit) { return ALPHABET[digit]; }).join('');
+};
+
+var Base58Decode = function (str) {
+    if (str.length === 0)
+        return [];
+
+    var i, j, bytes = [0];
+    for (i = 0; i < str.length; i++) {
+        var c = str[i];
+        if (!(c in ALPHABET_MAP))
+            throw new Error('Non-base58 character');
+
+        for (j = 0; j < bytes.length; j++)
+            bytes[j] *= 58;
+        bytes[0] += ALPHABET_MAP[c];
+
+        var carry = 0;
+        for (j = 0; j < bytes.length; ++j) {
+            bytes[j] += carry;
+            carry = bytes[j] >> 8;
+            bytes[j] &= 0xff;
+        }
+        while (carry) {
+            bytes.push(carry & 0xff);
+            carry >>= 8;
+        }
+    }
+
+    // deal with leading zeros
+    for (i = 0; str[i] === '1' && i < str.length - 1; i++)
+        bytes.push(0);
+
+    return bytes.reverse();
+};
+
+var BytesToString = function (arr) {
+    var str = "";
+    for (var i = 0; i < arr.length; i++) {
+        var tmp = arr[i].toString(16);
+        if (tmp.length == 1) {
+            tmp = "0" + tmp;
+        }
+        str += tmp;
+    }
+    return str;
+};
+
+var StringToBytes = function (str) {
+    var len = str.length;
+    if (len % 2 != 0) {
+        return null;
+    }
+    len /= 2;
+
+    var arr = new Array();
+    var pos = 0;
+    for (var i = 0; i < len; i++) {
+        var tmp = str.substr(pos, 2);
+        var v = parseInt(tmp, 16);
+        arr.push(v);
+        pos += 2;
+    }
+    return arr;
+};
+
+var AddressToBase58Address = function (value) {
+    var buff = '0FA2' + value.slice(value.length - 40, value.length);
+    var hash1 = CryptoJS.SHA256(CryptoJS.enc.Hex.parse(buff));
+    var hash2 = CryptoJS.SHA256(hash1).toString();
+    return Base58Encode(StringToBytes(buff + hash2.slice(0, 8)));
+};
+
+var Base58AddressToAddress = function (value) {
+     return "0x" + BytesToString(Base58Decode(value).slice(2, 22));
+};
+
+module.exports = {
+    AddressToBase58Address: AddressToBase58Address,
+    Base58AddressToAddress: Base58AddressToAddress
+};
+
+},{"crypto-js":59}],"bignumber.js":[function(require,module,exports){
 'use strict';
 
 module.exports = BigNumber; // jshint ignore:line
@@ -13978,12 +13995,3 @@ module.exports = Web3;
 
 },{"./lib/web3":22}]},{},["web3"])
 //# sourceMappingURL=web3-light.js.map
-
-
-/**
-* @file crypto.js
-* @author lyszhang <testblockchain@sina.com>
-* @date 2017
-*/
-
-

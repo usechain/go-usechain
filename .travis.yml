@@ -5,7 +5,10 @@ before_script:
   - sudo mkdir /root/.usechain
   - sh $PWD/build/usechain.sh
 
-script: make test
+script:
+  - make test
+  - bash ./.travis.gofmt.sh
+
 
 go:
   - "1.10"

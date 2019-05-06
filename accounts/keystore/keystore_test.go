@@ -463,4 +463,3 @@ func TestECDSAPKCompression(t *testing.T) {
 		t.Error("ECDSAPKCompression is not correct")
 	}
 }
-

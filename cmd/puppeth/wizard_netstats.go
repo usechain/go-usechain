@@ -23,9 +23,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/olekukonko/tablewriter"
 	"github.com/usechain/go-usechain/core"
 	"github.com/usechain/go-usechain/log"
-	"github.com/olekukonko/tablewriter"
 )
 
 // networkStats verifies the status of network components and generates a protip

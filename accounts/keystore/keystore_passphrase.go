@@ -32,17 +32,17 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"path/filepath"
 	"errors"
+	"fmt"
+	"github.com/pborman/uuid"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/math"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/crypto/randentropy"
-	"github.com/pborman/uuid"
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/crypto/scrypt"
+	"io/ioutil"
+	"path/filepath"
 )
 
 const (
@@ -76,9 +76,8 @@ type keyStorePassphrase struct {
 
 /////////////////////////////////////greg add /////////////////
 var (
-	ErrABaddressInvalid       = errors.New("invalid SubAddress address")
+	ErrABaddressInvalid = errors.New("invalid SubAddress address")
 )
-
 
 func (ks keyStorePassphrase) GetKey(addr common.Address, filename, auth string) (*Key, error) {
 	// Load the key from the keystore and decrypt its contents
@@ -157,11 +156,8 @@ func GenerateKeyWithWAddress(keyjson []byte) (*Key, error) {
 	copy(key.SubAddress[:], waddressRaw)
 	return key, nil
 }
+
 //////////////////////////////////////////////////////////////////////////
-
-
-
-
 
 func (ks keyStorePassphrase) JoinPath(filename string) string {
 	if filepath.IsAbs(filename) {

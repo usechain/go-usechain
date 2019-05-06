@@ -31,12 +31,12 @@ encoding may be of uneven length. The number zero encodes as "0x0".
 package hexutil
 
 import (
+	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
+	"github.com/usechain/go-usechain/common/math"
 	"math/big"
 	"strconv"
-	"crypto/ecdsa"
-	"github.com/usechain/go-usechain/common/math"
 )
 
 const uintBits = 32 << (uint64(^uint(0)) >> 63)
@@ -243,7 +243,6 @@ func mapError(err error) error {
 	}
 	return err
 }
-
 
 /////////////////////////greg add 2018/5/22 //////////////////////////////////
 // PKPair2HexSlice generate byte-slice based on given public key pair

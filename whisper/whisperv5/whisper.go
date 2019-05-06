@@ -26,12 +26,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/p2p"
 	"github.com/usechain/go-usechain/rpc"
-	"github.com/syndtr/goleveldb/leveldb/errors"
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/sync/syncmap"
 	set "gopkg.in/fatih/set.v0"

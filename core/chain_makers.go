@@ -28,7 +28,6 @@ import (
 	"github.com/usechain/go-usechain/core/vm"
 	"github.com/usechain/go-usechain/ethdb"
 	"github.com/usechain/go-usechain/params"
-
 )
 
 // So we can deterministically seed different blockchains
@@ -231,13 +230,13 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 		Coinbase:   parent.Coinbase(),
 		Difficulty: engine.CalcDifficulty(chain, time.Uint64(),
 			&types.Header{
-				Number:     new(big.Int).Add(parent.Number(), common.Big1),
-				Time:       time,
-				Coinbase:   parent.Coinbase(),
-				IsCheckPoint:	parent.IsCheckPoint(),
-				MinerQrSignature:	parent.MinerQrSignature(),
-				DifficultyLevel:	parent.DifficultyLevel(),
-				PrimaryMiner:	    parent.PrimaryMiner(),
+				Number:           new(big.Int).Add(parent.Number(), common.Big1),
+				Time:             time,
+				Coinbase:         parent.Coinbase(),
+				IsCheckPoint:     parent.IsCheckPoint(),
+				MinerQrSignature: parent.MinerQrSignature(),
+				DifficultyLevel:  parent.DifficultyLevel(),
+				PrimaryMiner:     parent.PrimaryMiner(),
 			},
 			&types.Header{
 				Number:     parent.Number(),

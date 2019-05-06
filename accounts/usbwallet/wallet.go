@@ -25,12 +25,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/karalabe/hid"
 	ethereum "github.com/usechain/go-usechain"
 	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/log"
-	"github.com/karalabe/hid"
 )
 
 // Maximum time between wallet health checks to detect USB unplugs.

@@ -26,13 +26,13 @@ import (
 	mrand "math/rand"
 	"time"
 
+	"github.com/hashicorp/golang-lru"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/consensus"
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/ethdb"
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/params"
-	"github.com/hashicorp/golang-lru"
 	"sync/atomic"
 )
 
@@ -228,10 +228,8 @@ func (hc *HeaderChain) ValidateHeaderChain(chain []*types.Header, checkFreq int,
 	}
 	seals[len(seals)-1] = true // Last should always be verified to avoid junk
 
-
 	abort, results := hc.engine.VerifyHeaders(hc, chain, seals, state)
 	defer close(abort)
-
 
 	// Iterate over the headers and ensure they all check out
 	for i, header := range chain {

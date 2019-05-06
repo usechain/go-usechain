@@ -22,8 +22,8 @@ const (
 	//
 	//    new(big.Int).Mul(value, big.NewInt(params.Use))
 	//
-	Hui      = 1
-	Shannon  = 1e9
-	Finney   = 1e15
-	Use      = 1e18
+	Hui     = 1
+	Shannon = 1e9
+	Finney  = 1e15
+	Use     = 1e18
 )

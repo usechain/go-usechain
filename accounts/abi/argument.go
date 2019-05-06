@@ -102,16 +102,16 @@ func (arguments Arguments) Unpack(v interface{}, data []byte) error {
 
 // Unpack performs the operation hexdata -> Go format
 // greg added 20180802
-func (arguments Arguments) UnpackABI(data []byte) ([]interface{},error) {
+func (arguments Arguments) UnpackABI(data []byte) ([]interface{}, error) {
 
 	marshalledValues, err := arguments.UnpackValues(data)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 
 	//fmt.Printf("----->%#v\n ",marshalledValues)
 	//fmt.Println("arguments.isTuple()--->",arguments.isTuple())
-	return marshalledValues,err
+	return marshalledValues, err
 }
 
 func (arguments Arguments) unpackTuple(v interface{}, marshalledValues []interface{}) error {

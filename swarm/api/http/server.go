@@ -35,12 +35,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/cors"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/metrics"
 	"github.com/usechain/go-usechain/swarm/api"
 	"github.com/usechain/go-usechain/swarm/storage"
-	"github.com/rs/cors"
 )
 
 //setup metrics

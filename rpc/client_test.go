@@ -56,7 +56,7 @@ func TestClientDemo(t *testing.T) {
 		return
 	}
 
-	var account[]string
+	var account []string
 	err = client.Call(&account, "eth_accounts")
 	var result string
 	//var result hexutil.Big
@@ -71,7 +71,6 @@ func TestClientDemo(t *testing.T) {
 	fmt.Printf("account[0]: %s\nbalance[0]: %s\n", account[0], result)
 	//fmt.Printf("accounts: %s\n", account[0])
 }
-
 
 func TestClientBatchRequest(t *testing.T) {
 	server := newTestServer("service", new(Service))

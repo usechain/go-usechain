@@ -23,8 +23,8 @@ var (
 )
 
 const (
-	GasLimitBoundDivisor uint64 = 1024    // The bound divisor of the gas limit, used in update calculations.
-	MinGasLimit          uint64 = 5000    // Minimum the gas limit may ever be.
+	GasLimitBoundDivisor uint64 = 1024     // The bound divisor of the gas limit, used in update calculations.
+	MinGasLimit          uint64 = 5000     // Minimum the gas limit may ever be.
 	GenesisGasLimit      uint64 = 21000000 // Gas limit of the Genesis block.
 
 	MaximumExtraDataSize  uint64 = 32    // Maximum size extra data may be after Genesis.
@@ -78,7 +78,7 @@ const (
 	Bn256PairingBaseGas     uint64 = 100000 // Base price for an elliptic curve pairing check
 	Bn256PairingPerPointGas uint64 = 80000  // Per-point price for an elliptic curve pairing check
 
-	GetPublicKeySetMaxSize  uint64 = 20   // Max number of public key set size
+	GetPublicKeySetMaxSize uint64 = 20 // Max number of public key set size
 
 )
 

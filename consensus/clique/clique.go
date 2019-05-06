@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/hexutil"
@@ -39,7 +40,6 @@ import (
 	"github.com/usechain/go-usechain/params"
 	"github.com/usechain/go-usechain/rlp"
 	"github.com/usechain/go-usechain/rpc"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -655,7 +655,7 @@ func (c *Clique) Seal(chain consensus.ChainReader, block *types.Block, stop <-ch
 // CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
 // that a new block should have based on the previous blocks in the chain and the
 // current signer.
-func (c *Clique) CalcDifficulty(chain consensus.ChainReader, time uint64,  header *types.Header, parent *types.Header) *big.Int {
+func (c *Clique) CalcDifficulty(chain consensus.ChainReader, time uint64, header *types.Header, parent *types.Header) *big.Int {
 	snap, err := c.snapshot(chain, parent.Number.Uint64(), parent.Hash(), nil)
 	if err != nil {
 		return nil

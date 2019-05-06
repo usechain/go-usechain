@@ -22,13 +22,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/usechain/go-usechain/log"
-	"github.com/usechain/go-usechain/metrics"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/filter"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"
+	"github.com/usechain/go-usechain/log"
+	"github.com/usechain/go-usechain/metrics"
 )
 
 var OpenFileLimit = 64

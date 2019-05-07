@@ -5582,8 +5582,8 @@ var methods = function () {
         inputFormatter: [formatters.inputTransactionFormatter]
     });
 
-    var sendInheritLockTransaction = new Method({
-        name: 'sendInheritLockTransaction',
+    var sendInheritTransaction = new Method({
+        name: 'sendInheritTransaction',
         call: 'use_sendAccountInheritTransaction',
         params: 2,
         inputFormatter: [formatters.inputTransactionFormatter, null]
@@ -5663,7 +5663,7 @@ var methods = function () {
         sendCreditRegisterTransaction,
         sendAccountLockTransaction,
         sendSubAccountTransaction,
-        sendInheritLockTransaction,
+        sendInheritTransaction,
 
         queryAddr,
         isMiner,

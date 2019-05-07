@@ -396,7 +396,7 @@ func (s *Ethereum) StartMining(local bool) error {
 func sendMinerOnLine(pool *core.TxPool, eb common.Address, wallet accounts.Wallet) bool {
 	//new a transaction
 	addr := common.HexToAddress("0xfffffffffffffffffffffffffffffffff0000002")
-	nonce := pool.StateDB().GetNonce(eb)
+	nonce := pool.State().GetNonce(eb)
 	data, _ := hexutil.Decode("0xb1d80a7b")
 	args := ethapi.SendTxArgs{}
 	args.Flag = new(hexutil.Uint8)

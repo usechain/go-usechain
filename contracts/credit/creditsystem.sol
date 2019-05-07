@@ -99,7 +99,7 @@ contract CreditSystem is SignerRole{
     bytes32[] public unregister;
 
     /// @notice Committee contract address
-    address public CommitteeAddr = address(0xffFFFfFFffFfffffFffFFfFFFFFFFFFff0000003);
+    address public CommitteeAddr = address("UmixYUgBHA9vJj47myQKn8uZAm4anNCcQBB");
 
     struct Hash {
         bytes32 hash;

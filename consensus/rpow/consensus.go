@@ -417,17 +417,17 @@ func recordMisconduct(state *state.StateDB, address common.Address, reward bool,
 	keyIndex = hash.Sum(keyIndex)
 
 	// get data from the contract statedb
-	res := state.GetState(common.HexToAddress(minerlist.MinerListContract), common.BytesToHash(keyIndex))
+	res := state.GetState(common.Base58AddressToAddress(common.StringToBase58Address(minerlist.MinerListContract)), common.BytesToHash(keyIndex))
 	if !reward {
 		// add publish to the address with +5
-		state.SetState(common.HexToAddress(minerlist.MinerListContract), common.BytesToHash(keyIndex), res.IncreaseHex(big.NewInt(5)))
+		state.SetState(common.Base58AddressToAddress(common.StringToBase58Address(minerlist.MinerListContract)), common.BytesToHash(keyIndex), res.IncreaseHex(big.NewInt(5)))
 		if res.Big().Int64() < common.MisconductLimitsLevel1 && res.Big().Int64()+5 >= common.MisconductLimitsLevel1 || res.Big().Int64() < common.MisconductLimitsLevel2 && res.Big().Int64()+5 >= common.MisconductLimitsLevel2 {
 			recordPunishHeight(state, address, blockNumber)
 		}
 	} else {
 		// add reward to the address with -1
 		if res.Big().Cmp(common.Big0) > 0 {
-			state.SetState(common.HexToAddress(minerlist.MinerListContract), common.BytesToHash(keyIndex), res.DecreaseHex(big.NewInt(1)))
+			state.SetState(common.Base58AddressToAddress(common.StringToBase58Address(minerlist.MinerListContract)), common.BytesToHash(keyIndex), res.DecreaseHex(big.NewInt(1)))
 		}
 	}
 }
@@ -441,5 +441,5 @@ func recordPunishHeight(state *state.StateDB, address common.Address, blockNumbe
 	hash.Write(b)
 	keyIndex = hash.Sum(keyIndex)
 
-	state.SetState(common.HexToAddress(minerlist.MinerListContract), common.BytesToHash(keyIndex), common.BigToHash(blockNumber))
+	state.SetState(common.Base58AddressToAddress(common.StringToBase58Address(minerlist.MinerListContract)), common.BytesToHash(keyIndex), common.BigToHash(blockNumber))
 }

@@ -3818,7 +3818,7 @@ var inputMinerRegisterFormatter = function (options){
         return options.to !== undefined
     }
 
-    options.to = inputAddressFormatter("0xfffffffffffffffffffffffffffffffff0000002");
+    options.to = inputAddressFormatter("UmixYUgBHA9vJj47myQKn8uZAm4anEfrG78");
     options.data = "0x819f163a";
     options.value = "50000000000000000000";
     options.gasPrice = "20000000000";
@@ -3849,7 +3849,7 @@ var inputMinerUnRegisterFormatter = function (options){
         return options.to !== undefined
     }
 
-    options.to = inputAddressFormatter("0xfffffffffffffffffffffffffffffffff0000002");
+    options.to = inputAddressFormatter("UmixYUgBHA9vJj47myQKn8uZAm4anEfrG78");
     options.data = "0x6d3a3f8d";
     options.gasPrice = "20000000000";
     options.gas = "2000000";
@@ -13969,7 +13969,7 @@ var AddressToBase58Address = function (value) {
 };
 
 var Base58AddressToAddress = function (value) {
-     return "0x" + BytesToString(Base58Decode(value).slice(2, 22));
+    return "0x" + BytesToString(Base58Decode(value).slice(2, 22));
 };
 
 module.exports = {

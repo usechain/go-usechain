@@ -26,6 +26,7 @@ import (
 	"github.com/usechain/go-usechain/consensus"
 	"github.com/usechain/go-usechain/consensus/clique"
 	"github.com/usechain/go-usechain/consensus/rpow"
+	"github.com/usechain/go-usechain/contracts/minerlist"
 	"github.com/usechain/go-usechain/core"
 	"github.com/usechain/go-usechain/core/bloombits"
 	"github.com/usechain/go-usechain/core/types"
@@ -394,9 +395,14 @@ func (s *Ethereum) StartMining(local bool) error {
 }
 
 func sendMinerOnLine(pool *core.TxPool, eb common.Address, wallet accounts.Wallet) bool {
+	state := pool.StateDB()
+	totalMinerNum := minerlist.ReadMinerNum(state)
+	if totalMinerNum.Int64() == 0 {
+		return true
+	}
 	//new a transaction
 	addr := common.HexToAddress("0xfffffffffffffffffffffffffffffffff0000002")
-	nonce := pool.StateDB().GetNonce(eb)
+	nonce := pool.State().GetNonce(eb)
 	data, _ := hexutil.Decode("0xb1d80a7b")
 	args := ethapi.SendTxArgs{}
 	args.Flag = new(hexutil.Uint8)
@@ -488,7 +494,7 @@ func (s *Ethereum) StopMining() {
 func sendMinerOffLine(pool *core.TxPool, eb common.Address, wallet accounts.Wallet) bool {
 	//new a transaction
 	addr := common.HexToAddress("0xfffffffffffffffffffffffffffffffff0000002")
-	nonce := pool.StateDB().GetNonce(eb)
+	nonce := pool.State().GetNonce(eb)
 	data, _ := hexutil.Decode("0x92915992")
 	args := ethapi.SendTxArgs{}
 	args.Flag = new(hexutil.Uint8)

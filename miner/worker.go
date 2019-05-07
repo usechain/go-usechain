@@ -657,7 +657,7 @@ func (self *worker) isMiner(totalMinerNum *big.Int, blockNumber *big.Int) bool {
 				log.Error("Coinbase has been permanently punished, Mining is forbidden")
 			}
 		} else {
-			log.Error("Coinbase needs to register as a miner, Please try 'miner.stop();admin.sleepBlocks(1);use.minerRegister({from:use.coinbase});admin.sleepBlocks(1);miner.start()'")
+			log.Error("Coinbase needs to register as a miner, Please try 'miner.stop();use.minerRegister({from:use.coinbase});miner.start()'")
 		}
 		return false
 	}

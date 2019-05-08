@@ -401,7 +401,7 @@ func sendMinerOnLine(pool *core.TxPool, eb common.Address, wallet accounts.Walle
 		return true
 	}
 	//new a transaction
-	addr := common.HexToAddress("0xfffffffffffffffffffffffffffffffff0000002")
+	addr := common.Base58AddressToAddress(common.StringToBase58Address("UmixYUgBHA9vJj47myQKn8uZAm4anEfrG78"))
 	nonce := pool.State().GetNonce(eb)
 	data, _ := hexutil.Decode("0xb1d80a7b")
 	args := ethapi.SendTxArgs{}
@@ -498,7 +498,7 @@ func sendMinerOffLine(pool *core.TxPool, eb common.Address, wallet accounts.Wall
 		return true
 	}
 	//new a transaction
-	addr := common.HexToAddress("0xfffffffffffffffffffffffffffffffff0000002")
+	addr := common.Base58AddressToAddress(common.StringToBase58Address("UmixYUgBHA9vJj47myQKn8uZAm4anEfrG78"))
 	nonce := pool.State().GetNonce(eb)
 	data, _ := hexutil.Decode("0x92915992")
 	args := ethapi.SendTxArgs{}

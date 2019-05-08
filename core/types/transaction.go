@@ -253,7 +253,7 @@ func (tx *Transaction) IsCommitteeTransaction() bool {
 }
 
 func (tx *Transaction) IsAccountLockTransaction() bool {
-	if tx.Flag() == 8 {
+	if tx.Flag() == TxLock {
 		return true
 	}
 	return false

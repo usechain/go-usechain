@@ -48,6 +48,11 @@ contract MinerList {
     mapping (address => uint) public IsOnLine;
     mapping (address => uint) public PunishHeight;
 
+    /// @notice Signle Mode, Multi Mode or Product Mode
+    // 0: Product Mode
+    // 1: Single Mode
+    uint public mode;
+
     /// @notice only miner can call
     modifier onlyMiner(address _miner) {
         bool isMiner = false;
@@ -76,7 +81,9 @@ contract MinerList {
     }
 
     modifier onlyCommittee(address _user) {
-        require (Committee(CommitteeAddr).IsOndutyCommittee(_user) == true);
+        if (mode == 0){
+            require (Committee(CommitteeAddr).IsOndutyCommittee(_user) == true);
+        }
         _;
     }
 
@@ -95,7 +102,9 @@ contract MinerList {
     }
 
     // calculate ticket should return to miners
-    function dealTicket(address _miner) internal returns(uint256) {
+    function dealTicket(address _miner)
+    internal
+    returns(uint256) {
         if (Misconducts[_miner] >= MisconductLimitsLevel3) {
             return ticket/2;
         }
@@ -123,7 +132,7 @@ contract MinerList {
     public
     payable
     onlyNotMiner(msg.sender)
-    //onlyMainAccount(msg.sender)
+    onlyMainAccount(msg.sender)
     onlyNotPermanentPunishMiner(msg.sender)
     returns(bool) {
         require(msg.value >= ticket);

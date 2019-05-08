@@ -159,6 +159,10 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			if err != nil {
 				return nil, nil, 0, err
 			}
+		case types.TxInherit:
+			if !manager.IsCommittee(statedb, msg.From()) {
+				return nil, nil, 0, ErrInheritSender
+			}
 		}
 
 		statedb.Prepare(tx.Hash(), block.Hash(), i)

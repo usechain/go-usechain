@@ -50,7 +50,7 @@ contract MinerList {
 
     /// @notice Signle Mode, Multi Mode or Product Mode
     // 0: Product Mode
-    // 1: Single Mode
+    // 1: Signle Mode
     uint public mode;
 
     /// @notice only miner can call
@@ -81,14 +81,14 @@ contract MinerList {
     }
 
     modifier onlyCommittee(address _user) {
-        if (mode == 0){
-            require (Committee(CommitteeAddr).IsOndutyCommittee(_user) == true);
-        }
+        require (Committee(CommitteeAddr).IsOndutyCommittee(_user) == true);
         _;
     }
 
     modifier onlyMainAccount(address _user) {
-        require (Credit(CreditAddr).isMainAccount(_user) == true);
+        if (mode == 0){
+            require (Credit(CreditAddr).isMainAccount(_user) == true);
+        }
         _;
     }
 

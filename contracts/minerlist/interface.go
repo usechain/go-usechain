@@ -60,7 +60,11 @@ func IsMiner(statedb *state.StateDB, miner common.Address, totalMinerNum *big.In
 
 	for i := int64(0); i < totalMinerNum.Int64(); i++ {
 		if checkAddress(statedb, miner, i) {
-			return !isPunishMiner(statedb, miner, totalMinerNum, blockNumber), 1
+			if !isPunishMiner(statedb, miner, totalMinerNum, blockNumber) {
+				return true, 0
+			} else {
+				return false, 1
+			}
 		}
 	}
 	return false, 2

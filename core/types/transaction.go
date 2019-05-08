@@ -48,6 +48,7 @@ const (
 	TxComment
 	TxReward
 	TxLock
+	TxInherit
 	TxExtend
 )
 

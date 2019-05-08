@@ -139,6 +139,8 @@ var (
 
 	ErrLockSender = errors.New("locking account transaction can only send by committee")
 
+	ErrInheritSender = errors.New("inherit transaction can only send by committee")
+
 	// ErrCommentTo is returned if comment receipt
 	ErrCommentTo = errors.New("invalid receiver in comment transaction")
 
@@ -889,6 +891,10 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		err = tx.CheckCertLegality(from, chainid)
 		if err != nil {
 			return err
+		}
+	case types.TxInherit:
+		if !manager.IsCommittee(pool.currentState, from) {
+			return ErrLockSender
 		}
 	default:
 	}

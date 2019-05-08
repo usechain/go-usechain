@@ -1655,6 +1655,16 @@ func (s *PublicTransactionPoolAPI) SendAccountLockTransaction(ctx context.Contex
 	return s.SendTransaction(ctx, args)
 }
 
+func (s *PublicTransactionPoolAPI) SendAccountInheritTransaction(ctx context.Context, args SendTxArgs, certScore uint64) (common.Hash, error) {
+	args.Input = new(hexutil.Bytes)
+	*args.Input = hexutil.ToBytes(big.NewInt(int64(certScore)).Bytes())
+
+	args.Flag = new(hexutil.Uint8)
+	*args.Flag = hexutil.Uint8(types.TxInherit)
+
+	return s.SendTransaction(ctx, args)
+}
+
 func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: args.From}

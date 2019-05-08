@@ -294,6 +294,16 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 				st.state.AddRewardPoints(addr, score)
 			}
 		}
+	case types.TxInherit:
+		{
+			payload := msg.Data()
+			score := big.NewInt(0).SetBytes(payload)
+
+			// Inherit main account certifications score
+			if score.Cmp(common.Big0) == 1 {
+				st.state.SetCertifications(*msg.To(), score.Uint64())
+			}
+		}
 	}
 
 	if !contractCreation {

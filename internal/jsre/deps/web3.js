@@ -4033,6 +4033,8 @@ module.exports = {
     inputBlockNumberFormatter: inputBlockNumberFormatter,
     inputCallFormatter: inputCallFormatter,
     inputTransactionFormatter: inputTransactionFormatter,
+    inputAccountLockFormatter: inputAccountLockFormatter,
+    outputAccountLockFormatter: outputAccountLockFormatter,
     inputMinerRegisterFormatter: inputMinerRegisterFormatter,
     inputMinerUnRegisterFormatter: inputMinerUnRegisterFormatter,
     inputAddressFormatter: inputAddressFormatter,
@@ -5580,6 +5582,13 @@ var methods = function () {
         inputFormatter: [formatters.inputTransactionFormatter]
     });
 
+    var sendInheritTransaction = new Method({
+        name: 'sendInheritTransaction',
+        call: 'use_sendAccountInheritTransaction',
+        params: 2,
+        inputFormatter: [formatters.inputTransactionFormatter, null]
+    });
+
     var commentTransaction = new Method({
         name: 'sendCommentTransaction',
         call: 'use_sendCommentTransaction',
@@ -5654,6 +5663,7 @@ var methods = function () {
         sendCreditRegisterTransaction,
         sendAccountLockTransaction,
         sendSubAccountTransaction,
+        sendInheritTransaction,
 
         queryAddr,
         isMiner,

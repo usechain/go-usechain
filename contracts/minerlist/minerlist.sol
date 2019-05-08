@@ -48,7 +48,25 @@ contract MinerList {
     mapping (address => uint) public IsOnLine;
     mapping (address => uint) public PunishHeight;
 
+    /// @notice Signle Mode, Multi Mode or Product Mode
+    // 0: Product Mode
+    // 1: Signle Mode
+    uint public mode;
+
     /// @notice only miner can call
+    modifier onlyMiner(address _miner) {
+        bool isMiner = false;
+        uint len=Miner.length;
+        for (uint i = 0; i<len; i++){
+            if(_miner == Miner[i]){
+                isMiner = true;
+                break;
+            }
+        }
+        require (isMiner == true);
+        _;
+    }
+
     modifier onlyNotMiner(address _miner) {
         bool isMiner = false;
         uint len=Miner.length;
@@ -68,7 +86,9 @@ contract MinerList {
     }
 
     modifier onlyMainAccount(address _user) {
-        require (Credit(CreditAddr).isMainAccount(_user) == true);
+        if (mode == 0){
+            require (Credit(CreditAddr).isMainAccount(_user) == true);
+        }
         _;
     }
 
@@ -82,7 +102,9 @@ contract MinerList {
     }
 
     // calculate ticket should return to miners
-    function dealTicket(address _miner) internal returns(uint256) {
+    function dealTicket(address _miner)
+    internal
+    returns(uint256) {
         if (Misconducts[_miner] >= MisconductLimitsLevel3) {
             return ticket/2;
         }

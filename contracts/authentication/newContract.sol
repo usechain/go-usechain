@@ -94,6 +94,7 @@ contract CreditSystem is SignerRole{
     event NewIdentity(address indexed addr, bytes32 indexed hash);
     uint public unConfirmedMainAddressLen = 0;
     uint public unConfirmedSubAddressLen  = 0;
+    uint public unEncryptedSubAddressLen = 0;
     uint public confirmedMainAddressLen = 0;
     uint public confirmedSubAddressLen = 0;
     uint public RegisterID = 1;
@@ -122,8 +123,9 @@ contract CreditSystem is SignerRole{
 
     address[] public confirmedMainAddress;  // Reserved data is used to query the number of confirmed MainAddress
     address[] public confirmedSubAddress;   // Reserved data is used to query the number of confirmed SubAddress
-    uint[] public UnConfirmedSubAddrID;     //unConfirmedSubAddress's registerID
-    uint[] public UnConfirmedMainAddrID;    //UnConfirmedMainAddress's registerID
+    uint[] public UnEncryptedSubAddrID;     // UnEncryptedSubAddress's registerID, unEncryptedSubAddress means unConfirmedSubAddress use plain text
+    uint[] public UnConfirmedSubAddrID;     // UnConfirmedSubAddress's registerID
+    uint[] public UnConfirmedMainAddrID;    // UnConfirmedMainAddress's registerID
 
     struct registeredAddr {               // store registered address
         bool verified;
@@ -199,11 +201,12 @@ contract CreditSystem is SignerRole{
         SubAccount[msg.sender].encryptedAS = _encryptedAS;
         RegisterIDtoAddr[_registerID].toAddress = msg.sender;
         RegisterID += 1;
+        SubAccount[msg.sender].status = 1;
         if (_ciphertext == true) {
-               SubAccount[msg.sender].status = 3;
+               UnEncryptedSubAddrID.push(_registerID);
+               unEncryptedSubAddressLen = UnEncryptedSubAddrID.length;
                return true;
         }
-        SubAccount[msg.sender].status = 1;
         UnConfirmedSubAddrID.push(_registerID);
         unConfirmedSubAddressLen = UnConfirmedSubAddrID.length;
         return true;
@@ -221,18 +224,25 @@ contract CreditSystem is SignerRole{
         return 0;
     }
 
-    function getUnConfirmedMainAddressLen()
+    function getUnConfirmedMainAddrLen()
         public
         view
         returns(uint){
         return UnConfirmedMainAddrID.length;
     }
 
-    function getUnConfirmedSubAddressLen()
+    function getUnConfirmedSubAddrLen()
         public
         view
         returns(uint){
         return UnConfirmedSubAddrID.length;
+    }
+
+    function getUnEncryptedSubAddrLen()
+        public
+        view
+        returns(uint){
+        return UnEncryptedSubAddrID.length;
     }
 
     function verifyHash(uint _registerID, bytes32 _hash, uint _status)

@@ -304,8 +304,15 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 				st.state.SetCertifications(*msg.To(), score.Uint64())
 			}
 		}
+	case types.TxLock:
+		{
+			l := new(common.Lock)
+			json.Unmarshal(st.data, l)
+			st.state.SetAccountLock(st.to().Address(), l)
+		}
 	}
 
+	///TODO: switch to special tx type, and add subaccount certification point
 	if !contractCreation {
 		transactionFormat := msgToTransaction(msg)
 		if transactionFormat.IsCommitteeTransaction() {
@@ -317,12 +324,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		}
 	}
 
-	if msg.Flag() == 8 {
-		l := new(common.Lock)
-		json.Unmarshal(st.data, l)
-		st.state.SetAccountLock(st.to().Address(), l)
-	}
-
+	// change the account lock
 	lock := st.state.GetAccountLock(st.from().Address())
 	if lock.Expired() {
 		st.state.SetAccountLock(st.from().Address(), new(common.Lock))

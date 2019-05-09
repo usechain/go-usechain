@@ -419,6 +419,9 @@ func CheckUserRegisterCert(cert []byte, idhex string, fpr string, chainid uint64
 		return errors.New("User's cert not found!")
 	}
 	parsed, err := x509.ParseCertificate(certBlock.Bytes)
+	if err != nil {
+		return err
+	}
 
 	//TODO: update verify method, using publicKey
 	err = parsed.CheckSignatureFrom(rcaCert)

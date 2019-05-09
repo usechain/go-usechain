@@ -1665,7 +1665,7 @@ func (s *PublicTransactionPoolAPI) SendAccountInheritTransaction(ctx context.Con
 	return s.SendTransaction(ctx, args)
 }
 
-func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
+func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Context, args SendTxArgs, notEncrypted bool) (common.Hash, error) {
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: args.From}
 
@@ -1716,12 +1716,12 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 	key := ud.IdBytes()
 	hashKey := [32]byte{}
 	copy(hashKey[:], key)
-	identity := GetIdentityData(ud, committeePub)
+	identity := GetIdentityData(ud, committeePub, notEncrypted)
 	issuer, err := GetIssuerData(ud, args.From, pub)
 	if err != nil {
 		return common.Hash{}, err
 	}
-	bytesData := GetABIBytesData(common.CreditABI, "register", pub, hashKey, identity, issuer)
+	bytesData := GetABIBytesData(common.CreditABI, "register", pub, hashKey, identity, issuer, notEncrypted)
 
 	if args.Data == nil {
 		args.Data = new(hexutil.Bytes)
@@ -1741,7 +1741,7 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 	return submitTransaction(ctx, s.b, signed)
 }
 
-func (s *PublicTransactionPoolAPI) SendSubAccountTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
+func (s *PublicTransactionPoolAPI) SendSubAccountTransaction(ctx context.Context, args SendTxArgs, notEncrypted bool) (common.Hash, error) {
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: args.From}
 
@@ -1791,11 +1791,14 @@ func (s *PublicTransactionPoolAPI) SendSubAccountTransaction(ctx context.Context
 		return common.Hash{}, err
 	}
 
-	hashaBG := crypto.GenerateCreditPubKey(pubStr, priv)
-
-	encrytedData := encryptAS([]byte(AS), hashaBG)
-
-	bytesData := GetABIBytesData(common.CreditABI, "subRegister", pub, encrytedData)
+	var data string
+	if notEncrypted {
+		data = AS
+	} else {
+		hashaBG := crypto.GenerateCreditPubKey(pubStr, priv)
+		data = encryptAS([]byte(AS), hashaBG)
+	}
+	bytesData := GetABIBytesData(common.CreditABI, "subRegister", pub, data, notEncrypted)
 
 	if args.Data == nil {
 		args.Data = new(hexutil.Bytes)
@@ -1852,12 +1855,15 @@ func GetIssuerData(ud *types.UserData, useId common.Address, pubKey string) ([]b
 	return data, nil
 }
 
-func GetIdentityData(ud *types.UserData, pubKey *ecdsa.PublicKey) []byte {
+func GetIdentityData(ud *types.UserData, pubKey *ecdsa.PublicKey, notEncrypted bool) []byte {
 	identity := types.NewIdentity()
 	data, _ := ud.Marshal()
-
-	encData, _ := EncryptUserData(data, pubKey)
-	identity.Data = hexutil.Encode(encData)
+	if notEncrypted {
+		identity.Data = hexutil.Encode(data)
+	} else {
+		encData, _ := EncryptUserData(data, pubKey)
+		identity.Data = hexutil.Encode(encData)
+	}
 	identity.Alg = "ECIES"
 	identity.Fpr = ud.FingerPrint()
 	identity.Nation = ud.Nation

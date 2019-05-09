@@ -3721,6 +3721,16 @@ var inputBlockNumberFormatter = function (blockNumber) {
     return utils.toHex(blockNumber);
 };
 
+var inputNotEncryptFormatter = function (notEncrypted) {
+    if (notEncrypted === undefined) {
+        return false;
+    }
+    if (!utils.isBoolean(notEncrypted)) {
+        return false
+    }
+    return notEncrypted
+};
+
 /**
  * Formats the input of a transaction and converts all values to HEX
  *
@@ -4032,6 +4042,7 @@ module.exports = {
     inputDefaultBlockNumberFormatter: inputDefaultBlockNumberFormatter,
     inputBlockNumberFormatter: inputBlockNumberFormatter,
     inputCallFormatter: inputCallFormatter,
+    inputNotEncryptFormatter: inputNotEncryptFormatter,
     inputTransactionFormatter: inputTransactionFormatter,
     inputAccountLockFormatter: inputAccountLockFormatter,
     outputAccountLockFormatter: outputAccountLockFormatter,
@@ -5571,15 +5582,15 @@ var methods = function () {
     var sendCreditRegisterTransaction = new Method({
         name: 'sendCreditRegisterTransaction',
         call: 'use_sendCreditRegisterTransaction',
-        params: 1,
-        inputFormatter: [formatters.inputTransactionFormatter]
+        params: 2,
+        inputFormatter: [formatters.inputTransactionFormatter, formatters.inputNotEncryptFormatter]
     });
 
     var sendSubAccountTransaction = new Method({
         name: 'sendSubAccountTransaction',
         call: 'use_sendSubAccountTransaction',
-        params: 1,
-        inputFormatter: [formatters.inputTransactionFormatter]
+        params: 2,
+        inputFormatter: [formatters.inputTransactionFormatter, formatters.inputNotEncryptFormatter]
     });
 
     var sendInheritTransaction = new Method({

@@ -386,9 +386,9 @@ func ReadUserCert() string {
 ///TODO:add error check
 func parseRcaRsa(chainid uint64) (*x509.Certificate, error) {
 	BaseDir := DefaultDataDir()
-	rcapath := "moonetCA.pem"
-	if chainid == 1 {
-		rcapath = "mainnetCA.pem"
+	rcapath := "mainnetCA.pem"
+	if chainid == 2 {
+		rcapath = "moonetCA.pem"
 	}
 	rcaFile, err := ioutil.ReadFile(filepath.Join(BaseDir, rcapath))
 	if err != nil {

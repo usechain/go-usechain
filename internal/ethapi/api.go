@@ -1723,14 +1723,19 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 	}
 	bytesData := GetABIBytesData(common.CreditABI, "register", pub, hashKey, identity, issuer, notEncrypted)
 
-	if args.Data == nil {
-		args.Data = new(hexutil.Bytes)
+	if args.Gas == nil {
+		args.Gas = new(hexutil.Uint64)
+		*args.Gas = 4000000
 	}
-
 	args.Flag = new(hexutil.Uint8)
 	args.Data = new(hexutil.Bytes)
 	*args.Flag = hexutil.Uint8(types.TxMain)
 	*args.Data = hexutil.Bytes(bytesData)[:]
+
+	// Set some sanity defaults and terminate on failure
+	if err := args.setDefaults(ctx, s.b); err != nil {
+		return common.Hash{}, err
+	}
 
 	// Assemble the transaction and sign with the wallet
 	tx := args.toTransaction()
@@ -1803,12 +1808,20 @@ func (s *PublicTransactionPoolAPI) SendSubAccountTransaction(ctx context.Context
 	if args.Data == nil {
 		args.Data = new(hexutil.Bytes)
 	}
-
 	if args.Flag == nil {
 		args.Flag = new(hexutil.Uint8)
 	}
+	if args.Gas == nil {
+		args.Gas = new(hexutil.Uint64)
+		*args.Gas = 4000000
+	}
 	*args.Flag = hexutil.Uint8(types.TxSub)
 	*args.Data = hexutil.Bytes(bytesData)[:]
+
+	// Set some sanity defaults and terminate on failure
+	if err := args.setDefaults(ctx, s.b); err != nil {
+		return common.Hash{}, err
+	}
 
 	// Assemble the transaction and sign with the wallet
 	tx := args.toTransaction()

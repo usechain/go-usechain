@@ -313,12 +313,28 @@ func (tx *Transaction) CheckCertLegality(_from common.Address, chainid *big.Int)
 	if err != nil {
 		log.Error("Unmarshal issuer failed", "err", err)
 	}
+
+	// check the cert legality
 	cert := []byte(issuer.Cert)
 	err = crypto.CheckUserRegisterCert(cert, idhex, id.Fpr, chainid.Uint64())
 	if err != nil {
 		return err
 	}
 
+	// check the id && hash key
+	notEncrypted := inputData[4].(bool)
+	if notEncrypted {
+		userData := UserData{}
+		ud, _ := hexutil.Decode(id.Data)
+		json.Unmarshal(ud, &userData)
+
+		info := userData.CertType + "-" + userData.Id
+		idHash := hexutil.Encode(crypto.Keccak256Hash([]byte(info)).Bytes())
+		if idHash != idhex {
+			return fmt.Errorf("verify certHash and verifyHash failed")
+
+		}
+	}
 	return nil
 }
 

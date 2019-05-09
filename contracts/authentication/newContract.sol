@@ -104,7 +104,7 @@ contract CreditSystem is SignerRole{
     struct mainAccount {
         address         addr;           // msg.sender
         bytes32         hashKey;        // keccak(idtype + idnum)
-        uint            status;         // verified status, 0 means unregister, 1 means pending review, 2 means verifying , 3 means Approved, 4 means rejected
+        uint            status;         // verified status, 0 means unregister, 1 means unreviewed, 2 means verifying , 3 means Approved, 4 means rejected
         bytes           identity;       // certificate's data
         bytes           issuer;         // certificate's issuer
         string          publicKey;      // user's publicKey
@@ -125,12 +125,12 @@ contract CreditSystem is SignerRole{
     uint[] public UnConfirmedSubAddrID;     //unConfirmedSubAddress's registerID
     uint[] public UnConfirmedMainAddrID;    //UnConfirmedMainAddress's registerID
 
-    struct registerIDtoAddr {               // store registered address
+    struct registeredAddr {               // store registered address
         bool verified;
         address toAddress;
     }
 
-    mapping (uint => registerIDtoAddr) public RegisterIDtoAddr;
+    mapping (uint => registeredAddr) public RegisterIDtoAddr;
 
 
     /// @notice only committee can do
@@ -143,17 +143,17 @@ contract CreditSystem is SignerRole{
         return Committee(CommitteeAddr).IsOndutyCommittee(_user) == true;
     }
 
-    modifier MainAccountStatus(address _addr) {
-        require (MainAccount[_addr].addr == address(0) || MainAccount[_addr].status == 4); // unregistered or rejected
+    modifier MainAccountUnVerifying(address _addr) {
+        require (MainAccount[_addr].status != 1); // verifying status cannot register, unregistered or rejected can register, verified can update info.
         _;
     }
 
-    modifier SubAccountStatus(address _addr) {
-        require (SubAccount[_addr].addr == address(0) || SubAccount[_addr].status == 4); // unregistered or rejected
+    modifier SubAccountUnVerifying(address _addr) {
+        require (SubAccount[_addr].status != 1); // same annotation as above
         _;
     }
 
-    modifier AddrNotVerified (uint _registerID) {
+    modifier UnVerifiedRegisterID(uint _registerID) {
         require(!RegisterIDtoAddr[_registerID].verified);
         _;
     }
@@ -162,43 +162,54 @@ contract CreditSystem is SignerRole{
     function register(string memory _publicKey,
                     bytes32 _hashKey,
                     bytes memory _identity,
-                    bytes memory _issuer)
-        MainAccountStatus(msg.sender)
+                    bytes memory _issuer,
+                    bool _ciphertext)
+        MainAccountUnVerifying(msg.sender)
         public
         payable
-        returns(uint _registerID){
-        _registerID = RegisterID;
+        returns(bool){
         MainAccount[msg.sender].addr = msg.sender;
         MainAccount[msg.sender].publicKey = _publicKey;
         MainAccount[msg.sender].hashKey = _hashKey;
         MainAccount[msg.sender].identity = _identity;
         MainAccount[msg.sender].issuer = _issuer;
-        MainAccount[msg.sender].status = 1;
+        uint _registerID = RegisterID;
         RegisterIDtoAddr[_registerID].toAddress = msg.sender;
         RegisterID += 1;
+        if (_ciphertext == true) {
+               MainAccount[msg.sender].status = 3;
+               return true;
+        }
+        MainAccount[msg.sender].status = 1;
         UnConfirmedMainAddrID.push(_registerID);
         unConfirmedMainAddressLen = UnConfirmedMainAddrID.length;
+        return true;
     }
 
     // sub account register
-   function subRegister(string _pubkey, string _encryptedAS)
-        SubAccountStatus(msg.sender)
+   function subRegister(string _pubkey, string _encryptedAS, bool _ciphertext)
+        SubAccountUnVerifying(msg.sender)
         public
         payable
-        returns(uint _registerID)
+        returns(bool)
     {
-        _registerID = RegisterID;
+        uint _registerID = RegisterID;
         SubAccount[msg.sender].addr = msg.sender;
-        SubAccount[msg.sender].status = 1;
         SubAccount[msg.sender].publicKey = _pubkey;
         SubAccount[msg.sender].encryptedAS = _encryptedAS;
         RegisterIDtoAddr[_registerID].toAddress = msg.sender;
         RegisterID += 1;
+        if (_ciphertext == true) {
+               SubAccount[msg.sender].status = 3;
+               return true;
+        }
+        SubAccount[msg.sender].status = 1;
         UnConfirmedSubAddrID.push(_registerID);
         unConfirmedSubAddressLen = UnConfirmedSubAddrID.length;
+        return true;
     }
 
-    // @dev check that Account status, when one account register sub and main at same time,
+    // @dev check that Account status, when one account register sub and main at the same time,
     // return main account status
     function getAccountStatus(address _addr) public view returns (uint) {
         if (MainAccount[_addr].status != 0) {
@@ -227,6 +238,7 @@ contract CreditSystem is SignerRole{
     function verifyHash(uint _registerID, bytes32 _hash, uint _status)
         public
         onlyCommittee(msg.sender)
+        UnVerifiedRegisterID(_registerID)
         returns(bool){
             address _addr = RegisterIDtoAddr[_registerID].toAddress;
             require(MainAccount[_addr].addr != address(0));
@@ -254,7 +266,7 @@ contract CreditSystem is SignerRole{
     function verifySub(uint _registerID, uint _status)
         public
         onlyCommittee(msg.sender)
-        AddrNotVerified(_registerID)
+        UnVerifiedRegisterID(_registerID)
         returns(bool){
             require(_registerID != 0);
             address _addr = RegisterIDtoAddr[_registerID].toAddress;

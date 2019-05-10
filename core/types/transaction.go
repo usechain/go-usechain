@@ -246,7 +246,7 @@ func (tx *Transaction) GetVerifiedAddress() (common.Address, error) {
 		inputData = append(inputData, param)
 	}
 
-	addr := inputData[0].(common.Address)
+	addr := inputData[3].(common.Address)
 	return addr, nil
 }
 

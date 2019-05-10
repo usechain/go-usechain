@@ -51,6 +51,7 @@ import (
 	"math/big"
 	"strings"
 	"time"
+	"github.com/usechain/go-usechain/contracts/credit"
 )
 
 const (
@@ -1721,7 +1722,7 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 	if err != nil {
 		return common.Hash{}, err
 	}
-	bytesData := GetABIBytesData(common.CreditABI, "register", pub, hashKey, identity, issuer, notEncrypted)
+	bytesData := GetABIBytesData(credit.ABI, "register", pub, hashKey, identity, issuer, notEncrypted)
 
 	if args.Gas == nil {
 		args.Gas = new(hexutil.Uint64)
@@ -1803,7 +1804,7 @@ func (s *PublicTransactionPoolAPI) SendSubAccountTransaction(ctx context.Context
 		hashaBG := crypto.GenerateCreditPubKey(pubStr, priv)
 		data = encryptAS([]byte(AS), hashaBG)
 	}
-	bytesData := GetABIBytesData(common.CreditABI, "subRegister", pub, data, notEncrypted)
+	bytesData := GetABIBytesData(credit.ABI, "subRegister", pub, data, notEncrypted)
 
 	if args.Data == nil {
 		args.Data = new(hexutil.Bytes)

@@ -17,21 +17,21 @@
 package types
 
 import (
-	"bytes"
+	"fmt"
+	"io"
 	"container/heap"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"github.com/usechain/go-usechain/accounts/abi"
-	"github.com/usechain/go-usechain/common"
-	"github.com/usechain/go-usechain/common/hexutil"
-	"github.com/usechain/go-usechain/crypto"
-	"github.com/usechain/go-usechain/log"
-	"github.com/usechain/go-usechain/rlp"
-	"io"
 	"math/big"
 	"strings"
 	"sync/atomic"
+	"github.com/usechain/go-usechain/accounts/abi"
+	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/common/hexutil"
+	"github.com/usechain/go-usechain/contracts/credit"
+	"github.com/usechain/go-usechain/crypto"
+	"github.com/usechain/go-usechain/log"
+	"github.com/usechain/go-usechain/rlp"
 )
 
 //go:generate gencodec -type txdata -field-override txdataMarshaling -out gen_tx_json.go
@@ -228,48 +228,17 @@ func (tx *Transaction) To() *common.Address {
 	return &to
 }
 
-func (tx *Transaction) IsRegisterTransaction() bool {
-
-	if len(tx.Data()) <= 4+32*10 {
-		return false
-	}
-
-	if bytes.Compare(tx.Data()[:4], []byte{248, 22, 31, 117}) == 0 {
-		return true
-	}
-	return false
-}
-
-func (tx *Transaction) IsCommitteeTransaction() bool {
-	// TODO: sender addr need to be fixed
-	if len(tx.Data()) <= 4+32 {
-		return false
-	}
-
-	if bytes.Compare(tx.Data()[:4], []byte{199, 174, 221, 31}) == 0 {
-		return true
-	}
-	return false
-}
-
-func (tx *Transaction) IsAccountLockTransaction() bool {
-	if tx.Flag() == TxLock {
-		return true
-	}
-	return false
-}
-
-func (tx *Transaction) GetVerifiedAddress() common.Address {
-	creditABI, _ := abi.JSON(strings.NewReader(common.CreditABI))
+func (tx *Transaction) GetVerifiedAddress() (common.Address, error) {
+	creditABI, _ := abi.JSON(strings.NewReader(credit.ABI))
 
 	method, exist := creditABI.Methods["verifyHash"]
 	if !exist {
-		log.Error("method not found:", "verifyHash")
+		return common.Address{}, fmt.Errorf("method not found verifyHash")
 	}
 
 	InputDataInterface, err := method.Inputs.UnpackABI(tx.Data()[4:])
 	if err != nil {
-		log.Error("method.Inputs: ", err)
+		return common.Address{}, err
 	}
 
 	var inputData []interface{}
@@ -278,11 +247,11 @@ func (tx *Transaction) GetVerifiedAddress() common.Address {
 	}
 
 	addr := inputData[0].(common.Address)
-	return addr
+	return addr, nil
 }
 
 func (tx *Transaction) CheckCertLegality(_from common.Address, chainid *big.Int) error {
-	creditABI, _ := abi.JSON(strings.NewReader(common.CreditABI))
+	creditABI, _ := abi.JSON(strings.NewReader(credit.ABI))
 
 	method, exist := creditABI.Methods["register"]
 	if !exist {

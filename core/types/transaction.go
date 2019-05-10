@@ -236,6 +236,9 @@ func (tx *Transaction) GetVerifiedAddress() (common.Address, error) {
 		return common.Address{}, fmt.Errorf("method not found verifyHash")
 	}
 
+	if len(tx.Data()) < 4 {
+		return common.Address{}, fmt.Errorf("not a verifyHash transaction")
+	}
 	InputDataInterface, err := method.Inputs.UnpackABI(tx.Data()[4:])
 	if err != nil {
 		return common.Address{}, err

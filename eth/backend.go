@@ -492,6 +492,11 @@ func (s *Ethereum) StopMining() {
 }
 
 func sendMinerOffLine(pool *core.TxPool, eb common.Address, wallet accounts.Wallet) bool {
+	state := pool.StateDB()
+	totalMinerNum := minerlist.ReadMinerNum(state)
+	if totalMinerNum.Int64() == 0 {
+		return true
+	}
 	//new a transaction
 	addr := common.HexToAddress("0xfffffffffffffffffffffffffffffffff0000002")
 	nonce := pool.State().GetNonce(eb)

@@ -313,15 +313,15 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	}
 
 	///TODO: switch to special tx type, and add subaccount certification point
-	if !contractCreation {
-		transactionFormat := msgToTransaction(msg)
-		if addr, isVerify := transactionFormat.GetVerifiedAddress(); isVerify {
-			// Points for the identity verification.
-			if !st.state.IsCertificationVerified(addr, common.IDVerified) {
-				st.state.AddCertifications(addr, common.IDVerified)
-			}
-		}
-	}
+	//if !contractCreation {
+	//	transactionFormat := msgToTransaction(msg)
+	//	if addr, isVerify := transactionFormat.GetVerifiedAddress(); isVerify {
+	//		// Points for the identity verification.
+	//		if !st.state.IsCertificationVerified(addr, common.IDVerified) {
+	//			st.state.AddCertifications(addr, common.IDVerified)
+	//		}
+	//	}
+	//}
 
 	// change the account lock
 	lock := st.state.GetAccountLock(st.from().Address())

@@ -228,20 +228,20 @@ func (tx *Transaction) To() *common.Address {
 	return &to
 }
 
-func (tx *Transaction) GetVerifiedAddress() (common.Address, error) {
+func (tx *Transaction) GetVerifiedAddress() (common.Address, bool) {
 	creditABI, _ := abi.JSON(strings.NewReader(credit.ABI))
 
 	method, exist := creditABI.Methods["verifyHash"]
 	if !exist {
-		return common.Address{}, fmt.Errorf("method not found verifyHash")
+		return common.Address{}, false
 	}
 
 	if len(tx.Data()) < 4 {
-		return common.Address{}, fmt.Errorf("not a verifyHash transaction")
+		return common.Address{}, false
 	}
 	InputDataInterface, err := method.Inputs.UnpackABI(tx.Data()[4:])
 	if err != nil {
-		return common.Address{}, err
+		return common.Address{}, false
 	}
 
 	var inputData []interface{}
@@ -249,8 +249,12 @@ func (tx *Transaction) GetVerifiedAddress() (common.Address, error) {
 		inputData = append(inputData, param)
 	}
 
+	status := inputData[2].(uint)
+	if status != 3 {
+		return common.Address{}, false
+	}
 	addr := inputData[3].(common.Address)
-	return addr, nil
+	return addr, true
 }
 
 func (tx *Transaction) CheckCertLegality(_from common.Address, chainid *big.Int) error {

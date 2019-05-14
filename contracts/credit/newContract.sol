@@ -15,7 +15,7 @@ contract CreditSystem {
     uint public RegisterID = 1;
 
     /// @notice Committee contract address
-    address public CommitteeAddr = address(0xffFFFfFFffFfffffFffFFfFFFFFFFFFff0000003);
+    address public CommitteeAddr = address("UmixYUgBHA9vJj47myQKn8uZAm4anNCcQBB");
 
     struct mainAccount {
         address         addr;           // msg.sender

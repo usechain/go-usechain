@@ -2267,6 +2267,26 @@ var isAddress = function (address) {
 };
 
 /**
+ * Checks if the given string is an Hexaddress
+ *
+ * @method isHexAddress
+ * @param {String} address the given adress in old HEX version
+ * @return {Boolean}
+ */
+var isHexAddress = function (address) {
+    if (!/^(0x)?[0-9a-f]{40}$/i.test(address)) {
+        // check if it has the basic requirements of an address
+        return false;
+    } else if (/^(0x)?[0-9a-f]{40}$/.test(address) || /^(0x)?[0-9A-F]{40}$/.test(address)) {
+        // If it's all small caps or all all caps, return true
+        return true;
+    } else {
+        // Otherwise check each case
+        return isChecksumAddress(address);
+    }
+};
+
+/**
  * Checks if the given string is a checksummed address
  *
  * @method isChecksumAddress
@@ -2464,6 +2484,7 @@ module.exports = {
     isBigNumber: isBigNumber,
     isStrictAddress: isStrictAddress,
     isAddress: isAddress,
+    isHexAddress: isHexAddress,
     isChecksumAddress: isChecksumAddress,
     toChecksumAddress: toChecksumAddress,
     isFunction: isFunction,
@@ -4019,6 +4040,12 @@ var inputAddressFormatter = function (address) {
     throw new Error('invalid address');
 };
 
+var inputHexAddressFormatter = function (address) {
+    if (utils.isHexAddress(address)) {
+        return address;
+    }
+    throw new Error('invalid address');
+};
 
 var outputSyncingFormatter = function(result) {
     if (!result) {
@@ -4047,6 +4074,7 @@ module.exports = {
     inputMinerRegisterFormatter: inputMinerRegisterFormatter,
     inputMinerUnRegisterFormatter: inputMinerUnRegisterFormatter,
     inputAddressFormatter: inputAddressFormatter,
+    inputHexAddressFormatter: inputHexAddressFormatter,
     inputPostFormatter: inputPostFormatter,
     outputBigNumberFormatter: outputBigNumberFormatter,
     outputTransactionFormatter: outputTransactionFormatter,
@@ -5299,6 +5327,7 @@ var IsSyncing = require('../syncing');
 var namereg = require('../namereg');
 var Iban = require('../iban');
 var transfer = require('../transfer');
+var base58 = require('../base58');
 
 var blockCall = function (args) {
     return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? "eth_getBlockByHash" : "eth_getBlockByNumber";
@@ -5361,6 +5390,22 @@ Object.defineProperty(Use.prototype, 'defaultAccount', {
 });
 
 var methods = function () {
+    var UmAddressToHexAddress = new Method({
+        name: 'UmAddressToHexAddress',
+        call: base58.Base58AddressToAddress,
+        params: 1,
+        inputFormatter: [formatters.inputAddressFormatter],
+        outputFormatter: null
+    });
+
+    var HexAddressToUmAddress = new Method({
+        name: 'HexAddressToUmAddress',
+        call: base58.AddressToBase58Address,
+        params: 1,
+        inputFormatter: [formatters.inputHexAddressFormatter],
+        outputFormatter: null
+    });
+
     var getBalance = new Method({
         name: 'getBalance',
         call: 'use_getBalance',
@@ -5641,6 +5686,8 @@ var methods = function () {
     });
 
     return [
+        UmAddressToHexAddress,
+        HexAddressToUmAddress,
         getBalance,
         getStorageAt,
         getCode,
@@ -5747,7 +5794,7 @@ Use.prototype.isSyncing = function (callback) {
 
 module.exports = Use;
 
-},{"../../utils/config":18,"../../utils/utils":20,"../contract":25,"../filter":29,"../formatters":30,"../iban":33,"../method":36,"../namereg":44,"../property":45,"../syncing":48,"../transfer":49,"./watches":43}],39:[function(require,module,exports){
+},{"../../utils/config":18,"../../utils/utils":20,"../contract":25,"../filter":29,"../formatters":30,"../iban":33,"../method":36,"../namereg":44,"../property":45,"../syncing":48,"../transfer":49,"./watches":43, "../base58":87}],39:[function(require,module,exports){
 /*
 This file is part of web3.js.
 

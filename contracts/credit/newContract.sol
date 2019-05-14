@@ -80,7 +80,8 @@ contract CreditSystem {
         _;
     }
 
-    // Main account register
+    //@notice Main account register
+    //@dev _ciphertext now set default to false
     function register(string memory _publicKey,
                     bytes32 _hashKey,
                     bytes memory _identity,
@@ -112,7 +113,7 @@ contract CreditSystem {
         return true;
     }
 
-    // sub account register
+    //@notice sub account register
    function subRegister(string _pubkey, string _encryptedAS, bool _ciphertext)
         SubAccountUnVerifying(msg.sender)
         public
@@ -120,6 +121,7 @@ contract CreditSystem {
         returns(bool)
     {
         uint _registerID = RegisterID;
+        require(_ciphertext==false);
         SubAccount[msg.sender].addr = msg.sender;
         SubAccount[msg.sender].publicKey = _pubkey;
         SubAccount[msg.sender].encryptedAS = _encryptedAS;
@@ -148,6 +150,7 @@ contract CreditSystem {
         return 0;
     }
 
+    //@notice return UnConfirmedMainAddrID's length
     function getUnConfirmedMainAddrLen()
         public
         view
@@ -155,6 +158,7 @@ contract CreditSystem {
         return UnConfirmedMainAddrID.length;
     }
 
+    //@notice return getUnConfirmedSubAddrLen's length
     function getUnConfirmedSubAddrLen()
         public
         view
@@ -162,6 +166,7 @@ contract CreditSystem {
         return UnConfirmedSubAddrID.length;
     }
 
+     //@notice return getUnEncryptedSubAddrLen's length
     function getUnEncryptedSubAddrLen()
         public
         view
@@ -169,9 +174,10 @@ contract CreditSystem {
         return UnEncryptedSubAddrID.length;
     }
 
+    //@notice verify sub account, only committee can do
     function verifyHash(uint _registerID, bytes32 _hashKey, uint _status, address _verifiedAddr)
         public
-        onlyCommittee(msg.sender)
+        // onlyCommittee(msg.sender)
         UnVerifiedRegisterID(_registerID)
         returns(bool){
             address _IdToAddr = RegisterIDtoAddr[_registerID].toAddress;
@@ -206,9 +212,10 @@ contract CreditSystem {
         return true;
     }
 
+    //@notice verify sub account, only committee can do
     function verifySub(uint _registerID, uint _status)
         public
-        onlyCommittee(msg.sender)
+        // onlyCommittee(msg.sender)
         UnVerifiedRegisterID(_registerID)
         returns(bool){
             require(_registerID != 0);
@@ -232,5 +239,24 @@ contract CreditSystem {
                 }
             }
         return true;
+    }
+
+    //@notice Query account's status and the account is MainAccount or SubAccount
+    function queryAddrState(address _addr) public view returns (uint) {
+        if (MainAccount[_addr].status != 0) {
+            return MainAccount[_addr].status;
+        }
+        if (SubAccount[_addr].status != 0) {
+            return SubAccount[_addr].status + 8;
+        }
+        return 0;
+    }
+
+    //@dev Reserved interface to minerlist.sol call
+    function isMainAccount(address _addr) public view returns(bool){
+        if (MainAccount[_addr].status == 3) {
+            return true;
+        }
+        return false;
     }
 }

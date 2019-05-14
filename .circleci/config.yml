@@ -5,4 +5,32 @@ jobs:
       - image: circleci/golang:1.10
     steps:
       - checkout
-      - run: echo "A first hello"
+      - run: 
+          name: used console
+          command: bash ./deploy.sh
+          background: true
+
+      - run: 
+          name: Waiting for used node to be ready
+
+          command: |
+            for i in `seq 1 60`;
+            do
+              nc -z localhost 8545 && echo Success && exit 0
+              echo -n .
+              sleep 1
+            done
+            echo failed waiting for used node && exit 1
+
+      - run:
+          name: install python3
+          command: |
+            sudo apt update
+            sudo apt install python3
+            python3 --version
+
+      - run:
+          name: run python3 testcase
+          command: |
+            python3 ./tests/functional/test_special_transaction.py
+      - run: echo Done

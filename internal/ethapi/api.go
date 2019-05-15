@@ -639,6 +639,26 @@ func (s *PublicBlockChainAPI) GetCertifications(ctx context.Context, address com
 	return (*hexutil.Uint64)(&cr), state.Error()
 }
 
+// GetReviewPoints returns the review points of the given address from global state
+func (s *PublicBlockChainAPI) GetReviewPoints(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (*hexutil.Big, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	cr := state.GetReviewPoints(address)
+	return (*hexutil.Big)(cr), state.Error()
+}
+
+// GetRewardPoints returns the reward points of the given address from global state
+func (s *PublicBlockChainAPI) GetRewardPoints(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (*hexutil.Big, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	cr := state.GetRewardPoints(address)
+	return (*hexutil.Big)(cr), state.Error()
+}
+
 // GetBlockByNumber returns the requested block. When blockNr is -1 the chain head is returned. When fullTx is true all
 // transactions in the block are returned in full detail, otherwise only the transaction hash is returned.
 func (s *PublicBlockChainAPI) GetBlockByNumber(ctx context.Context, blockNr rpc.BlockNumber, fullTx bool) (map[string]interface{}, error) {

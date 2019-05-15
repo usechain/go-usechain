@@ -5650,8 +5650,8 @@ var methods = function () {
         inputFormatter: [formatters.inputAddressFormatter, null, null]
     });
 
-    var getCommentPoints = new Method({
-        name: 'getCommentPoints',
+    var getReviewPoints = new Method({
+        name: 'getReviewPoints',
         call: 'use_getReviewPoints',
         params: 2,
         inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter]
@@ -5728,8 +5728,8 @@ var methods = function () {
         minerUnRegister,
 
         commentTransaction,
-        getCommentPoints,
         rewardTransaction,
+        getReviewPoints,
         getRewardPoints
     ];
 };

@@ -887,7 +887,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	switch tx.Flag() {
 	case types.TxPbft:
 		// If it's vote transaction, verify & return
-		return ValidatePbftTx(pool.currentState, pool.chain.CurrentBlock().Number(), true, common.GetIndexForVote(time.Now().Unix(), pool.chain.CurrentBlock().Time().Int64()), tx, from)
+		return ValidatePbftTx(pool.currentState, pool.chain.CurrentBlock().Number(), true, GetIndexForVote(time.Now().Unix(), pool.chain.CurrentBlock().Time().Int64()), tx, from)
 	case types.TxComment:
 		err = ValidateCommentTx(pool.chain, tx, from)
 		if err != nil {
@@ -1477,7 +1477,7 @@ func (pool *TxPool) demoteUnexecutables() {
 			payload := tx.Data()
 			vote_h := common.BytesToUint64(payload[common.HashLength : common.HashLength+8])
 			vote_index := common.BytesToUint64(payload[common.HashLength+8:])
-			if vote_h < curBlock.NumberU64() || vote_index < common.GetIndexForVote(time.Now().Unix(), curBlock.Time().Int64()) {
+			if vote_h < curBlock.NumberU64() || vote_index < GetIndexForVote(time.Now().Unix(), curBlock.Time().Int64()) {
 				list.txs.Remove(tx.Nonce())
 				hash := tx.Hash()
 				log.Trace("Removed overdue vote transaction", "hash", hash)

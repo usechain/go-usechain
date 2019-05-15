@@ -20,6 +20,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
+	"runtime"
+	"strings"
+	"time"
+	"gopkg.in/fatih/set.v0"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/math"
 	"github.com/usechain/go-usechain/consensus"
@@ -29,11 +34,6 @@ import (
 	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/crypto/sha3"
 	"github.com/usechain/go-usechain/params"
-	"gopkg.in/fatih/set.v0"
-	"math/big"
-	"runtime"
-	"strings"
-	"time"
 )
 
 // random-proof-of-work protocol constants.

@@ -1120,7 +1120,7 @@ var formatOutputString = function (param) {
  */
 var formatOutputAddress = function (param) {
     var value = param.staticPart();
-    return Base58.AddressToBase58Address(value);
+    return Base58.AddressToBase58Address(value.slice(value.length - 40, value.length));
 };
 
 /**
@@ -1899,6 +1899,7 @@ along with web3.js.  If not, see <http://www.gnu.org/licenses/>.
 var BigNumber = require('bignumber.js');
 var sha3 = require('./sha3.js');
 var utf8 = require('utf8');
+var base58 = require('./base58');
 
 var unitMap = {
     'nouse':      '0',
@@ -1930,6 +1931,33 @@ var unitMap = {
     'tuse':       '1000000000000000000000000000000'
 };
 
+/**
+ * Should be called to pad string to expected length
+ *
+ * @method UmAddressToHexAddress
+ * @param {String} Um address
+ * @returns {String} hex address
+ */
+var UmAddressToHexAddress = function (value) {
+    if (isAddress(value)) {
+        return base58.Base58AddressToAddress(value);
+    }
+    throw new Error('invalid address');
+};
+
+/**
+ * Should be called to pad string to expected length
+ *
+ * @method HexAddressToUmAddress
+ * @param {String} hex address
+ * @returns {String} Um address
+ */
+var HexAddressToUmAddress = function (value) {
+    if (isHexAddress(value)) {
+        return base58.AddressToBase58Address(value);
+    }
+    throw new Error('invalid hex address');
+};
 /**
  * Should be called to pad string to expected length
  *
@@ -2464,6 +2492,8 @@ var isTopic = function (topic) {
 };
 
 module.exports = {
+    UmAddressToHexAddress: UmAddressToHexAddress,
+    HexAddressToUmAddress: HexAddressToUmAddress,
     padLeft: padLeft,
     padRight: padRight,
     toHex: toHex,
@@ -2497,7 +2527,7 @@ module.exports = {
     isTopic: isTopic,
 };
 
-},{"./sha3.js":19,"bignumber.js":"bignumber.js","utf8":85}],21:[function(require,module,exports){
+},{"./sha3.js":19,"bignumber.js":"bignumber.js","utf8":85,'./base58':87}],21:[function(require,module,exports){
 module.exports={
     "version": "0.20.1"
 }
@@ -2607,6 +2637,8 @@ Web3.prototype.toChecksumAddress = utils.toChecksumAddress;
 Web3.prototype.isIBAN = utils.isIBAN;
 Web3.prototype.padLeft = utils.padLeft;
 Web3.prototype.padRight = utils.padRight;
+Web3.prototype.UmAddressToHexAddress = utils.UmAddressToHexAddress;
+Web3.prototype.HexAddressToUmAddress = utils.HexAddressToUmAddress;
 
 
 Web3.prototype.sha3 = function(string, options) {
@@ -5327,7 +5359,6 @@ var IsSyncing = require('../syncing');
 var namereg = require('../namereg');
 var Iban = require('../iban');
 var transfer = require('../transfer');
-var base58 = require('../base58');
 
 var blockCall = function (args) {
     return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? "eth_getBlockByHash" : "eth_getBlockByNumber";
@@ -5390,22 +5421,6 @@ Object.defineProperty(Use.prototype, 'defaultAccount', {
 });
 
 var methods = function () {
-    var UmAddressToHexAddress = new Method({
-        name: 'UmAddressToHexAddress',
-        call: base58.Base58AddressToAddress,
-        params: 1,
-        inputFormatter: [formatters.inputAddressFormatter],
-        outputFormatter: null
-    });
-
-    var HexAddressToUmAddress = new Method({
-        name: 'HexAddressToUmAddress',
-        call: base58.AddressToBase58Address,
-        params: 1,
-        inputFormatter: [formatters.inputHexAddressFormatter],
-        outputFormatter: null
-    });
-
     var getBalance = new Method({
         name: 'getBalance',
         call: 'use_getBalance',
@@ -5686,8 +5701,6 @@ var methods = function () {
     });
 
     return [
-        UmAddressToHexAddress,
-        HexAddressToUmAddress,
         getBalance,
         getStorageAt,
         getCode,
@@ -5794,7 +5807,7 @@ Use.prototype.isSyncing = function (callback) {
 
 module.exports = Use;
 
-},{"../../utils/config":18,"../../utils/utils":20,"../contract":25,"../filter":29,"../formatters":30,"../iban":33,"../method":36,"../namereg":44,"../property":45,"../syncing":48,"../transfer":49,"./watches":43, "../base58":87}],39:[function(require,module,exports){
+},{"../../utils/config":18,"../../utils/utils":20,"../contract":25,"../filter":29,"../formatters":30,"../iban":33,"../method":36,"../namereg":44,"../property":45,"../syncing":48,"../transfer":49,"./watches":43}],39:[function(require,module,exports){
 /*
 This file is part of web3.js.
 
@@ -14009,6 +14022,7 @@ var StringToBytes = function (str) {
 };
 
 var AddressToBase58Address = function (value) {
+    value = value.toString().replace('0x','');
     var buff = '0FA2' + value.slice(value.length - 40, value.length);
     var hash1 = CryptoJS.SHA256(CryptoJS.enc.Hex.parse(buff));
     var hash2 = CryptoJS.SHA256(hash1).toString();
@@ -14016,7 +14030,7 @@ var AddressToBase58Address = function (value) {
 };
 
 var Base58AddressToAddress = function (value) {
-    return "0x" + BytesToString(Base58Decode(value).slice(2, 22));
+    return "0x" + BytesToString(Base58Decode(value.toString()).slice(2, 22));
 };
 
 module.exports = {

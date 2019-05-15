@@ -249,8 +249,8 @@ func (tx *Transaction) GetVerifiedAddress() (common.Address, bool) {
 		inputData = append(inputData, param)
 	}
 
-	status := inputData[2].(uint)
-	if status != 3 {
+	status := inputData[2].(*big.Int)
+	if status.Int64() != 3 {
 		return common.Address{}, false
 	}
 	addr := inputData[3].(common.Address)

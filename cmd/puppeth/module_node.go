@@ -26,7 +26,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/log"
 )
 
@@ -185,7 +184,7 @@ func (info *nodeInfos) Report() map[string]string {
 				Address string `json:"address"`
 			}
 			if err := json.Unmarshal([]byte(info.keyJSON), &key); err == nil {
-				report["Signer account"] = common.HexToAddress(key.Address).Hex()
+				report["Signer account"] = key.Address
 			} else {
 				log.Error("Failed to retrieve signer address", "err", err)
 			}

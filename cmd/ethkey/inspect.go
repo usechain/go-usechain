@@ -23,6 +23,7 @@ import (
 
 	"github.com/usechain/go-usechain/accounts/keystore"
 	"github.com/usechain/go-usechain/cmd/utils"
+	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/crypto"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -69,7 +70,7 @@ make sure to use this feature with great caution!`,
 		// Output all relevant information we can retrieve.
 		showPrivate := ctx.Bool("private")
 		out := outputInspect{
-			Address: key.Address.Hex(),
+			Address: common.AddressToUmAddress(key.Address),
 			PublicKey: hex.EncodeToString(
 				crypto.FromECDSAPub(&key.PrivateKey.PublicKey)),
 		}

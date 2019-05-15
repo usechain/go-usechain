@@ -33,10 +33,10 @@ import (
 )
 
 const (
-	HashLength                          = 32
-	AddressLength                       = 20
-	Base58AddressLength                 = 35
-	SubAddressLength                    = 66
+	HashLength          = 32
+	AddressLength       = 20
+	Base58AddressLength = 35
+	SubAddressLength    = 66
 )
 
 var (
@@ -273,7 +273,7 @@ func (a *Address) UnmarshalText(input []byte) error {
 
 // UnmarshalJSON parses a hash in hex syntax.
 func (a *Address) UnmarshalJSON(input []byte) error {
-	address := Base58AddressToAddress(BytesToBase58Address(input[1:1+Base58AddressLength]))
+	address := Base58AddressToAddress(BytesToBase58Address(input[1 : 1+Base58AddressLength]))
 	*a = address
 	return nil
 }
@@ -309,8 +309,8 @@ func BytesToBase58Address(b []byte) Base58Address {
 	return a
 }
 
-func (a Base58Address) Bytes() []byte { return a[:] }
-func (a Base58Address) String() string   { return string(a[:]) }
+func (a Base58Address) Bytes() []byte              { return a[:] }
+func (a Base58Address) String() string             { return string(a[:]) }
 func StringToBase58Address(s string) Base58Address { return BytesToBase58Address([]byte(s)) }
 
 func AddressToBase58Address(a Address) Base58Address {
@@ -327,7 +327,26 @@ func AddressToBase58Address(a Address) Base58Address {
 
 func Base58AddressToAddress(a Base58Address) Address {
 	buf := base58.Base58Decode(a.Bytes())
-	return BytesToAddress(buf[2:2+AddressLength])
+	return BytesToAddress(buf[2 : 2+AddressLength])
+}
+
+func UmAddressToAddress(strUmAddress string) Address {
+	return Base58AddressToAddress(StringToBase58Address(strUmAddress))
+}
+
+func UmAddressToHexAddress(strUmAddress string) string {
+	return UmAddressToAddress(strUmAddress).Str()
+}
+
+func HexAddressToBase58Address(strHexAddress string) Base58Address {
+	return AddressToBase58Address(StringToAddress(strHexAddress))
+}
+func HexAddressToUmAddress(strHexAddress string) string {
+	return HexAddressToBase58Address(strHexAddress).String()
+}
+
+func AddressToUmAddress(a Address) string {
+	return AddressToBase58Address(a).String()
 }
 
 type Lock struct {

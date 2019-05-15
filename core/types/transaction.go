@@ -17,14 +17,10 @@
 package types
 
 import (
-	"fmt"
-	"io"
 	"container/heap"
 	"encoding/json"
 	"errors"
-	"math/big"
-	"strings"
-	"sync/atomic"
+	"fmt"
 	"github.com/usechain/go-usechain/accounts/abi"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/hexutil"
@@ -32,6 +28,10 @@ import (
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/rlp"
+	"io"
+	"math/big"
+	"strings"
+	"sync/atomic"
 )
 
 //go:generate gencodec -type txdata -field-override txdataMarshaling -out gen_tx_json.go

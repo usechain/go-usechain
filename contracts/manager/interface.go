@@ -42,7 +42,7 @@ var (
 // Single mode 1: 1 committees
 func GetCommitteeCount(statedb *state.StateDB) int32 {
 	// detect the contract running mode
-	res := statedb.GetState(common.Base58AddressToAddress(common.StringToBase58Address(ManagerContract)), common.BigToHash(common.Big0))
+	res := statedb.GetState(common.UmAddressToAddress(ManagerContract), common.BigToHash(common.Big0))
 	// if running in single mode, just one committee
 	if res.Big().Cmp(SingleMode) == 0 {
 		return 1
@@ -54,7 +54,7 @@ func GetCommitteeCount(statedb *state.StateDB) int32 {
 //Check the address whether be a committee based on state db reader
 func IsCommittee(statedb *state.StateDB, addr common.Address) bool {
 	// detect the contract running mode
-	res := statedb.GetState(common.Base58AddressToAddress(common.StringToBase58Address(ManagerContract)), common.BigToHash(common.Big0))
+	res := statedb.GetState(common.UmAddressToAddress(ManagerContract), common.BigToHash(common.Big0))
 
 	// if running in single mode, anyone could be committee
 	if res.Big().Cmp(common.Big1) == 0 {
@@ -64,7 +64,7 @@ func IsCommittee(statedb *state.StateDB, addr common.Address) bool {
 	// the committeeOnDuty Array key index start from 2
 	///TODO:change the committeeOnDuty to map struct for decline db queries
 	for i := int64(0); i < int64(common.MaxCommitteemanCount); i++ {
-		res := statedb.GetState(common.Base58AddressToAddress(common.StringToBase58Address(ManagerContract)), common.BigToHash(big.NewInt(i+2)))
+		res := statedb.GetState(common.UmAddressToAddress(ManagerContract), common.BigToHash(big.NewInt(i+2)))
 		if strings.EqualFold(addr.Hash().String(), res.String()) {
 			return true
 		}
@@ -75,7 +75,7 @@ func IsCommittee(statedb *state.StateDB, addr common.Address) bool {
 // read the committee public key from contract
 func GetCommitteePublicKey(statedb *state.StateDB) (res string, err error) {
 	//read the committee public key length
-	resIndex := statedb.GetState(common.Base58AddressToAddress(common.StringToBase58Address(ManagerContract)), common.BigToHash(big.NewInt(7)))
+	resIndex := statedb.GetState(common.UmAddressToAddress(ManagerContract), common.BigToHash(big.NewInt(7)))
 
 	// get data from the contract statedb
 	eachPublicKeyLen := resIndex.Big().Int64()
@@ -92,7 +92,7 @@ func GetCommitteePublicKey(statedb *state.StateDB) (res string, err error) {
 	var buff bytes.Buffer
 	for j := int64(0); j <= forLen; j++ {
 		newKeyIndexString := common.IncreaseHexByNum(newKeyIndex, j)
-		result := statedb.GetState(common.Base58AddressToAddress(common.StringToBase58Address(ManagerContract)), common.HexToHash(newKeyIndexString))
+		result := statedb.GetState(common.UmAddressToAddress(ManagerContract), common.HexToHash(newKeyIndexString))
 		buff.Write(result[:])
 		//res += BytesToString(result[:])
 	}

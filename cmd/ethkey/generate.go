@@ -26,6 +26,7 @@ import (
 	"github.com/pborman/uuid"
 	"github.com/usechain/go-usechain/accounts/keystore"
 	"github.com/usechain/go-usechain/cmd/utils"
+	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/crypto"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -106,7 +107,7 @@ If you want to encrypt an existing private key, it can be specified by setting
 
 		// Output some information.
 		out := outputGenerate{
-			Address: key.Address.Hex(),
+			Address: common.AddressToUmAddress(key.Address),
 		}
 		if ctx.Bool(jsonFlag.Name) {
 			mustPrintJSON(out)

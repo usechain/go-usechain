@@ -104,7 +104,7 @@ type cipherparamsJSON struct {
 
 func (k *Key) MarshalJSON() (j []byte, err error) {
 	jStruct := plainKeyJSON{
-		hex.EncodeToString(k.Address[:]),
+		common.AddressToUmAddress(k.Address),
 		hex.EncodeToString(crypto.FromECDSA(k.PrivateKey)),
 		k.Id.String(),
 		version,
@@ -123,16 +123,13 @@ func (k *Key) UnmarshalJSON(j []byte) (err error) {
 	u := new(uuid.UUID)
 	*u = uuid.Parse(keyJSON.Id)
 	k.Id = *u
-	addr, err := hex.DecodeString(keyJSON.Address)
-	if err != nil {
-		return err
-	}
+	addr := common.UmAddressToAddress(keyJSON.Address)
 	privkey, err := crypto.HexToECDSA(keyJSON.PrivateKey)
 	if err != nil {
 		return err
 	}
 
-	k.Address = common.BytesToAddress(addr)
+	k.Address = addr
 	k.PrivateKey = privkey
 
 	return nil

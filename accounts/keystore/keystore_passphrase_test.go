@@ -49,7 +49,7 @@ func TestKeyEncryptDecrypt(t *testing.T) {
 			t.Fatalf("test %d: json key failed to decrypt: %v", i, err)
 		}
 		if key.Address != address {
-			t.Errorf("test %d: key address mismatch: have %x, want %x", i, key.Address, address)
+			t.Errorf("test %d: key address mismatch: have %s, want %s", i, key.Address, address)
 		}
 		// Recrypt with a new password and start over
 		password += "new data appended"

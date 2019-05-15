@@ -257,7 +257,7 @@ func (w *wizard) readAddress() *common.Address {
 			log.Error("Invalid address length, please retry")
 			continue
 		}
-		address := common.Base58AddressToAddress(common.StringToBase58Address(text))
+		address := common.UmAddressToAddress(text)
 		return &address
 	}
 }
@@ -281,7 +281,7 @@ func (w *wizard) readDefaultAddress(def common.Address) common.Address {
 			log.Error("Invalid address length, please retry")
 			continue
 		}
-		return common.Base58AddressToAddress(common.StringToBase58Address(text))
+		return common.UmAddressToAddress(text)
 	}
 }
 

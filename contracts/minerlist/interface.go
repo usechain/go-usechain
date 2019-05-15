@@ -27,7 +27,6 @@ import (
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/crypto/sha3"
 	"math/big"
-	"math/rand"
 	"strings"
 )
 
@@ -44,7 +43,7 @@ var keyIndex = calKeyIndex()
 // Return the number of miner
 func ReadMinerNum(statedb *state.StateDB) *big.Int {
 	// get data from the contract statedb
-	res := statedb.GetState(common.Base58AddressToAddress(common.StringToBase58Address(MinerListContract)), common.HexToHash(paramIndexFull))
+	res := statedb.GetState(common.UmAddressToAddress(MinerListContract), common.HexToHash(paramIndexFull))
 	return res.Big()
 }
 
@@ -168,34 +167,20 @@ DONE:
 
 // Check whether the miner is be punished by idOriginal , and return a right id
 func checkIdTargetOrId(statedb *state.StateDB, idOriginal *big.Int, totalMinerNum *big.Int, blockNumber *big.Int) *big.Int {
-	if blockNumber.Int64() < 114000 {
-		var res common.Hash
-		rand.Seed(blockNumber.Int64())
-		for {
-			res = statedb.GetState(common.Base58AddressToAddress(common.StringToBase58Address(MinerListContract)), common.HexToHash(common.IncreaseHexByNum(keyIndex, idOriginal.Int64())))
-			if isPunishMiner(statedb, common.HexToAddress("0x"+res.String()[26:]), totalMinerNum, blockNumber) || !isOnLine(statedb, common.HexToAddress("0x"+res.String()[26:])) {
-				idOriginal.Add(idOriginal, big.NewInt(rand.Int63n(totalMinerNum.Int64())))
-				idOriginal.Mod(idOriginal, totalMinerNum)
+	var res common.Hash
+	flag := int64(0)
+	for {
+		res = statedb.GetState(common.Base58AddressToAddress(common.StringToBase58Address(MinerListContract)), common.HexToHash(common.IncreaseHexByNum(keyIndex, idOriginal.Int64())))
+		if isPunishMiner(statedb, common.HexToAddress("0x"+res.String()[26:]), totalMinerNum, blockNumber) || !isOnLine(statedb, common.HexToAddress("0x"+res.String()[26:])) {
+			if flag == 0 {
+				idOriginal.Add(idOriginal, big.NewInt(0).Mod(blockNumber, totalMinerNum))
+				flag = flag + 1
 			} else {
-				return idOriginal
+				idOriginal.Add(idOriginal, big.NewInt(1))
 			}
-		}
-	} else {
-		var res common.Hash
-		flag := int64(0)
-		for {
-			res = statedb.GetState(common.Base58AddressToAddress(common.StringToBase58Address(MinerListContract)), common.HexToHash(common.IncreaseHexByNum(keyIndex, idOriginal.Int64())))
-			if isPunishMiner(statedb, common.HexToAddress("0x"+res.String()[26:]), totalMinerNum, blockNumber) || !isOnLine(statedb, common.HexToAddress("0x"+res.String()[26:])) {
-				if flag == 0 {
-					idOriginal.Add(idOriginal, big.NewInt(0).Mod(blockNumber, totalMinerNum))
-					flag = flag + 1
-				} else {
-					idOriginal.Add(idOriginal, big.NewInt(1))
-				}
-				idOriginal.Mod(idOriginal, totalMinerNum)
-			} else {
-				return idOriginal
-			}
+			idOriginal.Mod(idOriginal, totalMinerNum)
+		} else {
+			return idOriginal
 		}
 	}
 }
@@ -218,13 +203,13 @@ func CalQrOrIdNext(base []byte, number *big.Int, preQr []byte) (common.Hash, err
 
 func ReadMinerAddress(statedb *state.StateDB, offset int64) []byte {
 	// get data from the contract statedb
-	res := statedb.GetState(common.Base58AddressToAddress(common.StringToBase58Address(MinerListContract)), common.HexToHash(common.IncreaseHexByNum(keyIndex, offset)))
+	res := statedb.GetState(common.UmAddressToAddress(MinerListContract), common.HexToHash(common.IncreaseHexByNum(keyIndex, offset)))
 	return res.Bytes()
 }
 
 // Compare the address to the minerlist contract by offset
 func checkAddress(statedb *state.StateDB, miner common.Address, index int64) bool {
-	res := statedb.GetState(common.Base58AddressToAddress(common.StringToBase58Address(MinerListContract)), common.HexToHash(common.IncreaseHexByNum(keyIndex, index)))
+	res := statedb.GetState(common.UmAddressToAddress(MinerListContract), common.HexToHash(common.IncreaseHexByNum(keyIndex, index)))
 	if strings.EqualFold(res.String()[26:], miner.String()[2:]) {
 		return true
 	}
@@ -257,7 +242,7 @@ func GetMisconducts(statedb *state.StateDB, miner common.Address) *big.Int {
 	keyIndex = hash.Sum(keyIndex)
 
 	// get data from the contract statedb
-	return statedb.GetState(common.Base58AddressToAddress(common.StringToBase58Address(MinerListContract)), common.BytesToHash(keyIndex)).Big()
+	return statedb.GetState(common.UmAddressToAddress(MinerListContract), common.BytesToHash(keyIndex)).Big()
 }
 
 func isThroughPenaltyBlockTime(statedb *state.StateDB, miner common.Address, blockNumber *big.Int) bool {
@@ -269,16 +254,9 @@ func isThroughPenaltyBlockTime(statedb *state.StateDB, miner common.Address, blo
 	keyIndex = hash.Sum(keyIndex)
 
 	// get data from the contract statedb
-	blockHeight := statedb.GetState(common.Base58AddressToAddress(common.StringToBase58Address(MinerListContract)), common.BytesToHash(keyIndex)).Big()
-
-	if blockNumber.Int64() < common.VoteSlotForGenesis {
-		if blockNumber.Int64()-blockHeight.Int64() > common.PenaltyBlockTime {
-			return true
-		}
-	} else {
-		if blockNumber.Int64()-blockHeight.Int64() > common.PenaltyBlockTimeNew {
-			return true
-		}
+	blockHeight := statedb.GetState(common.UmAddressToAddress(MinerListContract), common.BytesToHash(keyIndex)).Big()
+	if blockNumber.Int64()-blockHeight.Int64() > common.PenaltyBlockTime {
+		return true
 	}
 	return false
 }
@@ -293,7 +271,7 @@ func isOnLine(statedb *state.StateDB, miner common.Address) bool {
 	keyIndex = hash.Sum(keyIndex)
 
 	// get data from the contract statedb
-	return statedb.GetState(common.Base58AddressToAddress(common.StringToBase58Address(MinerListContract)), common.BytesToHash(keyIndex)).Big().Int64() == 1
+	return statedb.GetState(common.UmAddressToAddress(MinerListContract), common.BytesToHash(keyIndex)).Big().Int64() == 1
 }
 
 func calKeyIndex() []byte {
@@ -308,7 +286,7 @@ func isOnlyOneMinerValid(state *state.StateDB, totalMinerNum *big.Int, blockNumb
 	var validMinerNum = 0
 	var index int64
 	for i := int64(0); i < totalMinerNum.Int64(); i++ {
-		res := state.GetState(common.Base58AddressToAddress(common.StringToBase58Address(MinerListContract)), common.HexToHash(common.IncreaseHexByNum(keyIndex, i)))
+		res := state.GetState(common.UmAddressToAddress(MinerListContract), common.HexToHash(common.IncreaseHexByNum(keyIndex, i)))
 		if !isPunishMiner(state, common.HexToAddress("0x"+res.String()[26:]), totalMinerNum, blockNumber) {
 			validMinerNum++
 			index = i

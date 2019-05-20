@@ -7,6 +7,7 @@ https://camo.githubusercontent.com/915b7be44ada53c290eb157634330494ebe3e30a/6874
 )](https://godoc.org/github.com/usechain/go-usechain)
 [![Go Report Card](https://goreportcard.com/badge/github.com/usechain/go-usechain)](https://goreportcard.com/report/github.com/usechain/go-usechain)
 [![Travis](https://travis-ci.org/usechain/go-usechain.svg?branch=develop)](https://travis-ci.org/usechain/go-usechain)
+[![CircleCI](https://circleci.com/gh/usechain/go-usechain/tree/develop.svg?style=svg)](https://circleci.com/gh/usechain/go-usechain/tree/develop)
 [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/usechain?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 The source files are based on [go-ethereum](https://github.com/ethereum/go-ethereum), thanks to Ethereum authors.

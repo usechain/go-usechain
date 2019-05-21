@@ -36,6 +36,7 @@ import (
 	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/common/math"
 	"github.com/usechain/go-usechain/consensus/rpow"
+	"github.com/usechain/go-usechain/contracts/credit"
 	"github.com/usechain/go-usechain/contracts/manager"
 	"github.com/usechain/go-usechain/contracts/minerlist"
 	"github.com/usechain/go-usechain/core"
@@ -51,7 +52,6 @@ import (
 	"math/big"
 	"strings"
 	"time"
-	"github.com/usechain/go-usechain/contracts/credit"
 )
 
 const (
@@ -1924,6 +1924,154 @@ func GetABIBytesData(ABI string, name string, args ...interface{}) []byte {
 func EncryptUserData(userData []byte, pubKey *ecdsa.PublicKey) ([]byte, error) {
 	encrypted, err := ecies.Encrypt(rand.Reader, ecies.ImportECDSAPublic(pubKey), userData, nil, nil)
 	return encrypted, err
+}
+
+// SendCommentTransaction creates a comment transaction for the given argument, sign it and submit it to the
+// transaction pool.
+func (s *PublicTransactionPoolAPI) SendCommentTransaction(ctx context.Context, sender common.Address, hash common.Hash, score int8) (common.Hash, error) {
+	var args SendTxArgs
+	// Look up the wallet containing the requested signer
+	args.From = sender
+	account := accounts.Account{Address: args.From}
+	wallet, err := s.b.AccountManager().Find(account)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	var evalPoint string
+	switch score {
+	case -1:
+		evalPoint = "f1"
+	case 0:
+		evalPoint = "00"
+	case 1:
+		evalPoint = "01"
+	default:
+		return common.Hash{}, fmt.Errorf("comment tx only accept 1/0/-1 for review point")
+	}
+
+	var buf string
+	if history, _, _, _ := core.GetTransaction(s.b.ChainDb(), hash); history != nil {
+		from, err := history.From()
+		if err != nil {
+			return common.Hash{}, fmt.Errorf("sender not found, comment tx err")
+		}
+		if sender.String() == history.To().String() {
+			buf = hash.String() + from.String()[2:] + evalPoint
+		} else if sender.String() == from.String() {
+			buf = hash.String() + history.To().String()[2:] + evalPoint
+		} else {
+			return common.Hash{}, fmt.Errorf("tx comment not sent from right sender")
+		}
+	} else {
+		return common.Hash{}, fmt.Errorf("tx comment not found")
+	}
+	if args.Data == nil {
+		args.Data = new(hexutil.Bytes)
+	}
+	fmt.Println("buf", buf)
+	*args.Data = hexutil.Bytes(hexutil.MustDecode(buf))
+
+	if args.Flag == nil {
+		args.Flag = new(hexutil.Uint8)
+	}
+	*args.Flag = hexutil.Uint8(types.TxComment)
+
+	if args.To == nil {
+		args.To = new(common.Address)
+	}
+	*args.To = common.HexToAddress("0x0000000000000000000000000000000000000000")
+
+	if args.Nonce == nil {
+		// Hold the addresse's mutex around signing to prevent concurrent assignment of
+		// the same nonce to multiple accounts.
+		s.nonceLock.LockAddr(args.From)
+		defer s.nonceLock.UnlockAddr(args.From)
+	}
+
+	// Set some sanity defaults and terminate on failure
+	if err := args.setDefaults(ctx, s.b); err != nil {
+		return common.Hash{}, err
+	}
+
+	// Assemble the transaction and sign with the wallet
+	tx := args.toTransaction()
+
+	var chainID *big.Int
+	if config := s.b.ChainConfig(); config.IsEIP155(s.b.CurrentBlock().Number()) {
+		chainID = config.ChainId
+	}
+
+	signed, err := wallet.SignTx(account, tx, chainID)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return submitTransaction(ctx, s.b, signed)
+}
+
+// SendCommentTransaction creates a comment transaction for the given argument, sign it and submit it to the
+// transaction pool.
+func (s *PublicTransactionPoolAPI) SendRewardTransaction(ctx context.Context, sender common.Address, target common.Address, score *big.Int) (common.Hash, error) {
+	var args SendTxArgs
+	// Look up the wallet containing the requested signer
+	args.From = sender
+	account := accounts.Account{Address: args.From}
+	wallet, err := s.b.AccountManager().Find(account)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	if args.Nonce == nil {
+		// Hold the addresse's mutex around signing to prevent concurrent assignment of
+		// the same nonce to multiple accounts.
+		s.nonceLock.LockAddr(args.From)
+		defer s.nonceLock.UnlockAddr(args.From)
+	}
+
+	// fill the payload
+	if args.Data == nil {
+		args.Data = new(hexutil.Bytes)
+	}
+	payload := target.Bytes()
+	if score.Cmp(big.NewInt(0)) == -1 {
+		payload = append(payload, 1)
+	} else {
+		payload = append(payload, 0)
+	}
+	for _, s := range score.Bytes() {
+		payload = append(payload, s)
+	}
+	*args.Data = hexutil.Bytes(payload)
+
+	// update the tx flag
+	if args.Flag == nil {
+		args.Flag = new(hexutil.Uint8)
+	}
+	*args.Flag = hexutil.Uint8(types.TxReward)
+
+	// update the receipt
+	if args.To == nil {
+		args.To = new(common.Address)
+	}
+	*args.To = common.HexToAddress("0x0000000000000000000000000000000000000000")
+
+	// Set some sanity defaults and terminate on failure
+	if err := args.setDefaults(ctx, s.b); err != nil {
+		return common.Hash{}, err
+	}
+
+	// Assemble the transaction and sign with the wallet
+	tx := args.toTransaction()
+	var chainID *big.Int
+	if config := s.b.ChainConfig(); config.IsEIP155(s.b.CurrentBlock().Number()) {
+		chainID = config.ChainId
+	}
+
+	signed, err := wallet.SignTx(account, tx, chainID)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return submitTransaction(ctx, s.b, signed)
 }
 
 // QueryAddr returns the address whether already been credited

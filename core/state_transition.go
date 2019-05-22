@@ -276,7 +276,10 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 			case "0x01":
 				st.state.AddReviewPoints(addr, big.NewInt(1))
 			case "0xf1":
-				st.state.AddReviewPoints(addr, big.NewInt(-1))
+				// review pointer can't be negative
+				if st.state.GetReviewPoints(addr).Cmp(big.NewInt(0)) == 1 {
+					st.state.AddReviewPoints(addr, big.NewInt(-1))
+				}
 			default:
 			}
 		}

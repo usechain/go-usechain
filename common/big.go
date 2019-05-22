@@ -17,8 +17,8 @@
 package common
 
 import (
-	"math/big"
 	"github.com/usechain/go-usechain/common/hexutil"
+	"math/big"
 )
 
 // Common big integers && chain setting often used
@@ -33,7 +33,7 @@ var (
 
 	BlockSlot               = big.NewInt(25)
 	VoteSlot                = big.NewInt(10)
-	VoteSlotForGenesis      = int64(10000000)
+	VoteSlotForGenesis      = int64(100000)
 	PenaltyBlockTime        = int64(20)
 	MisconductLimitsLevel1  = int64(15)
 	MisconductLimitsLevel2  = int64(30)

@@ -121,6 +121,12 @@ func newObject(db *StateDB, address common.Address, data Account, onDirty func(a
 	if data.Balance == nil {
 		data.Balance = new(big.Int)
 	}
+	if data.ReviewPoints == nil {
+		data.ReviewPoints = new(big.Int)
+	}
+	if data.RewardPoints == nil {
+		data.RewardPoints = new(big.Int)
+	}
 	if data.CodeHash == nil {
 		data.CodeHash = emptyCodeHash
 	}

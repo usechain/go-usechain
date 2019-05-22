@@ -33,8 +33,9 @@ var (
 
 	BlockSlot               = big.NewInt(25)
 	VoteSlot                = big.NewInt(10)
-	VoteSlotForGenesis      = int64(100000)
+	VoteSlotForGenesis      = int64(99000)
 	PenaltyBlockTime        = int64(20)
+	PenaltyBlockTimeNew     = int64(20000)
 	MisconductLimitsLevel1  = int64(15)
 	MisconductLimitsLevel2  = int64(30)
 	MisconductLimitsLevel3  = int64(45)

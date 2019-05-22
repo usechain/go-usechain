@@ -21,14 +21,14 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
-	"math/big"
-	"math/rand"
-	"strings"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/crypto/sha3"
+	"math/big"
+	"math/rand"
+	"strings"
 )
 
 const (
@@ -251,8 +251,15 @@ func isThroughPenaltyBlockTime(statedb *state.StateDB, miner common.Address, blo
 
 	// get data from the contract statedb
 	blockHeight := statedb.GetState(common.Base58AddressToAddress(common.StringToBase58Address(MinerListContract)), common.BytesToHash(keyIndex)).Big()
-	if blockNumber.Int64()-blockHeight.Int64() > common.PenaltyBlockTime {
-		return true
+
+	if blockNumber.Int64() < common.VoteSlotForGenesis {
+		if blockNumber.Int64()-blockHeight.Int64() > common.PenaltyBlockTime {
+			return true
+		}
+	} else {
+		if blockNumber.Int64()-blockHeight.Int64() > common.PenaltyBlockTimeNew {
+			return true
+		}
 	}
 	return false
 }

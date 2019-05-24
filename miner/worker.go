@@ -593,7 +593,7 @@ func (self *worker) checkBlockInterval(parent *types.Block, tstamp int64) bool {
 	return true
 }
 
-func (self *worker) headPrepare(parent *types.Block, tstamp int64) (header *types.Header, blcokNumber *big.Int) {
+func (self *worker) headPrepare(parent *types.Block, tstamp int64) (header *types.Header, blockNumber *big.Int) {
 	num := parent.Number()
 	header = &types.Header{
 		ParentHash: parent.Hash(),
@@ -604,13 +604,13 @@ func (self *worker) headPrepare(parent *types.Block, tstamp int64) (header *type
 		Time:       big.NewInt(tstamp),
 		Difficulty: big.NewInt(1),
 	}
-	blcokNumber = header.Number
+	blockNumber = header.Number
 	if header.Number.Int64() >= common.VoteSlotForGenesis && int64(new(big.Int).Mod(header.Number, common.VoteSlot).Cmp(common.Big0)) == 0 {
 		header.IsCheckPoint = big.NewInt(1)
 	} else {
 		header.IsCheckPoint = big.NewInt(0)
 	}
-	return header, blcokNumber
+	return header, blockNumber
 }
 
 func (self *worker) checkIsVaildMiner(preCoinbase common.Address, preQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, n *big.Int) (bool, int64, int64) {

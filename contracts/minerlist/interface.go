@@ -182,16 +182,16 @@ func checkIdTargetOrId(statedb *state.StateDB, idOriginal *big.Int, totalMinerNu
 		}
 	} else {
 		var res common.Hash
-		i := int64(0)
+		flag := int64(0)
 		for {
 			res = statedb.GetState(common.Base58AddressToAddress(common.StringToBase58Address(MinerListContract)), common.HexToHash(common.IncreaseHexByNum(keyIndex, idOriginal.Int64())))
 			if isPunishMiner(statedb, common.HexToAddress("0x"+res.String()[26:]), totalMinerNum, blockNumber) || !isOnLine(statedb, common.HexToAddress("0x"+res.String()[26:])) {
-				if i == 0 {
+				if flag == 0 {
 					idOriginal.Add(idOriginal, big.NewInt(0).Mod(blockNumber, totalMinerNum))
+					flag = flag + 1
 				} else {
 					idOriginal.Add(idOriginal, big.NewInt(1))
 				}
-				i = i + 1
 				idOriginal.Mod(idOriginal, totalMinerNum)
 			} else {
 				return idOriginal

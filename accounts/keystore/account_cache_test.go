@@ -49,6 +49,24 @@ var (
 			URL:     accounts.URL{Scheme: KeyStoreScheme, Path: filepath.Join(cachetestDir, "zzz")},
 		},
 	}
+	cacheTotalAccounts = []accounts.Account{
+		{
+			Address: common.UmAddressToAddress("UmXCEuiDqJ1XRuxGvaLhVUgyitTSD9nWto7"),
+			URL:     accounts.URL{Scheme: KeyStoreScheme, Path: filepath.Join(cachetestDir, "UTC--2016-03-22T12-57-55.920751759Z--UmXCEuiDqJ1XRuxGvaLhVUgyitTSD9nWto7")},
+		},
+		{
+			Address: common.UmAddressToAddress("UmhuDBiyLABDr3pW6c7EYM29naUBc4U3LkJ"),
+			URL:     accounts.URL{Scheme: KeyStoreScheme, Path: filepath.Join(cachetestDir, "aaa")},
+		},
+		{
+			Address: common.UmAddressToAddress("Umgki3vi4JsLPnoVXVAHWqY4BhyrmAsBrwp"),
+			URL:     accounts.URL{Scheme: KeyStoreScheme, Path: filepath.Join(cachetestDir, "no-address")},
+		},
+		{
+			Address: common.UmAddressToAddress("UmPKgwS4mxEYq7ZxzeA9yYXtnpPXBDT87bp"),
+			URL:     accounts.URL{Scheme: KeyStoreScheme, Path: filepath.Join(cachetestDir, "zzz")},
+		},
+	}
 )
 
 func TestWatchNewFile(t *testing.T) {
@@ -135,7 +153,7 @@ func TestWatchNoDir(t *testing.T) {
 func TestCacheInitialReload(t *testing.T) {
 	cache, _ := newAccountCache(cachetestDir)
 	accounts := cache.accounts()
-	if !reflect.DeepEqual(accounts, cachetestAccounts) {
+	if !reflect.DeepEqual(accounts, cacheTotalAccounts) {
 		t.Fatalf("got initial accounts: %swant %s", spew.Sdump(accounts), spew.Sdump(cachetestAccounts))
 	}
 }

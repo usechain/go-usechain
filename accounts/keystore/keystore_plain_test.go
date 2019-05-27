@@ -113,7 +113,7 @@ func TestImportPreSaleKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if account.Address != common.HexToAddress("d4584b5f6229b7be90727b0fc8c6b91bb427821f") {
+	if account.Address != common.UmAddressToAddress("UmeyiX3GSiwL8JGNpwFjLk6F7x1n2uNePx8") {
 		t.Errorf("imported account has wrong address %x", account.Address)
 	}
 	if !strings.HasPrefix(account.URL.Path, dir) {
@@ -192,8 +192,8 @@ func TestV1_1(t *testing.T) {
 func TestV1_2(t *testing.T) {
 	t.Parallel()
 	ks := &keyStorePassphrase{"testdata/v1", LightScryptN, LightScryptP}
-	addr := common.HexToAddress("cb61d5a9c4896fb9658090b597ef0e7be6f7b67e")
-	file := "testdata/v1/cb61d5a9c4896fb9658090b597ef0e7be6f7b67e/cb61d5a9c4896fb9658090b597ef0e7be6f7b67e"
+	addr := common.UmAddressToAddress("UmeAKsBGutntfFeD352wsSnY1AGdLohTwjN")
+	file := "testdata/v1/UmeAKsBGutntfFeD352wsSnY1AGdLohTwjN/UmeAKsBGutntfFeD352wsSnY1AGdLohTwjN"
 	k, err := ks.GetKey(addr, file, "g")
 	if err != nil {
 		t.Fatal(err)

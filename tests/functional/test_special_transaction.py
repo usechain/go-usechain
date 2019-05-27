@@ -13,12 +13,11 @@ class TestSpecialTransaction(unittest.TestCase):
             'cache-control': "no-cache",
         }
 
-        # self.credit_contract_address = "0x63be80c1b2c777922758a7acc534423e45f81ec1"
-        self.credit_contract_address = "0xfffffffffffffffffffffffffffffffff0000001"
-        self.user_address_1 = "0x595d5c1f64cb173222c2b7bca914a14085ebfa52"
-        # self.user_address_2 = "0xac07e0f11d98df0e20e9c8dacfdf77d904d082a7"
+        self.credit_contract_address = "UmixYUgBHA9vJj47myQKn8uZAm4an7zyYJ8"
+        self.user_address_1 = "UmP5BvJrXRTwXj1EXprnJ4kLgRTTSKRd2Uc"
+        self.user_address_1_Hex = "0x25df3c2c4274814aa910b1b70b06cc2c6e6a08ca"
 
-        unlock_payload = '{"jsonrpc":"2.0","method":"personal_unlockAccount","params":["0x595d5c1f64cb173222c2b7bca914a14085ebfa52", "123456", 0],"id":90}'
+        unlock_payload = '{"jsonrpc":"2.0","method":"personal_unlockAccount","params":["UmP5BvJrXRTwXj1EXprnJ4kLgRTTSKRd2Uc", "123456", 0],"id":90}'
         voter_start_payload = '{"jsonrpc":"2.0","method":"voter_start","params":[],"id":72}'
         miner_start_payload = '{"jsonrpc":"2.0","method":"miner_start","params":[],"id":70}'
 
@@ -43,7 +42,7 @@ class TestSpecialTransaction(unittest.TestCase):
 
     def test_credit_register_transaction(self):
 
-        register_payload = '{"jsonrpc":"2.0","id":8245,"method":"eth_sendTransaction","params":[{"from":"%s","to":"%s","data":"0xf8161f750000000000000000000000000000000000000000000000000000000000000080222200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000630783131313100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002333300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000028888000000000000000000000000000000000000000000000000000000000000","value":"0x0","gas":"0x2dc6c0"}]}' % (
+        register_payload = '{"jsonrpc":"2.0","id":8245,"method":"eth_sendTransaction","params":[{"from":"%s","to":"%s","data":"0xcd1889d800000000000000000000000000000000000000000000000000000000000000a0299bab5b4bad0a51abfe962538f951f5fbaa2691b8c7669e125d559a6b6f754000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000001200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000630783034396300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006307830303030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000043078313200000000000000000000000000000000000000000000000000000000","value":"0x0","gas":"0x2dc6c0"}]}' % (
             self.user_address_1, self.credit_contract_address)
 
         print(register_payload)
@@ -56,9 +55,10 @@ class TestSpecialTransaction(unittest.TestCase):
 
         query_payload = '{"jsonrpc":"2.0","id":18422,"method":"eth_call","params":[{"from":"%s","to":"%s","data":"0xfd4fa05a000000000000000000000000%s","value":"0x0","gas":"0x2dc6c0"},"latest"]}' % (
             self.user_address_1, self.credit_contract_address,
-            self.user_address_1[2:])
+            self.user_address_1_Hex[2:])
         self.conn.request("POST", "/", query_payload, self.headers)
         res = self.conn.getresponse()
+
         data = json.loads(res.read().decode("utf-8"))
         self.assertEqual(
             data['result'],

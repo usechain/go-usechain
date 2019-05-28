@@ -27,6 +27,7 @@ import (
 	"sort"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/mattn/go-colorable"
 	"github.com/peterh/liner"
@@ -441,6 +442,11 @@ func (c *Console) Execute(path string) error {
 
 // Stop cleans up the console and terminates the runtime environment.
 func (c *Console) Stop(graceful bool) error {
+	c.jsre.Run(`
+		miner.stop()
+		console.log("The program exits automatically after 5 seconds")
+	`)
+	time.Sleep(5 * time.Second)
 	if err := ioutil.WriteFile(c.histPath, []byte(strings.Join(c.history, "\n")), 0600); err != nil {
 		return err
 	}

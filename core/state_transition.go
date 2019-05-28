@@ -276,7 +276,10 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 			case "0x01":
 				st.state.AddReviewPoints(addr, big.NewInt(1))
 			case "0xf1":
-				st.state.AddReviewPoints(addr, big.NewInt(-1))
+				// review pointer can't be negative
+				if st.state.GetReviewPoints(addr).Cmp(big.NewInt(0)) == 1 {
+					st.state.AddReviewPoints(addr, big.NewInt(-1))
+				}
 			default:
 			}
 		}
@@ -312,11 +315,10 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		}
 	}
 
-	///TODO: switch to special tx type, and add subaccount certification point
+	// handle the certification score
 	if !contractCreation {
 		transactionFormat := msgToTransaction(msg)
-		if transactionFormat.IsCommitteeTransaction() {
-			addr := transactionFormat.GetVerifiedAddress()
+		if addr, isVerify := transactionFormat.GetVerifiedAddress(); isVerify {
 			// Points for the identity verification.
 			if !st.state.IsCertificationVerified(addr, common.IDVerified) {
 				st.state.AddCertifications(addr, common.IDVerified)

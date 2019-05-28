@@ -183,7 +183,7 @@ func (self *Voter) voteChain() {
 //Fill the vote info
 func (self *Voter) writeVoteInfo() []byte {
 	header := self.blockchain.CurrentHeader()
-	index := common.GetIndexForVote(time.Now().Unix(), header.Time.Int64())
+	index := core.GetIndexForVote(time.Now().Unix(), header.Time.Int64())
 	buf := append(header.Hash().Bytes(), common.Uint64ToBytes(header.Number.Uint64())...)
 	return append(buf, common.Uint64ToBytes(index)...)
 }

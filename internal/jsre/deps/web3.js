@@ -528,7 +528,7 @@ var SolidityType = require('./type');
  * address[][6][], ...
  */
 var SolidityTypeAddress = function () {
-    this._inputFormatter = f.formatInputInt;
+    this._inputFormatter = f.formatInputAddress;
     this._outputFormatter = f.formatOutputAddress;
 };
 
@@ -914,7 +914,7 @@ var BigNumber = require('bignumber.js');
 var utils = require('../utils/utils');
 var c = require('../utils/config');
 var SolidityParam = require('./param');
-
+var Base58 = require('../base58');
 
 /**
  * Formats input value to byte representation of int
@@ -1120,10 +1120,27 @@ var formatOutputString = function (param) {
  */
 var formatOutputAddress = function (param) {
     var value = param.staticPart();
-    return "0x" + value.slice(value.length - 40, value.length);
+    return Base58.AddressToBase58Address(value.slice(value.length - 40, value.length));
+};
+
+/**
+ * Should be use to format input address
+ *
+ * @method formatInputAddress
+ * @param {String} value that must be address string('Um....')
+ * @returns {SolidityParam or Error}
+ */
+var formatInputAddress = function (value) {
+    if (utils.isAddress(value)) {
+        BigNumber.config(c.ETH_BIGNUMBER_ROUNDING_MODE);
+        var result = utils.padLeft(utils.toTwosComplement(Base58.Base58AddressToAddress(value)).toString(16), 64);
+        return new SolidityParam(result);
+    }
+    throw new Error('invalid address');
 };
 
 module.exports = {
+    formatInputAddress: formatInputAddress,
     formatInputInt: formatInputInt,
     formatInputBytes: formatInputBytes,
     formatInputDynamicBytes: formatInputDynamicBytes,
@@ -1141,7 +1158,7 @@ module.exports = {
     formatOutputAddress: formatOutputAddress
 };
 
-},{"../utils/config":18,"../utils/utils":20,"./param":11,"bignumber.js":"bignumber.js"}],10:[function(require,module,exports){
+},{"../utils/config":18,"../utils/utils":20,"./param":11,"bignumber.js":"bignumber.js","../base58":87}],10:[function(require,module,exports){
 var f = require('./formatters');
 var SolidityType = require('./type');
 
@@ -1882,6 +1899,7 @@ along with web3.js.  If not, see <http://www.gnu.org/licenses/>.
 var BigNumber = require('bignumber.js');
 var sha3 = require('./sha3.js');
 var utf8 = require('utf8');
+var base58 = require('./base58');
 
 var unitMap = {
     'nouse':      '0',
@@ -1913,6 +1931,33 @@ var unitMap = {
     'tuse':       '1000000000000000000000000000000'
 };
 
+/**
+ * Should be called to pad string to expected length
+ *
+ * @method UmAddressToHexAddress
+ * @param {String} Um address
+ * @returns {String} hex address
+ */
+var UmAddressToHexAddress = function (value) {
+    if (isAddress(value)) {
+        return base58.Base58AddressToAddress(value);
+    }
+    throw new Error('invalid address');
+};
+
+/**
+ * Should be called to pad string to expected length
+ *
+ * @method HexAddressToUmAddress
+ * @param {String} hex address
+ * @returns {String} Um address
+ */
+var HexAddressToUmAddress = function (value) {
+    if (isHexAddress(value)) {
+        return base58.AddressToBase58Address(value);
+    }
+    throw new Error('invalid hex address');
+};
 /**
  * Should be called to pad string to expected length
  *
@@ -2235,7 +2280,7 @@ var toTwosComplement = function (number) {
  * @return {Boolean}
  */
 var isStrictAddress = function (address) {
-    return /^0x[0-9a-f]{40}$/i.test(address);
+    return (/^(Um)?[1-9a-z]{33}$/i.test(address)) && (!/[OIl]{1}/.test(address));
 };
 
 /**
@@ -2246,6 +2291,17 @@ var isStrictAddress = function (address) {
  * @return {Boolean}
  */
 var isAddress = function (address) {
+    return (/^(Um)?[1-9a-z]{33}$/i.test(address)) && (!/[OIl]{1}/.test(address));
+};
+
+/**
+ * Checks if the given string is an Hexaddress
+ *
+ * @method isHexAddress
+ * @param {String} address the given adress in old HEX version
+ * @return {Boolean}
+ */
+var isHexAddress = function (address) {
     if (!/^(0x)?[0-9a-f]{40}$/i.test(address)) {
         // check if it has the basic requirements of an address
         return false;
@@ -2317,12 +2373,7 @@ var toAddress = function (address) {
     if (isStrictAddress(address)) {
         return address;
     }
-
-    if (/^[0-9a-f]{40}$/.test(address)) {
-        return '0x' + address;
-    }
-
-    return '0x' + padLeft(toHex(address).substr(2), 40);
+    return address
 };
 
 /**
@@ -2441,6 +2492,8 @@ var isTopic = function (topic) {
 };
 
 module.exports = {
+    UmAddressToHexAddress: UmAddressToHexAddress,
+    HexAddressToUmAddress: HexAddressToUmAddress,
     padLeft: padLeft,
     padRight: padRight,
     toHex: toHex,
@@ -2461,6 +2514,7 @@ module.exports = {
     isBigNumber: isBigNumber,
     isStrictAddress: isStrictAddress,
     isAddress: isAddress,
+    isHexAddress: isHexAddress,
     isChecksumAddress: isChecksumAddress,
     toChecksumAddress: toChecksumAddress,
     isFunction: isFunction,
@@ -2473,7 +2527,7 @@ module.exports = {
     isTopic: isTopic,
 };
 
-},{"./sha3.js":19,"bignumber.js":"bignumber.js","utf8":85}],21:[function(require,module,exports){
+},{"./sha3.js":19,"bignumber.js":"bignumber.js","utf8":85,'./base58':87}],21:[function(require,module,exports){
 module.exports={
     "version": "0.20.1"
 }
@@ -2583,6 +2637,8 @@ Web3.prototype.toChecksumAddress = utils.toChecksumAddress;
 Web3.prototype.isIBAN = utils.isIBAN;
 Web3.prototype.padLeft = utils.padLeft;
 Web3.prototype.padRight = utils.padRight;
+Web3.prototype.UmAddressToHexAddress = utils.UmAddressToHexAddress;
+Web3.prototype.HexAddressToUmAddress = utils.HexAddressToUmAddress;
 
 
 Web3.prototype.sha3 = function(string, options) {
@@ -3721,6 +3777,16 @@ var inputBlockNumberFormatter = function (blockNumber) {
     return utils.toHex(blockNumber);
 };
 
+var inputNotEncryptFormatter = function (notEncrypted) {
+    if (notEncrypted === undefined) {
+        return false;
+    }
+    if (!utils.isBoolean(notEncrypted)) {
+        return false
+    }
+    return notEncrypted
+};
+
 /**
  * Formats the input of a transaction and converts all values to HEX
  *
@@ -3805,7 +3871,7 @@ var inputMinerRegisterFormatter = function (options){
         return options.to !== undefined
     }
 
-    options.to = inputAddressFormatter("0xfffffffffffffffffffffffffffffffff0000002");
+    options.to = inputAddressFormatter("UmixYUgBHA9vJj47myQKn8uZAm4anEfrG78");
     options.data = "0x819f163a";
     options.value = "50000000000000000000";
     options.gasPrice = "20000000000";
@@ -3836,7 +3902,7 @@ var inputMinerUnRegisterFormatter = function (options){
         return options.to !== undefined
     }
 
-    options.to = inputAddressFormatter("0xfffffffffffffffffffffffffffffffff0000002");
+    options.to = inputAddressFormatter("UmixYUgBHA9vJj47myQKn8uZAm4anEfrG78");
     options.data = "0x6d3a3f8d";
     options.gasPrice = "20000000000";
     options.gas = "2000000";
@@ -4000,17 +4066,18 @@ var outputPostFormatter = function(post){
 };
 
 var inputAddressFormatter = function (address) {
-    var iban = new Iban(address);
-    if (iban.isValid() && iban.isDirect()) {
-        return '0x' + iban.address();
-    } else if (utils.isStrictAddress(address)) {
+    if (utils.isAddress(address)) {
         return address;
-    } else if (utils.isAddress(address)) {
-        return '0x' + address;
     }
     throw new Error('invalid address');
 };
 
+var inputHexAddressFormatter = function (address) {
+    if (utils.isHexAddress(address)) {
+        return address;
+    }
+    throw new Error('invalid address');
+};
 
 var outputSyncingFormatter = function(result) {
     if (!result) {
@@ -4032,12 +4099,14 @@ module.exports = {
     inputDefaultBlockNumberFormatter: inputDefaultBlockNumberFormatter,
     inputBlockNumberFormatter: inputBlockNumberFormatter,
     inputCallFormatter: inputCallFormatter,
+    inputNotEncryptFormatter: inputNotEncryptFormatter,
     inputTransactionFormatter: inputTransactionFormatter,
     inputAccountLockFormatter: inputAccountLockFormatter,
     outputAccountLockFormatter: outputAccountLockFormatter,
     inputMinerRegisterFormatter: inputMinerRegisterFormatter,
     inputMinerUnRegisterFormatter: inputMinerUnRegisterFormatter,
     inputAddressFormatter: inputAddressFormatter,
+    inputHexAddressFormatter: inputHexAddressFormatter,
     inputPostFormatter: inputPostFormatter,
     outputBigNumberFormatter: outputBigNumberFormatter,
     outputTransactionFormatter: outputTransactionFormatter,
@@ -5571,15 +5640,15 @@ var methods = function () {
     var sendCreditRegisterTransaction = new Method({
         name: 'sendCreditRegisterTransaction',
         call: 'use_sendCreditRegisterTransaction',
-        params: 1,
-        inputFormatter: [formatters.inputTransactionFormatter]
+        params: 2,
+        inputFormatter: [formatters.inputTransactionFormatter, formatters.inputNotEncryptFormatter]
     });
 
     var sendSubAccountTransaction = new Method({
         name: 'sendSubAccountTransaction',
         call: 'use_sendSubAccountTransaction',
-        params: 1,
-        inputFormatter: [formatters.inputTransactionFormatter]
+        params: 2,
+        inputFormatter: [formatters.inputTransactionFormatter, formatters.inputNotEncryptFormatter]
     });
 
     var sendInheritTransaction = new Method({
@@ -5596,8 +5665,8 @@ var methods = function () {
         inputFormatter: [formatters.inputAddressFormatter, null, null]
     });
 
-    var getCommentPoints = new Method({
-        name: 'getCommentPoints',
+    var getReviewPoints = new Method({
+        name: 'getReviewPoints',
         call: 'use_getReviewPoints',
         params: 2,
         inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter]
@@ -5672,8 +5741,8 @@ var methods = function () {
         minerUnRegister,
 
         commentTransaction,
-        getCommentPoints,
         rewardTransaction,
+        getReviewPoints,
         getRewardPoints
     ];
 };
@@ -13847,7 +13916,129 @@ module.exports = transfer;
 },{}],86:[function(require,module,exports){
 module.exports = XMLHttpRequest;
 
-},{}],"bignumber.js":[function(require,module,exports){
+},{}],87:[function(require,module,exports){
+/**
+ * @file base58.js
+ * @author lemengbin <lemengbin@163.com>
+ * @date 2019
+ */
+var CryptoJS = require('crypto-js');
+var ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'; // 58 characters
+var ALPHABET_MAP = {};
+for (var i = 0; i < 58; i++) {
+    ALPHABET_MAP[ALPHABET.charAt(i)] = i;
+}
+
+var Base58Encode = function (arr) {
+    if (arr.length === 0)
+        return '';
+
+    var i, j, digits = [0];
+    for (i = 0; i < arr.length; i++) {
+        for (j = 0; j < digits.length; j++) {
+            digits[j] <<= 8;
+        }
+
+        digits[0] += arr[i];
+        var carry = 0;
+        for (j = 0; j < digits.length; ++j) {
+            digits[j] += carry;
+            carry = (digits[j] / 58) | 0;
+            digits[j] %= 58;
+        }
+        while (carry) {
+            digits.push(carry % 58);
+            carry = (carry / 58) | 0;
+        }
+    }
+
+    // deal with leading zeros
+    for (i = 0; arr[i] === 0 && i < arr.length - 1; i++)
+        digits.push(0);
+    return digits.reverse().map(function(digit) { return ALPHABET[digit]; }).join('');
+};
+
+var Base58Decode = function (str) {
+    if (str.length === 0)
+        return [];
+
+    var i, j, bytes = [0];
+    for (i = 0; i < str.length; i++) {
+        var c = str[i];
+        if (!(c in ALPHABET_MAP))
+            throw new Error('Non-base58 character');
+
+        for (j = 0; j < bytes.length; j++)
+            bytes[j] *= 58;
+        bytes[0] += ALPHABET_MAP[c];
+
+        var carry = 0;
+        for (j = 0; j < bytes.length; ++j) {
+            bytes[j] += carry;
+            carry = bytes[j] >> 8;
+            bytes[j] &= 0xff;
+        }
+        while (carry) {
+            bytes.push(carry & 0xff);
+            carry >>= 8;
+        }
+    }
+
+    // deal with leading zeros
+    for (i = 0; str[i] === '1' && i < str.length - 1; i++)
+        bytes.push(0);
+
+    return bytes.reverse();
+};
+
+var BytesToString = function (arr) {
+    var str = "";
+    for (var i = 0; i < arr.length; i++) {
+        var tmp = arr[i].toString(16);
+        if (tmp.length == 1) {
+            tmp = "0" + tmp;
+        }
+        str += tmp;
+    }
+    return str;
+};
+
+var StringToBytes = function (str) {
+    var len = str.length;
+    if (len % 2 != 0) {
+        return null;
+    }
+    len /= 2;
+
+    var arr = new Array();
+    var pos = 0;
+    for (var i = 0; i < len; i++) {
+        var tmp = str.substr(pos, 2);
+        var v = parseInt(tmp, 16);
+        arr.push(v);
+        pos += 2;
+    }
+    return arr;
+};
+
+var AddressToBase58Address = function (value) {
+    value = value.toString().replace('0x','');
+    var buff = '0FA2' + value.slice(value.length - 40, value.length);
+    var hash1 = CryptoJS.SHA256(CryptoJS.enc.Hex.parse(buff));
+    var hash2 = CryptoJS.SHA256(hash1).toString();
+    return Base58Encode(StringToBytes(buff + hash2.slice(0, 8)));
+};
+
+var Base58AddressToAddress = function (value) {
+    return "0x" + BytesToString(Base58Decode(value.toString()).slice(2, 22));
+};
+
+module.exports = {
+    AddressToBase58Address: AddressToBase58Address,
+    Base58AddressToAddress: Base58AddressToAddress
+};
+
+},{"crypto-js":59}],"bignumber.js":[function(require,module,exports){
 'use strict';
 
 module.exports = BigNumber; // jshint ignore:line
@@ -13865,12 +14056,3 @@ module.exports = Web3;
 
 },{"./lib/web3":22}]},{},["web3"])
 //# sourceMappingURL=web3-light.js.map
-
-
-/**
-* @file crypto.js
-* @author lyszhang <testblockchain@sina.com>
-* @date 2017
-*/
-
-

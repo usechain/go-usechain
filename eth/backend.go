@@ -339,7 +339,7 @@ func (s *Ethereum) Usebase() (eb common.Address, err error) {
 			s.usebase = usebase
 			s.lock.Unlock()
 
-			log.Info("Usebase automatically configured", "address", usebase)
+			log.Info("Usebase automatically configured", "address", usebase.Str())
 			return usebase, nil
 		}
 	}
@@ -401,7 +401,7 @@ func sendMinerOnLine(pool *core.TxPool, eb common.Address, wallet accounts.Walle
 		return true
 	}
 	//new a transaction
-	addr := common.HexToAddress("0xfffffffffffffffffffffffffffffffff0000002")
+	addr := common.UmAddressToAddress(minerlist.MinerListContract)
 	nonce := pool.State().GetNonce(eb)
 	data, _ := hexutil.Decode("0xb1d80a7b")
 	args := ethapi.SendTxArgs{}
@@ -423,6 +423,40 @@ func sendMinerOnLine(pool *core.TxPool, eb common.Address, wallet accounts.Walle
 	err = pool.AddLocal(signedTx)
 	if err != nil {
 		log.Warn("Miner on line Msg sent failed", "err", err)
+		return false
+	}
+	return true
+}
+
+func sendMinerOffLine(pool *core.TxPool, eb common.Address, wallet accounts.Wallet) bool {
+	state := pool.StateDB()
+	totalMinerNum := minerlist.ReadMinerNum(state)
+	if totalMinerNum.Int64() == 0 {
+		return true
+	}
+	//new a transaction
+	addr := common.UmAddressToAddress(minerlist.MinerListContract)
+	nonce := pool.State().GetNonce(eb)
+	data, _ := hexutil.Decode("0x92915992")
+	args := ethapi.SendTxArgs{}
+	args.Flag = new(hexutil.Uint8)
+	args.Nonce = (*hexutil.Uint64)(&nonce)
+	args.From = eb
+	args.To = &addr
+
+	tx := types.NewTransaction(uint64(*args.Nonce), *args.To, nil, 2000000, big.NewInt(20000000000), data)
+
+	signedTx, err := wallet.SignTx(accounts.Account{Address: eb}, tx, nil)
+	if err != nil {
+		log.Error("Sign the miner off line Msg failed, Please unlock the verifier account", "err", err)
+		return false
+	}
+
+	log.Info("Miner off line Msg is sent", "hash", signedTx.Hash().String())
+	//add tx to the txpool
+	err = pool.AddLocal(signedTx)
+	if err != nil {
+		log.Warn("Miner off line Msg sent failed", "err", err)
 		return false
 	}
 	return true
@@ -489,35 +523,6 @@ func (s *Ethereum) StopMining() {
 		return
 	}
 	s.miner.Stop()
-}
-
-func sendMinerOffLine(pool *core.TxPool, eb common.Address, wallet accounts.Wallet) bool {
-	//new a transaction
-	addr := common.HexToAddress("0xfffffffffffffffffffffffffffffffff0000002")
-	nonce := pool.State().GetNonce(eb)
-	data, _ := hexutil.Decode("0x92915992")
-	args := ethapi.SendTxArgs{}
-	args.Flag = new(hexutil.Uint8)
-	args.Nonce = (*hexutil.Uint64)(&nonce)
-	args.From = eb
-	args.To = &addr
-
-	tx := types.NewTransaction(uint64(*args.Nonce), *args.To, nil, 2000000, big.NewInt(20000000000), data)
-
-	signedTx, err := wallet.SignTx(accounts.Account{Address: eb}, tx, nil)
-	if err != nil {
-		log.Error("Sign the miner off line Msg failed, Please unlock the verifier account", "err", err)
-		return false
-	}
-
-	log.Info("Miner off line Msg is sent", "hash", signedTx.Hash().String())
-	//add tx to the txpool
-	err = pool.AddLocal(signedTx)
-	if err != nil {
-		log.Warn("Miner off line Msg sent failed", "err", err)
-		return false
-	}
-	return true
 }
 
 func (s *Ethereum) IsMining() bool      { return s.miner.Mining() }

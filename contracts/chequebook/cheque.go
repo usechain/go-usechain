@@ -110,7 +110,7 @@ type Chequebook struct {
 }
 
 func (self *Chequebook) String() string {
-	return fmt.Sprintf("contract: %s, owner: %s, balance: %v, signer: %x", self.contractAddr.Hex(), self.owner.Hex(), self.balance, self.prvKey.PublicKey)
+	return fmt.Sprintf("contract: %s, owner: %s, balance: %v, signer: %x", common.AddressToBase58Address(self.contractAddr), common.AddressToBase58Address(self.owner), self.balance, self.prvKey.PublicKey)
 }
 
 // NewChequebook creates a new Chequebook.

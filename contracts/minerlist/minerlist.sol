@@ -36,8 +36,8 @@ contract MinerList {
     uint256 ticket = 5e19;
 
     /// @notice Committee contract address
-    address public CommitteeAddr = address(0xffFFFfFFffFfffffFffFFfFFFFFFFFFff0000003);
-    address public CreditAddr = address(0xfFffffffffFfFFffFffFfFFfFfffFfFff0000001);
+    address public CommitteeAddr = address("UmixYUgBHA9vJj47myQKn8uZAm4anNCcQBB");
+    address public CreditAddr = address("UmixYUgBHA9vJj47myQKn8uZAm4an7zyYJ8");
 
     // missed block mining chance for miners
     uint256 constant public MisconductLimitsLevel1 = 15;

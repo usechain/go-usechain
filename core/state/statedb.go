@@ -246,7 +246,7 @@ func (self *StateDB) GetReviewPoints(addr common.Address) *big.Int {
 	if stateObject != nil {
 		return stateObject.ReviewPoints()
 	}
-	return big.NewInt(-1)
+	return big.NewInt(0)
 }
 
 // reviewPoints could be negative
@@ -263,7 +263,7 @@ func (self *StateDB) GetRewardPoints(addr common.Address) *big.Int {
 	if stateObject != nil {
 		return stateObject.RewardPoints()
 	}
-	return big.NewInt(-1)
+	return big.NewInt(0)
 }
 
 // rewardPoints could be negative
@@ -529,6 +529,8 @@ func (self *StateDB) createObject(addr common.Address) (newobj, prev *stateObjec
 	newobj.setTradePoints(0)
 	newobj.setCertifications(0)
 	newobj.setAccountLock(new(common.Lock))
+	newobj.setReviewPoints(big.NewInt(0))
+	newobj.setRewardPoints(big.NewInt(0))
 	if prev == nil {
 		self.journal = append(self.journal, createObjectChange{account: &addr})
 	} else {

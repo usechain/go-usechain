@@ -19,8 +19,7 @@ package params
 // MainnetBootnodes are the enode URLs of the P2P bootstrap nodes running on
 // the main Usechain network.
 var MainnetBootnodes = []string{
-	"enode://650598d567def1fec835798b53234c0f8bdb6a902013fd3f7b00e5180a6b54934b0ee13abe2f3b933b981273db25bc188309e3b3053890af12da0416f8ec51c9@47.112.117.48:40404",
-	"enode://ab0068a9fcaaee12d92b7b58b00361ad95a4986eaa17bceec93afad76100f3f17da41923d459215e6f5aa138e6a020c3e919d4c1f591b0f091029eae0c061118@39.97.174.114:40404",
+	"enode://a833a86278613ac6467bfadba2dab30435d7dd687b10213d7c9be4f90403ba3592f586870d2b7c0a4700f29ae683aeec41928d65a4eac04621fc73377fd52d71@39.105.89.191:40404",
 }
 
 // TestnetBootnodes are the enode URLs of the P2P bootstrap nodes running on the
@@ -31,7 +30,7 @@ var TestnetBootnodes = []string{}
 // Moonet test network.
 var MoonetBootnodes = []string{
 	// Usechain Go moonet Bootnodes
-	"enode://d48f0c9d8337ff59a827af8f7eca645efb2d2747cac5e2158f30ee840f7fff7bac9e10ac1626135e881c6a62dcf5dd2fb7b4bc6ca016cc6fa2a03d8bc50bc56f@[119.23.41.121]:40404",
+	"enode://f8c5976c23505d18cdfcf4c689a95f762fc3a54de22f95cc416866c213da67ea6760d9d4075ba49f53d8b2c64c2c39f01b67859d2b2fda47f07cccb9563afb6b@[119.23.41.121]:40404",
 }
 
 // DiscoveryV5Bootnodes are the enode URLs of the P2P bootstrap nodes for the

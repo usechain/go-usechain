@@ -386,10 +386,8 @@ func ReadUserCert() string {
 ///TODO:add error check
 func parseRcaRsa(chainid uint64) (*x509.Certificate, error) {
 	BaseDir := DefaultDataDir()
-	rcapath := "moonetCA.pem"
-	if chainid == 1 {
-		rcapath = "mainnetCA.pem"
-	}
+	rcapath := "mainnetCA.pem"
+
 	rcaFile, err := ioutil.ReadFile(filepath.Join(BaseDir, rcapath))
 	if err != nil {
 		log.Error("ReadFile err:", "err", err)
@@ -419,6 +417,9 @@ func CheckUserRegisterCert(cert []byte, idhex string, fpr string, chainid uint64
 		return errors.New("User's cert not found!")
 	}
 	parsed, err := x509.ParseCertificate(certBlock.Bytes)
+	if err != nil {
+		return err
+	}
 
 	//TODO: update verify method, using publicKey
 	err = parsed.CheckSignatureFrom(rcaCert)

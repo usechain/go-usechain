@@ -17,7 +17,6 @@
 package types
 
 import (
-	"bytes"
 	"container/heap"
 	"encoding/json"
 	"errors"
@@ -25,6 +24,7 @@ import (
 	"github.com/usechain/go-usechain/accounts/abi"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/hexutil"
+	"github.com/usechain/go-usechain/contracts/credit"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/rlp"
@@ -228,48 +228,20 @@ func (tx *Transaction) To() *common.Address {
 	return &to
 }
 
-func (tx *Transaction) IsRegisterTransaction() bool {
-
-	if len(tx.Data()) <= 4+32*10 {
-		return false
-	}
-
-	if bytes.Compare(tx.Data()[:4], []byte{248, 22, 31, 117}) == 0 {
-		return true
-	}
-	return false
-}
-
-func (tx *Transaction) IsCommitteeTransaction() bool {
-	// TODO: sender addr need to be fixed
-	if len(tx.Data()) <= 4+32 {
-		return false
-	}
-
-	if bytes.Compare(tx.Data()[:4], []byte{199, 174, 221, 31}) == 0 {
-		return true
-	}
-	return false
-}
-
-func (tx *Transaction) IsAccountLockTransaction() bool {
-	if tx.Flag() == TxLock {
-		return true
-	}
-	return false
-}
-
-func (tx *Transaction) GetVerifiedAddress() common.Address {
-	creditABI, _ := abi.JSON(strings.NewReader(common.CreditABI))
+func (tx *Transaction) GetVerifiedAddress() (common.Address, bool) {
+	creditABI, _ := abi.JSON(strings.NewReader(credit.ABI))
 
 	method, exist := creditABI.Methods["verifyHash"]
 	if !exist {
-		log.Error("method not found:", "verifyHash")
+		return common.Address{}, false
 	}
 
+	if len(tx.Data()) < 4 {
+		return common.Address{}, false
+	}
 	InputDataInterface, err := method.Inputs.UnpackABI(tx.Data()[4:])
 	if err != nil {
-		log.Error("method.Inputs: ", err)
+		return common.Address{}, false
 	}
 
 	var inputData []interface{}
@@ -277,12 +249,16 @@ func (tx *Transaction) GetVerifiedAddress() common.Address {
 		inputData = append(inputData, param)
 	}
 
-	addr := inputData[0].(common.Address)
-	return addr
+	status := inputData[2].(*big.Int)
+	if status.Int64() != 3 {
+		return common.Address{}, false
+	}
+	addr := inputData[3].(common.Address)
+	return addr, true
 }
 
 func (tx *Transaction) CheckCertLegality(_from common.Address, chainid *big.Int) error {
-	creditABI, _ := abi.JSON(strings.NewReader(common.CreditABI))
+	creditABI, _ := abi.JSON(strings.NewReader(credit.ABI))
 
 	method, exist := creditABI.Methods["register"]
 	if !exist {
@@ -313,12 +289,28 @@ func (tx *Transaction) CheckCertLegality(_from common.Address, chainid *big.Int)
 	if err != nil {
 		log.Error("Unmarshal issuer failed", "err", err)
 	}
+
+	// check the cert legality
 	cert := []byte(issuer.Cert)
 	err = crypto.CheckUserRegisterCert(cert, idhex, id.Fpr, chainid.Uint64())
 	if err != nil {
 		return err
 	}
 
+	// check the id && hash key
+	notEncrypted := inputData[4].(bool)
+	if notEncrypted {
+		userData := UserData{}
+		ud, _ := hexutil.Decode(id.Data)
+		json.Unmarshal(ud, &userData)
+
+		info := userData.CertType + "-" + userData.Id
+		idHash := hexutil.Encode(crypto.Keccak256Hash([]byte(info)).Bytes())
+		if idHash != idhex {
+			return fmt.Errorf("verify certHash and verifyHash failed")
+
+		}
+	}
 	return nil
 }
 

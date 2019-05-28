@@ -1686,7 +1686,7 @@ func (s *PublicTransactionPoolAPI) SendAccountInheritTransaction(ctx context.Con
 	return s.SendTransaction(ctx, args)
 }
 
-func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Context, args SendTxArgs, notEncrypted bool) (common.Hash, error) {
+func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Context, args SendTxArgs, unencrypted bool) (common.Hash, error) {
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: args.From}
 
@@ -1737,12 +1737,12 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 	key := ud.IdBytes()
 	hashKey := [32]byte{}
 	copy(hashKey[:], key)
-	identity := GetIdentityData(ud, committeePub, notEncrypted)
+	identity := GetIdentityData(ud, committeePub, unencrypted)
 	issuer, err := GetIssuerData(ud, args.From, pub)
 	if err != nil {
 		return common.Hash{}, err
 	}
-	bytesData := GetABIBytesData(credit.ABI, "register", pub, hashKey, identity, issuer, notEncrypted)
+	bytesData := GetABIBytesData(credit.ABI, "register", pub, hashKey, identity, issuer, unencrypted)
 
 	if args.Gas == nil {
 		args.Gas = new(hexutil.Uint64)
@@ -1767,7 +1767,7 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 	return submitTransaction(ctx, s.b, signed)
 }
 
-func (s *PublicTransactionPoolAPI) SendSubAccountTransaction(ctx context.Context, args SendTxArgs, notEncrypted bool) (common.Hash, error) {
+func (s *PublicTransactionPoolAPI) SendSubAccountTransaction(ctx context.Context, args SendTxArgs, unencrypted bool) (common.Hash, error) {
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: args.From}
 
@@ -1814,13 +1814,13 @@ func (s *PublicTransactionPoolAPI) SendSubAccountTransaction(ctx context.Context
 	}
 
 	var data string
-	if notEncrypted {
+	if unencrypted {
 		data = AS
 	} else {
 		hashaBG := crypto.GenerateCreditPubKey(pubStr, priv)
 		data = encryptAS([]byte(AS), hashaBG)
 	}
-	bytesData := GetABIBytesData(credit.ABI, "subRegister", pub, data, notEncrypted)
+	bytesData := GetABIBytesData(credit.ABI, "subRegister", pub, data, unencrypted)
 
 	if args.Data == nil {
 		args.Data = new(hexutil.Bytes)
@@ -1885,10 +1885,10 @@ func GetIssuerData(ud *types.UserData, useId common.Address, pubKey string) ([]b
 	return data, nil
 }
 
-func GetIdentityData(ud *types.UserData, pubKey *ecdsa.PublicKey, notEncrypted bool) []byte {
+func GetIdentityData(ud *types.UserData, pubKey *ecdsa.PublicKey, unencrypted bool) []byte {
 	identity := types.NewIdentity()
 	data, _ := ud.Marshal()
-	if notEncrypted {
+	if unencrypted {
 		identity.Data = hexutil.Encode(data)
 	} else {
 		encData, _ := EncryptUserData(data, pubKey)

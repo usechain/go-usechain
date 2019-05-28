@@ -16,11 +16,6 @@ used:
 	@echo "Done building."
 	@echo "Run \"$(GOBIN)/used\" to launch used."
 
-swarm:
-	build/env.sh go run build/ci.go install ./cmd/swarm
-	@echo "Done building."
-	@echo "Run \"$(GOBIN)/swarm\" to launch swarm."
-
 all:
 	build/env.sh go run build/ci.go install
 	@build/usechain.sh

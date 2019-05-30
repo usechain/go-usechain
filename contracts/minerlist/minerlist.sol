@@ -40,9 +40,9 @@ contract MinerList {
     address public CreditAddr = address("UmixYUgBHA9vJj47myQKn8uZAm4an7zyYJ8");
 
     // missed block mining chance for miners
-    uint256 constant public MisconductLimitsLevel1 = 15;
-    uint256 constant public MisconductLimitsLevel2 = 30;
-    uint256 constant public MisconductLimitsLevel3 = 45;
+    uint256 constant public MisconductLimitsLevel1 = 150;
+    uint256 constant public MisconductLimitsLevel2 = 300;
+    uint256 constant public MisconductLimitsLevel3 = 450;
     mapping (address => uint256) public Misconducts;
 
     mapping (address => uint) public IsOnLine;

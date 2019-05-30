@@ -245,6 +245,18 @@ func GetMisconducts(statedb *state.StateDB, miner common.Address) *big.Int {
 	return statedb.GetState(common.UmAddressToAddress(MinerListContract), common.BytesToHash(keyIndex)).Big()
 }
 
+func GetPunishHeight(statedb *state.StateDB, miner common.Address) *big.Int {
+	web3key := paramIndexaHead + miner.Hex()[2:] + common.BigToHash(big.NewInt(6)).Hex()[2:]
+	hash := sha3.NewKeccak256()
+	var keyIndex []byte
+	b, _ := hex.DecodeString(web3key)
+	hash.Write(b)
+	keyIndex = hash.Sum(keyIndex)
+
+	// get data from the contract statedb
+	return statedb.GetState(common.Base58AddressToAddress(common.StringToBase58Address(MinerListContract)), common.BytesToHash(keyIndex)).Big()
+}
+
 func isThroughPenaltyBlockTime(statedb *state.StateDB, miner common.Address, blockNumber *big.Int) bool {
 	web3key := paramIndexaHead + miner.Hex()[2:] + common.BigToHash(big.NewInt(6)).Hex()[2:]
 	hash := sha3.NewKeccak256()

@@ -651,13 +651,17 @@ func (self *worker) isMiner(totalMinerNum *big.Int, blockNumber *big.Int) bool {
 	isMiner, flag := minerlist.IsMiner(self.current.state, self.coinbase, totalMinerNum, blockNumber)
 	if !isMiner {
 		if flag == 1 {
-			if minerlist.GetMisconducts(self.current.state, self.coinbase).Int64() < common.MisconductLimitsLevel3 {
-				log.Error("Coinbase is being punished, Mining will commence after the penalty period")
+			misconducts := minerlist.GetMisconducts(self.current.state, self.coinbase).Int64()
+			if misconducts < common.MisconductLimitsLevel3 {
+				resetBlockNumber := minerlist.GetPunishHeight(self.current.state, self.coinbase).Int64() + common.PenaltyBlockTime
+				log.Warn("Coinbase's misconducts: ", "misconducts", misconducts)
+				log.Warn("Coinbase is being punished, Mining will commence after: ", "blockNumber", resetBlockNumber)
 			} else {
-				log.Error("Coinbase has been permanently punished, Mining is forbidden")
+				log.Warn("Coinbase's misconducts: ", "misconducts", misconducts)
+				log.Warn("Coinbase has been permanently punished, Mining is forbidden")
 			}
 		} else {
-			log.Error("Coinbase needs to register as a miner, Please try 'miner.stop();use.minerRegister({from:use.coinbase});miner.start()'")
+			log.Warn("Coinbase needs to register as a miner, Please try 'miner.stop();use.minerRegister({from:use.coinbase});miner.start()'")
 		}
 		return false
 	}

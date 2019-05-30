@@ -49,6 +49,7 @@ import (
 	"runtime"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 type LesServer interface {
@@ -496,7 +497,7 @@ func (s *Ethereum) StartVoting() error {
 	return nil
 }
 
-func (s *Ethereum) StopMining() {
+func (s *Ethereum) StopMining(flag bool) {
 	if !s.IsMining() {
 		s.miner.Stop()
 		return
@@ -521,6 +522,9 @@ func (s *Ethereum) StopMining() {
 	if !sendMinerOffLine(s.txPool, eb, wallet) {
 		fmt.Println("Miner stop failed, Please try miner.stop() again")
 		return
+	}
+	if flag {
+		time.Sleep(1 * time.Second)
 	}
 	s.miner.Stop()
 }

@@ -49,7 +49,6 @@ import (
 	"runtime"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 type LesServer interface {
@@ -497,7 +496,7 @@ func (s *Ethereum) StartVoting() error {
 	return nil
 }
 
-func (s *Ethereum) StopMining(flag bool) {
+func (s *Ethereum) StopMining() {
 	if !s.IsMining() {
 		s.miner.Stop()
 		return
@@ -522,9 +521,6 @@ func (s *Ethereum) StopMining(flag bool) {
 	if !sendMinerOffLine(s.txPool, eb, wallet) {
 		fmt.Println("Miner stop failed, Please try miner.stop() again")
 		return
-	}
-	if flag {
-		time.Sleep(1 * time.Second)
 	}
 	s.miner.Stop()
 }
@@ -584,6 +580,7 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 // Stop implements node.Service, terminating all internal goroutines used by the
 // Ethereum protocol.
 func (s *Ethereum) Stop() error {
+	s.StopMining()
 	if s.stopDbUpgrade != nil {
 		s.stopDbUpgrade()
 	}
@@ -594,7 +591,6 @@ func (s *Ethereum) Stop() error {
 		s.lesServer.Stop()
 	}
 	s.txPool.Stop()
-	s.miner.Stop()
 	s.eventMux.Stop()
 
 	s.chainDb.Close()

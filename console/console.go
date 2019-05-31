@@ -449,11 +449,3 @@ func (c *Console) Stop(graceful bool) error {
 	c.jsre.Stop(graceful)
 	return nil
 }
-
-// Stop mining when exit from localConsole and ephemeralConsole
-func (c *Console) MinerStop() error {
-	c.jsre.Run(`
-		miner.stop(1)
-	`)
-	return nil
-}

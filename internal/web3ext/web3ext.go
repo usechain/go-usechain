@@ -475,8 +475,6 @@ web3._extend({
 		new web3._extend.Method({
 			name: 'stop',
 			call: 'miner_stop'
-			params: 1,
-			inputFormatter: [null]
 		}),
 		new web3._extend.Method({
 			name: 'setUsebase',

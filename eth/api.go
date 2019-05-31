@@ -131,19 +131,15 @@ func (api *PrivateMinerAPI) Start() error {
 }
 
 // Stop the miner
-func (api *PrivateMinerAPI) Stop(flag *int) bool {
+func (api *PrivateMinerAPI) Stop() bool {
 	type threaded interface {
 		SetThreads(threads int)
 	}
 	if th, ok := api.e.engine.(threaded); ok {
 		th.SetThreads(-1)
 	}
-	if flag != nil {
-		api.e.StopMining(true)
-	} else {
-		api.e.StopMining(false)
-	}
 
+	api.e.StopMining()
 	return true
 }
 

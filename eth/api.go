@@ -138,6 +138,7 @@ func (api *PrivateMinerAPI) Stop() bool {
 	if th, ok := api.e.engine.(threaded); ok {
 		th.SetThreads(-1)
 	}
+
 	api.e.StopMining()
 	return true
 }

@@ -38,6 +38,7 @@ var (
 	MisconductLimitsLevel1  = int64(150)
 	MisconductLimitsLevel2  = int64(300)
 	MisconductLimitsLevel3  = int64(450)
+	VoteThreshold           = int32(2)
 	MaxCommitteemanCount    = 5
 	BlockInterval           = 5
 	VoteInterval            = uint64(300)

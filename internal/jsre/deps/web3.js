@@ -3847,11 +3847,11 @@ var inputAccountLockFormatter = function (options) {
     return options;
 };
 
-var outputAccountLockFormatter = function (lock) {
-    options.permission = utils.toDecimal(lock.permission);
-    options.timelimit = lock.timelimit;
-    options.lockedbalance = utils.toDecimal(lock.lockedbalance);
-    return lock;
+var outputAccountLockFormatter = function (options) {
+    options.permission = utils.toDecimal(options.permission);
+    options.timelimit = options.timelimit;
+    options.lockedbalance = utils.toDecimal(options.lockedbalance);
+    return options;
 };
 
 /**

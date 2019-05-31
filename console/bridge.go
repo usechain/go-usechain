@@ -109,6 +109,37 @@ func (b *bridge) VerifyQuery(call otto.FunctionCall) (response otto.Value) {
 	return ret
 }
 
+func (b *bridge) NewHDWallet(call otto.FunctionCall) (response otto.Value) {
+	var (
+		err error
+	)
+	ret, err := call.Otto.Call("jeth.newHDWallet", nil)
+	if err != nil {
+		throwJSException(err.Error())
+	}
+	return ret
+}
+
+func (b *bridge) NewHDSubAccount(call otto.FunctionCall) (response otto.Value) {
+
+	// // Make sure we have an account specified to unlock
+	// if !call.Argument(0).IsString() {
+	// 	throwJSException("first argument must be the account to unlock")
+	// }
+
+	mnemonic := call.Argument(0)
+
+	path := call.Argument(1)
+
+	val, err := call.Otto.Call("jeth.newHDSubAccount", nil, mnemonic, path)
+
+	if err != nil {
+		throwJSException(err.Error())
+	}
+
+	return val
+}
+
 // NewAccount is a wrapper around the personal.newAccount RPC method that uses a
 // non-echoing password prompt to acquire the passphrase and executes the original
 // RPC method (saved in jeth.newAccount) with it to actually execute the RPC call.

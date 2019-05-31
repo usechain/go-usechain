@@ -5922,6 +5922,19 @@ var methods = function () {
         inputFormatter: [null]
     });
 
+    var newHDWallet = new Method({
+        name: 'newHDWallet',
+        call: 'personal_newHDWallet',
+        params: 0,
+    });
+
+    var newHDSubAccount = new Method({
+        name: 'newHDSubAccount',
+        call: 'personal_newHDSubAccount',
+        params: 2,
+        inputFormatter: [null, null],
+    });
+
     var newAccount = new Method({
         name: 'newAccount',
         call: 'personal_newAccount',
@@ -5979,6 +5992,8 @@ var methods = function () {
     return [
         verify,
         verifyQuery,
+        newHDWallet,
+        newHDSubAccount,
         newAccount,
         newSubAccount,
         importRawKey,

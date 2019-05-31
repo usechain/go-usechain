@@ -39,6 +39,8 @@ var DefaultBaseDerivationPath = DerivationPath{0x80000000 + 44, 0x80000000 + 60,
 // at m/44'/60'/0'/1, etc.
 var DefaultLedgerBaseDerivationPath = DerivationPath{0x80000000 + 44, 0x80000000 + 60, 0x80000000 + 0, 0}
 
+var DefaultChildDerivationPath = DerivationPath{0, 0, 0, 0}
+
 // DerivationPath represents the computer friendly version of a hierarchical
 // deterministic wallet account derivaion path.
 //

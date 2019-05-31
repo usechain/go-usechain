@@ -31,6 +31,7 @@ import (
 	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/accounts/abi"
 	"github.com/usechain/go-usechain/accounts/ca"
+	"github.com/usechain/go-usechain/accounts/hdwallet"
 	"github.com/usechain/go-usechain/accounts/keystore"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/hexutil"
@@ -344,6 +345,26 @@ func (s *PrivateAccountAPI) DeriveAccount(url string, path string, pin *bool) (a
 // 	}
 // 	return true, nil
 // }
+
+// NewHDAccount will create a new account from a random BIP-32 seed
+func (s *PrivateAccountAPI) NewHDWallet() (string, error) {
+	mnemonic, err := hdwallet.NewMnemonic(256)
+	wallet, err := hdwallet.NewFromMnemonic(mnemonic)
+	if err != nil {
+		return "Generate new HDWallet failed", err
+	}
+	return wallet.GetMnemonic(), nil
+}
+
+// NewHDSubAccount will create a new sub account implement by BIP-32 algorithm
+func (s *PrivateAccountAPI) NewHDSubAccount(mnemonic string, path accounts.DerivationPath) (common.Address, error) {
+	wallet, err := hdwallet.NewFromMnemonic(mnemonic)
+	child, err := wallet.DeriveChild(path, true)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return child.Address, nil
+}
 
 // NewAccount will create a new account and returns the address for the new account.
 func (s *PrivateAccountAPI) NewAccount(password string) (common.Address, error) {
@@ -1657,6 +1678,7 @@ func (s *PrivateAccountAPI) GenerateRSAKeypair() error {
 }
 
 func (s *PublicTransactionPoolAPI) SendAccountLockTransaction(ctx context.Context, args SendTxArgs, lockinfo common.Lock) (common.Hash, error) {
+	fmt.Println("lockinfo:", lockinfo)
 	if len(lockinfo.TimeLimit) > 0 {
 		_, err := time.Parse(time.RFC3339, lockinfo.TimeLimit)
 		if err != nil {

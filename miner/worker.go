@@ -18,7 +18,6 @@ package miner
 
 import (
 	"fmt"
-	"math"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -669,7 +668,7 @@ func (self *worker) isMiner(totalMinerNum *big.Int, blockNumber *big.Int) bool {
 }
 
 func canGenBlockInCheckPoint(txs map[common.Address]types.Transactions, cnt int32) (bool, common.Hash, uint32) {
-	if float64(len(txs)) < math.Ceil(float64(cnt)*2/3) {
+	if int32(len(txs)) < (cnt+1)/common.VoteThreshold {
 		return false, common.Hash{}, 0
 	}
 
@@ -696,7 +695,7 @@ func canGenBlockInCheckPoint(txs map[common.Address]types.Transactions, cnt int3
 		maxHash = hash
 	}
 
-	if float64(maxCount) < math.Ceil(float64(cnt)*2/3) {
+	if int32(maxCount) < (cnt+1)/common.VoteThreshold {
 		return false, maxHash, maxCount
 	}
 

@@ -18,7 +18,6 @@ package core
 
 import (
 	"errors"
-	"math"
 	"math/big"
 
 	"github.com/usechain/go-usechain/common"
@@ -75,8 +74,8 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	p.bc.committeeCnt = manager.GetCommitteeCount(statedb)
 	if header.IsCheckPoint.Int64() == 1 {
 		txs := block.Transactions()
-		if float64(txs.Len()) < math.Ceil(float64(p.bc.committeeCnt)*2/3) {
-			err := errors.New("checkpoint block should contain more than three-seconds voter")
+		if int32(txs.Len()) < (p.bc.committeeCnt+1)/common.VoteThreshold {
+			err := errors.New("checkpoint block should contain more than half voter")
 			return nil, nil, 0, err
 		}
 		hash := common.BytesToHash(txs[0].Data()[:common.HashLength])
@@ -98,7 +97,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			}
 			count++
 		}
-		if float64(count) < math.Ceil(float64(p.bc.committeeCnt)*2/3) {
+		if int32(count) < (p.bc.committeeCnt+1)/common.VoteThreshold {
 			err := errors.New("checkpoint block should contain more than three-seconds voter with same hashes")
 			return nil, nil, 0, err
 		}

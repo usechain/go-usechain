@@ -1,0 +1,7 @@
+# TOML config file for user verification
+
+mainneturl = "http://mainca.usechain.cn/cert/cerauth"
+mainnetquery = "http://mainca.usechain.cn/user/cerauth"
+
+mooneturl = "http://moonca.usechain.cn/cert/cerauth"
+moonetquery = "http://moonca.usechain.cn/user/cerauth"

@@ -19,8 +19,11 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/naoina/toml"
 	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/accounts/ca"
 	"github.com/usechain/go-usechain/accounts/keystore"
@@ -398,6 +401,28 @@ func accountImport(ctx *cli.Context) error {
 	return nil
 }
 
+type urlConfig struct {
+	MainnetUrl   string
+	MainnetQuery string
+	MoonetUrl    string
+	MoonetQuery  string
+}
+
+func getUrlConfig() *urlConfig {
+	bin, _ := os.Executable()
+	path := filepath.Join(filepath.Dir(bin), "../../cmd/used/config.toml")
+	f, err := os.Open(path)
+	if err != nil {
+		utils.Fatalf(err.Error())
+	}
+	defer f.Close()
+	var conf urlConfig
+	if err := toml.NewDecoder(f).Decode(&conf); err != nil {
+		utils.Fatalf("Parse toml failed")
+	}
+	return &conf
+}
+
 func verify(ctx *cli.Context) error {
 
 	infoFile := ctx.GlobalString(utils.VerifyInfoFlag.Name)
@@ -405,13 +430,12 @@ func verify(ctx *cli.Context) error {
 	moonetFlag := ctx.GlobalBool(utils.VerifyNetworkFlag.Name)
 	q := ctx.GlobalString(utils.VerifyQueryFlag.Name)
 
-	// mainnet
-	var mainnetUrl = "http://mainca.usechain.cn/cert/cerauth"
-	var mainnetQuery = "http://mainca.usechain.cn/user/cerauth"
+	c := getUrlConfig()
 
-	// moonet
-	var moonetUrl = "http://moonca.usechain.cn/cert/cerauth"
-	var moonetQuery = "http://moonca.usechain.cn/user/cerauth"
+	var mainnetUrl = c.MainnetUrl
+	var mainnetQuery = c.MainnetQuery
+	var moonetUrl = c.MoonetUrl
+	var moonetQuery = c.MoonetQuery
 
 	var caUrl, queryUrl string
 

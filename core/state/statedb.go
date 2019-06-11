@@ -225,6 +225,22 @@ func (self *StateDB) AddTradePoints(addr common.Address, points uint64) {
 	}
 }
 
+func (self *StateDB) GetCertPoints(addr common.Address) uint64 {
+	stateObject := self.getStateObject(addr)
+	if stateObject != nil {
+		return stateObject.CertPoints()
+	}
+	return 0
+}
+
+func (self *StateDB) AddCertPoints(addr common.Address, certPoints uint64) {
+	stateObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		currentPoints := stateObject.CertPoints()
+		stateObject.SetCertPoints(currentPoints + certPoints)
+	}
+}
+
 func (self *StateDB) GetCertifications(addr common.Address) uint64 {
 	stateObject := self.getStateObject(addr)
 	if stateObject != nil {
@@ -411,6 +427,13 @@ func (self *StateDB) SetCertifications(addr common.Address, certification uint64
 	}
 }
 
+func (self *StateDB) SetCertPoints(addr common.Address, certpoints uint64) {
+	stateObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		stateObject.SetCertPoints(certpoints)
+	}
+}
+
 func (self *StateDB) SetNonce(addr common.Address, nonce uint64) {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
@@ -528,6 +551,7 @@ func (self *StateDB) createObject(addr common.Address) (newobj, prev *stateObjec
 	newobj.setNonce(0) // sets the object to dirty
 	newobj.setTradePoints(0)
 	newobj.setCertifications(0)
+	newobj.setCertPoints(0)
 	newobj.setAccountLock(new(common.Lock))
 	newobj.setReviewPoints(big.NewInt(0))
 	newobj.setRewardPoints(big.NewInt(0))

@@ -35,6 +35,7 @@ type DumpAccount struct {
 
 	TradePoints    uint64      `json:"tradepoints"`
 	Certifications uint64      `json:"certifications"`
+	CertPoints     uint64      `json:"certpoints"`
 	ReviewPoints   string      `json:"reviewpoints"`
 	RewardPoints   string      `json:"rewardpoints"`
 	Lock           common.Lock `json:"lock"`
@@ -70,6 +71,7 @@ func (self *StateDB) RawDump() Dump {
 
 			TradePoints:    data.TradePoints,
 			Certifications: data.Certifications,
+			CertPoints:     data.CertPoints,
 			ReviewPoints:   data.ReviewPoints.String(),
 			RewardPoints:   data.RewardPoints.String(),
 			Lock:           *data.Lock,

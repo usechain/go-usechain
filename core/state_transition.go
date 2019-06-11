@@ -322,6 +322,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 			// Points for the identity verification.
 			if !st.state.IsCertificationVerified(addr, common.IDVerified) {
 				st.state.AddCertifications(addr, common.IDVerified)
+				st.state.AddCertPoints(addr, 1000)
 			}
 		}
 	}

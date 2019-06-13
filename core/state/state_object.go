@@ -112,6 +112,7 @@ type Account struct {
 	Lock           *common.Lock
 	TradePoints    uint64   // user's trade points
 	Certifications uint64   // user's certifications implements by bits
+	CertPoints     uint64   // user's certifications points
 	ReviewPoints   *big.Int // user's review points
 	RewardPoints   *big.Int // user's rewards and punishments points, operated by committee
 }
@@ -426,6 +427,23 @@ func (self *stateObject) setCertifications(certification uint64) {
 	}
 }
 
+func (self *stateObject) SetCertPoints(certpoints uint64) {
+	self.db.journal = append(self.db.journal, certPointsChange{
+		account: &self.address,
+		prev:    self.data.CertPoints,
+	})
+
+	self.setCertPoints(certpoints)
+}
+
+func (self *stateObject) setCertPoints(certpoints uint64) {
+	self.data.CertPoints = certpoints
+	if self.onDirty != nil {
+		self.onDirty(self.Address())
+		self.onDirty = nil
+	}
+}
+
 func (self *stateObject) SetTradePoints(credit uint64) {
 	self.db.journal = append(self.db.journal, creditChange{
 		account: &self.address,
@@ -494,6 +512,10 @@ func (self *stateObject) TradePoints() uint64 {
 
 func (self *stateObject) Certifications() uint64 {
 	return self.data.Certifications
+}
+
+func (self *stateObject) CertPoints() uint64 {
+	return self.data.CertPoints
 }
 
 func (self *stateObject) Lock() *common.Lock {

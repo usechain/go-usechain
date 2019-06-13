@@ -5616,6 +5616,14 @@ var methods = function () {
         outputFormatter: formatters.outputBigNumberFormatter
     });
 
+    var getCertPoints = new Method({
+        name: 'getCertPoints',
+        call: 'use_getCertPoints',
+        params: 2,
+        inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
+        outputFormatter: formatters.outputBigNumberFormatter
+    });
+
     var queryAddr = new Method({
         name: 'queryAddr',
         call: 'use_queryAddr',
@@ -5729,6 +5737,7 @@ var methods = function () {
         getAccountLock,
         getTradePoints,
         getCertifications,
+        getCertPoints,
         sendCreditRegisterTransaction,
         sendAccountLockTransaction,
         sendSubAccountTransaction,

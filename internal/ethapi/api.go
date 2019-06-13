@@ -639,6 +639,15 @@ func (s *PublicBlockChainAPI) GetCertifications(ctx context.Context, address com
 	return (*hexutil.Uint64)(&cr), state.Error()
 }
 
+func (s *PublicBlockChainAPI) GetCertPoints(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (*hexutil.Uint64, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	cr := state.GetCertPoints(address)
+	return (*hexutil.Uint64)(&cr), state.Error()
+}
+
 // GetReviewPoints returns the review points of the given address from global state
 func (s *PublicBlockChainAPI) GetReviewPoints(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (*hexutil.Big, error) {
 	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)

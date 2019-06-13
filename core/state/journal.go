@@ -59,6 +59,10 @@ type (
 		account *common.Address
 		prev    uint64
 	}
+	certPointsChange struct {
+		account *common.Address
+		prev    uint64
+	}
 	reviewChange struct {
 		account *common.Address
 		prev    *big.Int
@@ -139,6 +143,10 @@ func (ch creditChange) undo(s *StateDB) {
 
 func (ch certificationChange) undo(s *StateDB) {
 	s.getStateObject(*ch.account).setCertifications(ch.prev)
+}
+
+func (ch certPointsChange) undo(s *StateDB) {
+	s.getStateObject(*ch.account).setCertPoints(ch.prev)
 }
 
 func (ch reviewChange) undo(s *StateDB) {

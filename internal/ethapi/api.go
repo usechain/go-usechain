@@ -1737,8 +1737,7 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 	if stateDb == nil || err != nil {
 		return common.Hash{}, err
 	}
-	// pubStr, err := manager.GetCommitteePublicKey(stateDb)
-	pubStr := "0x04d61ec4978f726e85a7b2fab674ca33737e48f6dcce2ad9575d37066ef4e290abbd8412b6450f2cff9e648ecaecdd44fd13934b294c6dfb95ce1948ee41d5a641"
+	pubStr, err := manager.GetCommitteePublicKey(stateDb)
 	if err != nil {
 		return common.Hash{}, err
 	}

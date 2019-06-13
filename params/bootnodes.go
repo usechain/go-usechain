@@ -19,7 +19,8 @@ package params
 // MainnetBootnodes are the enode URLs of the P2P bootstrap nodes running on
 // the main Usechain network.
 var MainnetBootnodes = []string{
-	"enode://c47ef3fafe4619b4c454ad62fd23761050c0f7d6a68bec2d492c79a1eb6d83ebc6089a0c14c9664f2267141bf0694a7f623954cf13a078dd3d8b2851ed5d3f96@[39.97.174.114]:40404",
+	"enode://c462af0b916f64b2a0447880122eeb853d97c07787a29998251fe7755757079abe92742826e0cebb1450dcaf08a965db1c5bc47e9745cfdf92fcc2af156e4943@[39.97.174.114]:40404",
+	"enode://00faa4fe1c7e23d6975ec3e1bf38e5267783702599704f5ca01bee7841243f445cb8e767fe06044d3df6f0d5d10a0f0abfa67a06abba39bb236a19f3395aa212@[47.112.117.48]:40404",
 }
 
 // TestnetBootnodes are the enode URLs of the P2P bootstrap nodes running on the

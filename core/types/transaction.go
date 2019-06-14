@@ -265,6 +265,9 @@ func (tx *Transaction) CheckCertLegality(_from common.Address, chainid *big.Int)
 		log.Error("method not found:", "register")
 	}
 
+	if len(tx.Data()) <= 4 {
+		return fmt.Errorf("mainAccount registeration tx with illegal payload length")
+	}
 	InputDataInterface, err := method.Inputs.UnpackABI(tx.Data()[4:])
 	if err != nil {
 		log.Error("method.Inputs: ", err)

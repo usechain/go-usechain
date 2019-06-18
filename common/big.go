@@ -31,6 +31,7 @@ var (
 	Big256 = big.NewInt(256)
 	Big257 = big.NewInt(257)
 
+	HardFork0618            = big.NewInt(73430)
 	BlockSlot               = big.NewInt(25)
 	VoteSlot                = big.NewInt(10)
 	VoteSlotForGenesis      = int64(10000)

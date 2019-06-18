@@ -153,7 +153,9 @@ DONE:
 			if id.Int64() == value {
 				id.Add(id, common.Big1)
 				id.Mod(id, totalMinerNum)
-				id = checkIdTargetOrId(state, id, totalMinerNum, blockNumber)
+				if blockNumber.Cmp(common.HardFork0618) == -1 {
+					id = checkIdTargetOrId(state, id, totalMinerNum, blockNumber)
+				}
 				break
 			}
 			if int64(cap(oldNode)) == int64(index+1) {

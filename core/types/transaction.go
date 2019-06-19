@@ -228,10 +228,10 @@ func (tx *Transaction) To() *common.Address {
 	return &to
 }
 
-func (tx *Transaction) GetVerifiedAddress() (common.Address, bool) {
-	creditABI, _ := abi.JSON(strings.NewReader(credit.ABI))
+var CreditABI, _ = abi.JSON(strings.NewReader(credit.ABI))
 
-	method, exist := creditABI.Methods["verifyHash"]
+func (tx *Transaction) GetVerifiedAddress() (common.Address, bool) {
+	method, exist := CreditABI.Methods["verifyHash"]
 	if !exist {
 		return common.Address{}, false
 	}

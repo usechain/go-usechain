@@ -156,7 +156,7 @@ func (v *BlockValidator) ValidateMiner(block, parent *types.Block, statedb *stat
 			return fmt.Errorf("invalid minerQrSignature")
 		}
 	}
-	IsValidMiner, level, preMinerid := minerlist.IsValidMiner(statedb, header.Coinbase, preCoinbase, preQrSignature, blockNumber, totalMinerNum, n)
+	IsValidMiner, level, preMinerid := minerlist.IsValidMinerForBlockValidator(statedb, header.Coinbase, preCoinbase, preQrSignature, blockNumber, totalMinerNum, n)
 	if !IsValidMiner {
 		return fmt.Errorf("invalid miner")
 	}

@@ -21,6 +21,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
+	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/core/state"
@@ -86,7 +87,44 @@ func IsPunishedMiner(statedb *state.StateDB, miner common.Address, totalMinerNum
 }
 
 // Return whether the miner is valid or not , difficultlevel and preMinerid
-func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common.Address, preSignatureQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, offset *big.Int) (bool, int64, int64) {
+func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common.Address, preSignatureQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, offset *big.Int, manager *accounts.Manager) (bool, int64, int64, int64) {
+	//TODO: add time penalty mechanism
+	// add for test solo mining
+	if totalMinerNum.Cmp(common.Big0) == 0 {
+		return true, 0, 0, 0
+	}
+	if totalMinerNum.Cmp(common.Big1) == 0 {
+		return checkAddress(state, miner, 0), 0, 0, 0
+	}
+
+	// if there is only one valid miner
+	/*isOnlyOneMinerValid, index := isOnlyOneMinerValid(state, totalMinerNum, blockNumber)
+	if isOnlyOneMinerValid && isOnLine(state, miner) {
+		return checkAddress(state, miner, index), 0, 0
+	}*/
+
+	// calculate the miner  who should be the first out of blocks
+	idTarget := CalIdTarget(preCoinbase, preSignatureQr, blockNumber, totalMinerNum, state)
+	for i := int64(0); i <= offset.Int64(); i++ {
+		if i == 0 {
+			account := accounts.Account{Address: common.BytesToAddress(ReadMinerAddress(state, idTarget.Int64()))}
+			_, err := manager.Find(account)
+			if err == nil {
+				return true, i, idTarget.Int64(), idTarget.Int64()
+			}
+		} else {
+			id := calId(idTarget, preSignatureQr, totalMinerNum, big.NewInt(i), state, blockNumber)
+			account := accounts.Account{Address: common.BytesToAddress(ReadMinerAddress(state, id.Int64()))}
+			_, err := manager.Find(account)
+			if err == nil {
+				return true, i, idTarget.Int64(), id.Int64()
+			}
+		}
+	}
+	return false, 0, idTarget.Int64(), idTarget.Int64()
+}
+
+func IsValidMinerForBlockValidator(state *state.StateDB, miner common.Address, preCoinbase common.Address, preSignatureQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, offset *big.Int) (bool, int64, int64) {
 	//TODO: add time penalty mechanism
 	// add for test solo mining
 	if totalMinerNum.Cmp(common.Big0) == 0 {
@@ -116,7 +154,7 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 			}
 		}
 	}
-	return false, 0, 0
+	return false, 0, idTarget.Int64()
 }
 
 func CalIdTarget(preCoinbase common.Address, preSignatureQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, state *state.StateDB) *big.Int {

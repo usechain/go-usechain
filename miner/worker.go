@@ -18,6 +18,7 @@ package miner
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -435,13 +436,14 @@ func (self *worker) commitNewWork() {
 	}
 
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
+	coinbaseTemp := self.coinbase
 	if atomic.LoadInt32(&self.mining) == 1 {
 		totalMinerNum := minerlist.ReadMinerNum(self.current.state)
 
 		// check whether coinbase is legal miner
-		if !self.isMiner(totalMinerNum, blockNumber) {
+		/*if !self.isMiner(totalMinerNum, blockNumber) {
 			return
-		}
+		}*/
 
 		// collect pre block info and calculate whether the miner is correct for current block
 		var preQr []byte
@@ -455,7 +457,7 @@ func (self *worker) commitNewWork() {
 		n := big.NewInt(tstampSub / common.BlockSlot.Int64())
 
 		//check whether coinbase is valid miner
-		IsValidMiner, level, preMinerid := self.checkIsVaildMiner(preCoinbase, preQr, blockNumber, totalMinerNum, n)
+		IsValidMiner, level, preMinerid, nowMinerid := self.checkIsVaildMiner(preCoinbase, preQr, blockNumber, totalMinerNum, n)
 		if !IsValidMiner {
 			return
 		}
@@ -468,7 +470,7 @@ func (self *worker) commitNewWork() {
 		}
 
 		// Look up the wallet containing the requested signer
-		minerQrSignature := self.calMinerQrSignature(qr)
+		minerQrSignature := self.calMinerQrSignature(qr, nowMinerid)
 		if minerQrSignature != nil {
 			header.MinerQrSignature = bytes.Join([][]byte{minerQrSignature, qr.Bytes()}, []byte(""))
 		} else {
@@ -484,7 +486,8 @@ func (self *worker) commitNewWork() {
 		if header.Number.Cmp(common.Big1) == 0 {
 			header.DifficultyLevel = big.NewInt(0)
 		}
-		header.Coinbase = self.coinbase
+		header.Coinbase = common.BytesToAddress(minerlist.ReadMinerAddress(self.current.state, nowMinerid))
+		coinbaseTemp = header.Coinbase
 
 		if err := self.engine.Prepare(self.chain, header, self.current.state); err != nil {
 			log.Error("Failed to prepare header for mining", "err", err)
@@ -509,10 +512,8 @@ func (self *worker) commitNewWork() {
 	committeeCnt := self.chain.GetCommitteeCount()
 	var pending map[common.Address]types.Transactions
 	if header.IsCheckPoint.Cmp(common.Big1) == 0 && atomic.LoadInt32(&self.mining) == 1 {
-		allPbftTxs, _ := self.eth.TxPool().GetValidPbft(blockNumber.Uint64()-1, core.GetIndexForVote(time.Now().Unix(), parent.Time().Int64()))
-		gen := false
-		targetHash := common.Hash{}
-		pending, gen, targetHash, _ = canGenBlockInCheckPoint(allPbftTxs, committeeCnt)
+		pending, err = self.eth.TxPool().GetValidPbft(blockNumber.Uint64()-1, core.GetIndexForVote(time.Now().Unix(), parent.Time().Int64()))
+		gen, targetHash, _ := canGenBlockInCheckPoint(pending, committeeCnt)
 		if !gen {
 		DONE2:
 			for {
@@ -554,7 +555,7 @@ func (self *worker) commitNewWork() {
 		return
 	}
 	txs := types.NewTransactionsByPriceAndNonce(self.current.signer, pending)
-	work.commitTransactions(self.mux, txs, self.chain, self.coinbase)
+	work.commitTransactions(self.mux, txs, self.chain, coinbaseTemp)
 
 	// Create the new block to seal with the consensus engine
 	if work.Block, err = self.engine.Finalize(self.chain, header, work.state, work.txs, nil, work.receipts); err != nil {
@@ -594,7 +595,7 @@ func (self *worker) checkBlockInterval(parent *types.Block, tstamp int64) bool {
 	return true
 }
 
-func (self *worker) headPrepare(parent *types.Block, tstamp int64) (header *types.Header, blockNumber *big.Int) {
+func (self *worker) headPrepare(parent *types.Block, tstamp int64) (header *types.Header, blcokNumber *big.Int) {
 	num := parent.Number()
 	header = &types.Header{
 		ParentHash: parent.Hash(),
@@ -605,17 +606,17 @@ func (self *worker) headPrepare(parent *types.Block, tstamp int64) (header *type
 		Time:       big.NewInt(tstamp),
 		Difficulty: big.NewInt(1),
 	}
-	blockNumber = header.Number
+	blcokNumber = header.Number
 	if header.Number.Int64() >= common.VoteSlotForGenesis && int64(new(big.Int).Mod(header.Number, common.VoteSlot).Cmp(common.Big0)) == 0 {
 		header.IsCheckPoint = big.NewInt(1)
 	} else {
 		header.IsCheckPoint = big.NewInt(0)
 	}
-	return header, blockNumber
+	return header, blcokNumber
 }
 
-func (self *worker) checkIsVaildMiner(preCoinbase common.Address, preQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, n *big.Int) (bool, int64, int64) {
-	IsValidMiner, level, preMinerid := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preQr, blockNumber, totalMinerNum, n)
+func (self *worker) checkIsVaildMiner(preCoinbase common.Address, preQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, n *big.Int) (bool, int64, int64, int64) {
+	IsValidMiner, level, preMinerid, nowMinerid := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preQr, blockNumber, totalMinerNum, n, self.eth.AccountManager())
 	if !IsValidMiner {
 	DONE1:
 		for {
@@ -627,20 +628,20 @@ func (self *worker) checkIsVaildMiner(preCoinbase common.Address, preQr []byte, 
 		}
 		time.Sleep(10 * time.Millisecond)
 		self.chainRpowCh <- 1
-		return IsValidMiner, level, preMinerid
+		return IsValidMiner, level, preMinerid, nowMinerid
 	}
-	return IsValidMiner, level, preMinerid
+	return IsValidMiner, level, preMinerid, nowMinerid
 }
 
-func (self *worker) calMinerQrSignature(qr common.Hash) []byte {
-	account := accounts.Account{Address: self.coinbase}
+func (self *worker) calMinerQrSignature(qr common.Hash, nowMinerid int64) []byte {
+	account := accounts.Account{Address: common.BytesToAddress(minerlist.ReadMinerAddress(self.current.state, nowMinerid))}
 	wallet, err := self.eth.AccountManager().Find(account)
 	if err != nil {
 		log.Error("To be a miner of usechain RPOW, need local account", "err", err)
 		return nil
 	}
 
-	minerQrSignature, err := wallet.SignHash(account, qr.Bytes())
+	minerQrSignature, err := wallet.SignHashWithPassphrase(account, "123456", qr.Bytes())
 	if err != nil {
 		log.Error("Failed to unlock the coinbase account", "err", err)
 		return nil
@@ -652,26 +653,22 @@ func (self *worker) isMiner(totalMinerNum *big.Int, blockNumber *big.Int) bool {
 	isMiner, flag := minerlist.IsMiner(self.current.state, self.coinbase, totalMinerNum, blockNumber)
 	if !isMiner {
 		if flag == 1 {
-			misconducts := minerlist.GetMisconducts(self.current.state, self.coinbase).Int64()
-			if misconducts < common.MisconductLimitsLevel3 {
-				resetBlockNumber := minerlist.GetPunishHeight(self.current.state, self.coinbase).Int64() + common.PenaltyBlockTime
-				log.Warn("Coinbase's misconducts: ", "misconducts", misconducts)
-				log.Warn("Coinbase is being punished, Mining will commence after: ", "blockNumber", resetBlockNumber)
+			if minerlist.GetMisconducts(self.current.state, self.coinbase).Int64() < common.MisconductLimitsLevel3 {
+				log.Error("Coinbase is being punished, Mining will commence after the penalty period")
 			} else {
-				log.Warn("Coinbase's misconducts: ", "misconducts", misconducts)
-				log.Warn("Coinbase has been permanently punished, Mining is forbidden")
+				log.Error("Coinbase has been permanently punished, Mining is forbidden")
 			}
 		} else {
-			log.Warn("Coinbase needs to register as a miner, Please try 'miner.stop();use.minerRegister({from:use.coinbase});miner.start()'")
+			log.Error("Coinbase needs to register as a miner, Please try 'miner.stop();use.minerRegister({from:use.coinbase});miner.start()'")
 		}
 		return false
 	}
 	return true
 }
 
-func canGenBlockInCheckPoint(txs map[common.Address]types.Transactions, cnt int32) (map[common.Address]types.Transactions, bool, common.Hash, uint32) {
-	if int32(len(txs)) < (cnt+1)/common.VoteThreshold {
-		return nil, false, common.Hash{}, 0
+func canGenBlockInCheckPoint(txs map[common.Address]types.Transactions, cnt int32) (bool, common.Hash, uint32) {
+	if float64(len(txs)) < math.Ceil(float64(cnt)*2/3) {
+		return false, common.Hash{}, 0
 	}
 
 	hashCount := make(map[common.Hash]uint32)
@@ -697,28 +694,11 @@ func canGenBlockInCheckPoint(txs map[common.Address]types.Transactions, cnt int3
 		maxHash = hash
 	}
 
-	if int32(maxCount) < (cnt+1)/common.VoteThreshold {
-		return nil, false, maxHash, maxCount
+	if float64(maxCount) < math.Ceil(float64(cnt)*2/3) {
+		return false, maxHash, maxCount
 	}
 
-	// get all txs are same with maxHash
-	pending := make(map[common.Address]types.Transactions)
-	for addr, list := range txs {
-		tempPendingTxs := make(types.Transactions, 0, list.Len())
-		for i := 0; i < list.Len(); i++ {
-			payload := list[i].Data()
-			hash := common.BytesToHash(payload[:common.HashLength])
-			if hash != maxHash {
-				continue
-			}
-			tempPendingTxs = append(tempPendingTxs, list[i])
-		}
-
-		if tempPendingTxs.Len() > 0 {
-			pending[addr] = tempPendingTxs
-		}
-	}
-	return pending, true, maxHash, maxCount
+	return true, maxHash, maxCount
 }
 
 func (self *worker) commitUncle(work *Work, uncle *types.Header) error {

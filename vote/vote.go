@@ -43,6 +43,14 @@ type Backend interface {
 	ChainID() *big.Int
 }
 
+var committeeList = [5]string{
+	"UmaaXRVjYdj78qRjhFUrFEeqex8cg7ciPqd",
+	"UmWMhLH66CAbozmveiENP9ZwsRMwQGibK3c",
+	"UmQHNzDc1A5Kp8PdmKoEhyK6zCcin8Hef8P",
+	"UmVGZDBinMznmwk1xtSCzp9EQLaYnawDZ17",
+	"UmZrCK4URnZqbJZX4HiWq6dti2Pcn1sVggn",
+}
+
 //The struct of voter
 type Voter struct {
 	chainHeadCh  chan core.ChainHeadEvent
@@ -148,35 +156,38 @@ func (self *Voter) vote() {
 
 //Sign the vote, and broadcast it
 func (self *Voter) voteChain() {
-	//get the account
-	account := accounts.Account{Address: self.votebase}
-	wallet, err := self.manager.Find(account)
-	if err != nil {
-		log.Error("To be a committee of usechain, need local account", "err", err)
-		return
-	}
+	for _, value := range committeeList {
+		//get the account
+		committeeAddr := common.UmAddressToAddress(value)
+		account := accounts.Account{Address: committeeAddr}
+		wallet, err := self.manager.Find(account)
+		if err != nil {
+			log.Error("To be a committee of usechain, need local account", "err", err)
+			return
+		}
 
-	//check the votebase whether a committee
-	//get the nonce from current header to ensure the tx be packed in the next block
-	if !manager.IsCommittee(self.txpool.StateDB(), self.votebase) {
-		log.Error("Not a committee, can't vote")
-		return
-	}
+		//check the votebase whether a committee
+		//get the nonce from current header to ensure the tx be packed in the next block
+		if !manager.IsCommittee(self.txpool.StateDB(), self.votebase) {
+			log.Error("Not a committee, can't vote")
+			return
+		}
 
-	//new a transaction
-	nonce := self.txpool.StateDB().GetNonce(self.votebase)
-	tx := types.NewPbftMessage(nonce, self.writeVoteInfo())
-	signedTx, err := wallet.SignTx(account, tx, nil)
-	if err != nil {
-		log.Error("Sign the committee Msg failed, Please unlock the verifier account", "err", err)
-		return
-	}
+		//new a transaction
+		nonce := self.txpool.StateDB().GetNonce(committeeAddr)
+		tx := types.NewPbftMessage(nonce, self.writeVoteInfo())
+		signedTx, err := wallet.SignTx(account, tx, nil)
+		if err != nil {
+			log.Error("Sign the committee Msg failed, Please unlock the verifier account", "err", err)
+			return
+		}
 
-	log.Info("Checkpoint vote is sent", "hash", signedTx.Hash().String())
-	//add tx to the txpool
-	err = self.txpool.AddLocal(signedTx)
-	if err != nil {
-		log.Warn("Checkpoint vote sent failed", "err", err)
+		log.Info("Checkpoint vote is sent", "hash", signedTx.Hash().String())
+		//add tx to the txpool
+		err = self.txpool.AddLocal(signedTx)
+		if err != nil {
+			log.Warn("Checkpoint vote sent failed", "err", err)
+		}
 	}
 }
 

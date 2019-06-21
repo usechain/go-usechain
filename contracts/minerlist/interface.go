@@ -31,11 +31,12 @@ import (
 )
 
 const (
-	MinerListContract = "UmixYUgBHA9vJj47myQKn8uZAm4anEfrG78"
-	ignoreSlot        = int64(1)
-	paramIndexFull    = "0x0000000000000000000000000000000000000000000000000000000000000000"
-	paramIndexaHead   = "000000000000000000000000"
-	PreQrLength       = 97
+	MinerListContract        = "UmixYUgBHA9vJj47myQKn8uZAm4anEfrG78"
+	ignoreSlot               = int64(1)
+	paramIndexFull           = "0x0000000000000000000000000000000000000000000000000000000000000000"
+	paramOnLineMinerNumIndex = "0x0000000000000000000000000000000000000000000000000000000000000008"
+	paramIndexaHead          = "000000000000000000000000"
+	PreQrLength              = 97
 )
 
 var keyIndex = calKeyIndex()
@@ -59,7 +60,7 @@ func IsMiner(statedb *state.StateDB, miner common.Address, totalMinerNum *big.In
 
 	for i := int64(0); i < totalMinerNum.Int64(); i++ {
 		if checkAddress(statedb, miner, i) {
-			if !isPunishMiner(statedb, miner, totalMinerNum, blockNumber) {
+			if !IsPunishMiner(statedb, miner, totalMinerNum, blockNumber) {
 				return true, 0
 			} else {
 				return false, 1
@@ -69,37 +70,24 @@ func IsMiner(statedb *state.StateDB, miner common.Address, totalMinerNum *big.In
 	return false, 2
 }
 
-// Return whether the miner is legal or not
-// "legal" means the right to participate in mining
-func IsPunishedMiner(statedb *state.StateDB, miner common.Address, totalMinerNum *big.Int, blockNumber *big.Int) bool {
-	//add for solo mining
-	if totalMinerNum.Cmp(common.Big0) == 0 {
-		return true
-	}
-
-	for i := int64(0); i < totalMinerNum.Int64(); i++ {
-		if checkAddress(statedb, miner, i) {
-			return isPunishMiner(statedb, miner, totalMinerNum, blockNumber)
-		}
-	}
-	return false
-}
-
 // Return whether the miner is valid or not , difficultlevel and preMinerid
 func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common.Address, preSignatureQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, offset *big.Int) (bool, int64, int64) {
 	//TODO: add time penalty mechanism
 	// add for test solo mining
 	if totalMinerNum.Cmp(common.Big0) == 0 {
-		return true, 0, 0
+		return true, 0, -1
+	}
+	if GetOnLineMinerNum(state) == 0 {
+		return true, 0, -1
 	}
 	if totalMinerNum.Cmp(common.Big1) == 0 {
-		return checkAddress(state, miner, 0), 0, 0
+		return checkAddress(state, miner, 0), 0, -1
 	}
 
 	// if there is only one valid miner
 	isOnlyOneMinerValid, index := isOnlyOneMinerValid(state, totalMinerNum, blockNumber)
-	if isOnlyOneMinerValid && isOnLine(state, miner) {
-		return checkAddress(state, miner, index), 0, 0
+	if isOnlyOneMinerValid && IsOnLine(state, miner) {
+		return checkAddress(state, miner, index), 0, -1
 	}
 
 	// calculate the miner  who should be the first out of blocks
@@ -116,7 +104,7 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 			}
 		}
 	}
-	return false, 0, 0
+	return false, 0, -1
 }
 
 func CalIdTarget(preCoinbase common.Address, preSignatureQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, state *state.StateDB) *big.Int {
@@ -173,7 +161,7 @@ func checkIdTargetOrId(statedb *state.StateDB, idOriginal *big.Int, totalMinerNu
 	flag := int64(0)
 	for {
 		res = statedb.GetState(common.Base58AddressToAddress(common.StringToBase58Address(MinerListContract)), common.HexToHash(common.IncreaseHexByNum(keyIndex, idOriginal.Int64())))
-		if isPunishMiner(statedb, common.HexToAddress("0x"+res.String()[26:]), totalMinerNum, blockNumber) || !isOnLine(statedb, common.HexToAddress("0x"+res.String()[26:])) {
+		if IsPunishMiner(statedb, common.HexToAddress("0x"+res.String()[26:]), totalMinerNum, blockNumber) || !IsOnLine(statedb, common.HexToAddress("0x"+res.String()[26:])) {
 			if flag == 0 {
 				idOriginal.Add(idOriginal, big.NewInt(0).Mod(blockNumber, totalMinerNum))
 				flag = flag + 1
@@ -219,19 +207,23 @@ func checkAddress(statedb *state.StateDB, miner common.Address, index int64) boo
 }
 
 // Return whether the miner is be punished or permanent penalty
-func isPunishMiner(statedb *state.StateDB, miner common.Address, totalMinerNum *big.Int, blockNumber *big.Int) bool {
+func IsPunishMiner(statedb *state.StateDB, miner common.Address, totalMinerNum *big.Int, blockNumber *big.Int) bool {
 	if totalMinerNum.Cmp(common.Big1) < 1 {
 		return false
 	}
 
 	misconducts := GetMisconducts(statedb, miner)
+	punishCount := GetPunishCount(statedb, miner)
+
 	switch {
-	case misconducts.Int64() < common.MisconductLimitsLevel1:
-		return false
-	case misconducts.Int64() < common.MisconductLimitsLevel3:
+	case misconducts.Int64() >= common.MisconductLimitsLevel3:
+		return true
+	case misconducts.Int64() >= common.MisconductLimitsLevel1 && punishCount.Int64() == 1:
+		return !isThroughPenaltyBlockTime(statedb, miner, blockNumber)
+	case misconducts.Int64() >= common.MisconductLimitsLevel2 && punishCount.Int64() == 2:
 		return !isThroughPenaltyBlockTime(statedb, miner, blockNumber)
 	default:
-		return true
+		return false
 	}
 }
 
@@ -259,8 +251,8 @@ func GetPunishHeight(statedb *state.StateDB, miner common.Address) *big.Int {
 	return statedb.GetState(common.Base58AddressToAddress(common.StringToBase58Address(MinerListContract)), common.BytesToHash(keyIndex)).Big()
 }
 
-func isThroughPenaltyBlockTime(statedb *state.StateDB, miner common.Address, blockNumber *big.Int) bool {
-	web3key := paramIndexaHead + miner.Hex()[2:] + common.BigToHash(big.NewInt(6)).Hex()[2:]
+func GetPunishCount(statedb *state.StateDB, miner common.Address) *big.Int {
+	web3key := paramIndexaHead + miner.Hex()[2:] + common.BigToHash(big.NewInt(9)).Hex()[2:]
 	hash := sha3.NewKeccak256()
 	var keyIndex []byte
 	b, _ := hex.DecodeString(web3key)
@@ -268,14 +260,25 @@ func isThroughPenaltyBlockTime(statedb *state.StateDB, miner common.Address, blo
 	keyIndex = hash.Sum(keyIndex)
 
 	// get data from the contract statedb
-	blockHeight := statedb.GetState(common.UmAddressToAddress(MinerListContract), common.BytesToHash(keyIndex)).Big()
+	return statedb.GetState(common.UmAddressToAddress(MinerListContract), common.BytesToHash(keyIndex)).Big()
+}
+
+func GetOnLineMinerNum(statedb *state.StateDB) int64 {
+	// get data from the contract statedb
+	return statedb.GetState(common.UmAddressToAddress(MinerListContract), common.HexToHash(paramOnLineMinerNumIndex)).Big().Int64()
+}
+
+func isThroughPenaltyBlockTime(statedb *state.StateDB, miner common.Address, blockNumber *big.Int) bool {
+	blockHeight := GetPunishHeight(statedb, miner)
+	fmt.Println("GetPunishHeight", blockHeight)
+	fmt.Println("blockNumber", blockNumber)
 	if blockNumber.Int64()-blockHeight.Int64() > common.PenaltyBlockTime {
 		return true
 	}
 	return false
 }
 
-func isOnLine(statedb *state.StateDB, miner common.Address) bool {
+func IsOnLine(statedb *state.StateDB, miner common.Address) bool {
 	web3key := paramIndexaHead + miner.Hex()[2:] + common.BigToHash(big.NewInt(5)).Hex()[2:]
 	hash := sha3.NewKeccak256()
 
@@ -301,7 +304,7 @@ func isOnlyOneMinerValid(state *state.StateDB, totalMinerNum *big.Int, blockNumb
 	var index int64
 	for i := int64(0); i < totalMinerNum.Int64(); i++ {
 		res := state.GetState(common.UmAddressToAddress(MinerListContract), common.HexToHash(common.IncreaseHexByNum(keyIndex, i)))
-		if !isPunishMiner(state, common.HexToAddress("0x"+res.String()[26:]), totalMinerNum, blockNumber) {
+		if !IsPunishMiner(state, common.HexToAddress("0x"+res.String()[26:]), totalMinerNum, blockNumber) {
 			validMinerNum++
 			index = i
 			if validMinerNum > 1 {
@@ -313,4 +316,20 @@ func isOnlyOneMinerValid(state *state.StateDB, totalMinerNum *big.Int, blockNumb
 		return true, index
 	}
 	return false, 0
+}
+
+// QueryAddr returns the address whether already in the minerList
+// when minerList's len is 0 , return 1
+func IsInMinerList(statedb *state.StateDB, miner common.Address, totalMinerNum *big.Int) bool {
+	//add for solo mining
+	if totalMinerNum.Cmp(common.Big0) == 0 {
+		return true
+	}
+
+	for i := int64(0); i < totalMinerNum.Int64(); i++ {
+		if checkAddress(statedb, miner, i) {
+			return true
+		}
+	}
+	return false
 }

@@ -400,6 +400,10 @@ func sendMinerOnLine(pool *core.TxPool, eb common.Address, wallet accounts.Walle
 	if totalMinerNum.Int64() == 0 {
 		return true
 	}
+
+	if minerlist.IsOnLine(state, eb) {
+		return true
+	}
 	//new a transaction
 	addr := common.UmAddressToAddress(minerlist.MinerListContract)
 	nonce := pool.State().GetNonce(eb)
@@ -432,6 +436,10 @@ func sendMinerOffLine(pool *core.TxPool, eb common.Address, wallet accounts.Wall
 	state := pool.StateDB()
 	totalMinerNum := minerlist.ReadMinerNum(state)
 	if totalMinerNum.Int64() == 0 {
+		return true
+	}
+
+	if !minerlist.IsOnLine(state, eb) {
 		return true
 	}
 	//new a transaction

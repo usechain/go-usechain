@@ -443,6 +443,13 @@ func (self *worker) commitNewWork() {
 			return
 		}
 
+		if !minerlist.IsOnLine(self.current.state, self.coinbase) &&
+			totalMinerNum.Int64() != 0 &&
+			minerlist.GetOnLineMinerNum(self.current.state) != 0 {
+			log.Warn("miner is not on line, please try 'miner.stop();miner.start()'")
+			return
+		}
+
 		// collect pre block info and calculate whether the miner is correct for current block
 		var preQr []byte
 		if header.Number.Cmp(common.Big1) == 0 {
@@ -454,8 +461,10 @@ func (self *worker) commitNewWork() {
 		tstampSub := header.Time.Int64() - parent.Time().Int64()
 		n := big.NewInt(tstampSub / common.BlockSlot.Int64())
 
-		//check whether coinbase is valid miner
-		IsValidMiner, level, preMinerid := self.checkIsVaildMiner(preCoinbase, preQr, blockNumber, totalMinerNum, n)
+		// check whether coinbase is valid miner and cal preMinerid
+		// preMinerid == -1 means everyone can pack block
+		// level means difficultlevel (Not used so far)
+		IsValidMiner, level, preMinerid := self.checkIsVaildMiner(self.coinbase, preCoinbase, preQr, blockNumber, totalMinerNum, n)
 		if !IsValidMiner {
 			return
 		}
@@ -475,10 +484,10 @@ func (self *worker) commitNewWork() {
 			return
 		}
 		// calculate PrimaryMiner and  DifficultyLevel for current block
-		if totalMinerNum.Int64() != 0 {
-			header.PrimaryMiner = common.BytesToAddress(minerlist.ReadMinerAddress(self.current.state, preMinerid))
-		} else {
+		if preMinerid == -1 {
 			header.PrimaryMiner = self.coinbase
+		} else {
+			header.PrimaryMiner = common.BytesToAddress(minerlist.ReadMinerAddress(self.current.state, preMinerid))
 		}
 		header.DifficultyLevel = big.NewInt(level)
 		if header.Number.Cmp(common.Big1) == 0 {
@@ -614,8 +623,8 @@ func (self *worker) headPrepare(parent *types.Block, tstamp int64) (header *type
 	return header, blockNumber
 }
 
-func (self *worker) checkIsVaildMiner(preCoinbase common.Address, preQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, n *big.Int) (bool, int64, int64) {
-	IsValidMiner, level, preMinerid := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preQr, blockNumber, totalMinerNum, n)
+func (self *worker) checkIsVaildMiner(coinbase common.Address, preCoinbase common.Address, preQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, n *big.Int) (bool, int64, int64) {
+	IsValidMiner, level, preMinerid := minerlist.IsValidMiner(self.current.state, coinbase, preCoinbase, preQr, blockNumber, totalMinerNum, n)
 	if !IsValidMiner {
 	DONE1:
 		for {
@@ -662,7 +671,10 @@ func (self *worker) isMiner(totalMinerNum *big.Int, blockNumber *big.Int) bool {
 				log.Warn("Coinbase has been permanently punished, Mining is forbidden")
 			}
 		} else {
-			log.Warn("Coinbase needs to register as a miner, Please try 'miner.stop();use.minerRegister({from:use.coinbase});miner.start()'")
+			if minerlist.GetOnLineMinerNum(self.current.state) == 0 {
+				return true
+			}
+			log.Warn("Coinbase needs to register as a miner, Please try 'miner.stop();use.minerRegister({from:use.coinbase});admin.sleepBlocks(1);miner.start()'")
 		}
 		return false
 	}

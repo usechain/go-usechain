@@ -121,7 +121,11 @@ func (v *BlockValidator) ValidateMiner(block, parent *types.Block, statedb *stat
 	totalMinerNum := minerlist.ReadMinerNum(statedb)
 
 	// Verify block miner && verify the minerQrSignature legality
-	isMiner, flag := minerlist.IsMiner(statedb, header.Coinbase, totalMinerNum, header.Number)
+	isMiner := true
+	flag := 1
+	if minerlist.GetOnLineMinerNum(statedb) != 0 {
+		isMiner, flag = minerlist.IsMiner(statedb, header.Coinbase, totalMinerNum, header.Number)
+	}
 	if !isMiner {
 		if flag == 1 {
 			return fmt.Errorf("miner address is being punished, invalid miner")
@@ -163,7 +167,9 @@ func (v *BlockValidator) ValidateMiner(block, parent *types.Block, statedb *stat
 
 	// Verify PrimaryMiner and DifficultyLevel
 	var preMiner common.Address
-	if totalMinerNum.Int64() != 0 {
+	if preMinerid == -1 {
+		preMiner = header.PrimaryMiner
+	} else {
 		preMiner = common.BytesToAddress(minerlist.ReadMinerAddress(statedb, preMinerid))
 	}
 	if bytes.Compare(header.PrimaryMiner.Bytes(), preMiner.Bytes()) != 0 && totalMinerNum.Int64() != 0 {

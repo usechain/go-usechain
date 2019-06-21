@@ -2089,7 +2089,25 @@ func (s *PublicBlockChainAPI) QueryAddr(ctx context.Context, addr common.Address
 	return 1
 }
 
+// QueryAddr returns the address whether already in the minerList
+// when minerList's len is 0 , return 1
 func (s *PublicBlockChainAPI) IsMiner(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) uint64 {
+	stateDb, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if stateDb == nil || err != nil {
+		return 0
+	}
+
+	totalMinerNum := minerlist.ReadMinerNum(stateDb)
+
+	isMiner := minerlist.IsInMinerList(stateDb, addr, totalMinerNum)
+	if isMiner == false {
+		return 0
+	}
+	return 1
+}
+
+// QueryAddr returns the address whether being punished
+func (s *PublicBlockChainAPI) IsPunishedMiner(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) uint64 {
 	stateDb, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if stateDb == nil || err != nil {
 		return 0
@@ -2098,22 +2116,71 @@ func (s *PublicBlockChainAPI) IsMiner(ctx context.Context, addr common.Address, 
 	blockHeight := s.b.CurrentBlock().Number()
 	totalMinerNum := minerlist.ReadMinerNum(stateDb)
 
-	isMiner, _ := minerlist.IsMiner(stateDb, addr, totalMinerNum, blockHeight)
-	if isMiner == false {
+	if minerlist.IsPunishMiner(stateDb, addr, totalMinerNum, blockHeight) == false {
 		return 0
 	}
 	return 1
 }
 
-func (s *PublicBlockChainAPI) IsPunishedMiner(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) uint64 {
+// QueryAddr returns the address whether is on line
+func (s *PublicBlockChainAPI) IsOnlineMiner(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) uint64 {
 	stateDb, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if stateDb == nil || err != nil {
 		return 0
 	}
 
-	totalMinerNum := minerlist.ReadMinerNum(stateDb)
-	if minerlist.IsPunishedMiner(stateDb, addr, totalMinerNum, big.NewInt(int64(blockNr))) == false {
+	isOnLine := minerlist.IsOnLine(stateDb, addr)
+	if isOnLine == false {
 		return 0
 	}
 	return 1
+}
+
+// QueryAddr returns the address's misconducts
+func (s *PublicBlockChainAPI) GetMisconducts(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) uint64 {
+	stateDb, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if stateDb == nil || err != nil {
+		return 0
+	}
+
+	misconducts := minerlist.GetMisconducts(stateDb, addr)
+	return misconducts.Uint64()
+}
+
+func (s *PublicTransactionPoolAPI) MinerRegister(ctx context.Context, args SendTxArgs, blockNr rpc.BlockNumber) (common.Hash, error) {
+	stateDb, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if stateDb == nil || err != nil {
+		return common.Hash{}, err
+	}
+
+	totalMinerNum := minerlist.ReadMinerNum(stateDb)
+
+	if totalMinerNum.Int64() == 0 {
+		return s.SendTransaction(ctx, args)
+	}
+
+	isMiner := minerlist.IsInMinerList(stateDb, args.From, totalMinerNum)
+	if isMiner {
+		err = errors.New("address is already in the miner list")
+		return common.Hash{}, err
+	}
+
+	return s.SendTransaction(ctx, args)
+}
+
+func (s *PublicTransactionPoolAPI) MinerUnRegister(ctx context.Context, args SendTxArgs, blockNr rpc.BlockNumber) (common.Hash, error) {
+	stateDb, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if stateDb == nil || err != nil {
+		return common.Hash{}, err
+	}
+
+	totalMinerNum := minerlist.ReadMinerNum(stateDb)
+
+	isMiner := minerlist.IsInMinerList(stateDb, args.From, totalMinerNum)
+	if !isMiner {
+		err = errors.New("address is not in the miner list")
+		return common.Hash{}, err
+	}
+
+	return s.SendTransaction(ctx, args)
 }

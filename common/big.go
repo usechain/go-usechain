@@ -34,11 +34,11 @@ var (
 	HardFork0618            = big.NewInt(73430)
 	BlockSlot               = big.NewInt(25)
 	VoteSlot                = big.NewInt(10)
-	VoteSlotForGenesis      = int64(10000)
-	PenaltyBlockTime        = int64(17280)
-	MisconductLimitsLevel1  = int64(150)
-	MisconductLimitsLevel2  = int64(300)
-	MisconductLimitsLevel3  = int64(450)
+	VoteSlotForGenesis      = int64(100)
+	PenaltyBlockTime        = int64(10)
+	MisconductLimitsLevel1  = int64(15)
+	MisconductLimitsLevel2  = int64(30)
+	MisconductLimitsLevel3  = int64(45)
 	VoteThreshold           = int32(2)
 	MaxCommitteemanCount    = 5
 	BlockInterval           = 5

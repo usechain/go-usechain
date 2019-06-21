@@ -5645,6 +5645,20 @@ var methods = function () {
         inputFormatter: [null,formatters.inputDefaultBlockNumberFormatter]
     });
 
+    var isOnlineMiner = new Method({
+        name: 'isOnlineMiner',
+        call: 'use_isOnlineMiner',
+        params: 2,
+        inputFormatter: [null,formatters.inputDefaultBlockNumberFormatter]
+    });
+
+    var getMisconducts = new Method({
+        name: 'getMisconducts',
+        call: 'use_getMisconducts',
+        params: 2,
+        inputFormatter: [null,formatters.inputDefaultBlockNumberFormatter]
+    });
+
     var sendCreditRegisterTransaction = new Method({
         name: 'sendCreditRegisterTransaction',
         call: 'use_sendCreditRegisterTransaction',
@@ -5696,16 +5710,16 @@ var methods = function () {
 
     var minerRegister = new Method({
         name: 'minerRegister',
-        call: 'use_sendTransaction',
-        params: 1,
-        inputFormatter: [formatters.inputMinerRegisterFormatter]
+        call: 'use_minerRegister',
+        params: 2,
+        inputFormatter: [formatters.inputMinerRegisterFormatter, formatters.inputDefaultBlockNumberFormatter]
     });
 
     var minerUnRegister = new Method({
         name: 'minerUnRegister',
-        call: 'use_sendTransaction',
-        params: 1,
-        inputFormatter: [formatters.inputMinerUnRegisterFormatter]
+        call: 'use_minerUnRegister',
+        params: 2,
+        inputFormatter: [formatters.inputMinerUnRegisterFormatter, formatters.inputDefaultBlockNumberFormatter]
     });
 
     return [
@@ -5746,6 +5760,8 @@ var methods = function () {
         queryAddr,
         isMiner,
         isPunishedMiner,
+        isOnlineMiner,
+        getMisconducts,
         minerRegister,
         minerUnRegister,
 

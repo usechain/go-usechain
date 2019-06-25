@@ -105,22 +105,22 @@ func IsValidMiner(state *state.StateDB, miner common.Address, preCoinbase common
 
 	// calculate the miner  who should be the first out of blocks
 	idTarget := CalIdTarget(preCoinbase, preSignatureQr, blockNumber, totalMinerNum, state)
-	for i := int64(0); i <= offset.Int64(); i++ {
-		if i == 0 {
-			account := accounts.Account{Address: common.BytesToAddress(ReadMinerAddress(state, idTarget.Int64()))}
-			_, err := manager.Find(account)
-			if err == nil {
-				return true, i, idTarget.Int64(), idTarget.Int64()
-			}
-		} else {
-			id := calId(idTarget, preSignatureQr, totalMinerNum, big.NewInt(i), state, blockNumber)
-			account := accounts.Account{Address: common.BytesToAddress(ReadMinerAddress(state, id.Int64()))}
-			_, err := manager.Find(account)
-			if err == nil {
-				return true, i, idTarget.Int64(), id.Int64()
-			}
+
+	if offset.Int64() == 0 {
+		account := accounts.Account{Address: common.BytesToAddress(ReadMinerAddress(state, idTarget.Int64()))}
+		_, err := manager.Find(account)
+		if err == nil {
+			return true, 0, idTarget.Int64(), idTarget.Int64()
+		}
+	} else {
+		id := calId(idTarget, preSignatureQr, totalMinerNum, offset, state, blockNumber)
+		account := accounts.Account{Address: common.BytesToAddress(ReadMinerAddress(state, id.Int64()))}
+		_, err := manager.Find(account)
+		if err == nil {
+			return true, offset.Int64(), idTarget.Int64(), id.Int64()
 		}
 	}
+
 	return false, 0, idTarget.Int64(), idTarget.Int64()
 }
 

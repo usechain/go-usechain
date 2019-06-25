@@ -456,7 +456,7 @@ func (self *worker) commitNewWork() {
 		n := big.NewInt(tstampSub / common.BlockSlot.Int64())
 
 		//check whether coinbase is valid miner
-		IsValidMiner, level, preMinerid, nowMinerid := self.checkIsVaildMiner(preCoinbase, preQr, blockNumber, totalMinerNum, n)
+		IsValidMiner, level, preMinerid, nowMinerid := self.calVaildMiner(preCoinbase, preQr, blockNumber, totalMinerNum, n)
 		if !IsValidMiner {
 			return
 		}
@@ -616,7 +616,7 @@ func (self *worker) headPrepare(parent *types.Block, tstamp int64) (header *type
 	return header, blockNumber
 }
 
-func (self *worker) checkIsVaildMiner(preCoinbase common.Address, preQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, n *big.Int) (bool, int64, int64, int64) {
+func (self *worker) calVaildMiner(preCoinbase common.Address, preQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, n *big.Int) (bool, int64, int64, int64) {
 	IsValidMiner, level, preMinerid, nowMinerid := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preQr, blockNumber, totalMinerNum, n, self.eth.AccountManager())
 	if !IsValidMiner {
 	DONE1:

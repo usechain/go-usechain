@@ -18,7 +18,6 @@ package miner
 
 import (
 	"fmt"
-	"math"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -512,8 +511,10 @@ func (self *worker) commitNewWork() {
 	committeeCnt := self.chain.GetCommitteeCount()
 	var pending map[common.Address]types.Transactions
 	if header.IsCheckPoint.Cmp(common.Big1) == 0 && atomic.LoadInt32(&self.mining) == 1 {
-		pending, err = self.eth.TxPool().GetValidPbft(blockNumber.Uint64()-1, core.GetIndexForVote(time.Now().Unix(), parent.Time().Int64()))
-		gen, targetHash, _ := canGenBlockInCheckPoint(pending, committeeCnt)
+		allPbftTxs, _ := self.eth.TxPool().GetValidPbft(blockNumber.Uint64()-1, core.GetIndexForVote(time.Now().Unix(), parent.Time().Int64()))
+		gen := false
+		targetHash := common.Hash{}
+		pending, gen, targetHash, _ = canGenBlockInCheckPoint(allPbftTxs, committeeCnt)
 		if !gen {
 		DONE2:
 			for {
@@ -595,7 +596,7 @@ func (self *worker) checkBlockInterval(parent *types.Block, tstamp int64) bool {
 	return true
 }
 
-func (self *worker) headPrepare(parent *types.Block, tstamp int64) (header *types.Header, blcokNumber *big.Int) {
+func (self *worker) headPrepare(parent *types.Block, tstamp int64) (header *types.Header, blockNumber *big.Int) {
 	num := parent.Number()
 	header = &types.Header{
 		ParentHash: parent.Hash(),
@@ -606,13 +607,13 @@ func (self *worker) headPrepare(parent *types.Block, tstamp int64) (header *type
 		Time:       big.NewInt(tstamp),
 		Difficulty: big.NewInt(1),
 	}
-	blcokNumber = header.Number
+	blockNumber = header.Number
 	if header.Number.Int64() >= common.VoteSlotForGenesis && int64(new(big.Int).Mod(header.Number, common.VoteSlot).Cmp(common.Big0)) == 0 {
 		header.IsCheckPoint = big.NewInt(1)
 	} else {
 		header.IsCheckPoint = big.NewInt(0)
 	}
-	return header, blcokNumber
+	return header, blockNumber
 }
 
 func (self *worker) checkIsVaildMiner(preCoinbase common.Address, preQr []byte, blockNumber *big.Int, totalMinerNum *big.Int, n *big.Int) (bool, int64, int64, int64) {
@@ -666,9 +667,9 @@ func (self *worker) isMiner(totalMinerNum *big.Int, blockNumber *big.Int) bool {
 	return true
 }
 
-func canGenBlockInCheckPoint(txs map[common.Address]types.Transactions, cnt int32) (bool, common.Hash, uint32) {
-	if float64(len(txs)) < math.Ceil(float64(cnt)*2/3) {
-		return false, common.Hash{}, 0
+func canGenBlockInCheckPoint(txs map[common.Address]types.Transactions, cnt int32) (map[common.Address]types.Transactions, bool, common.Hash, uint32) {
+	if int32(len(txs)) < (cnt+1)/common.VoteThreshold {
+		return nil, false, common.Hash{}, 0
 	}
 
 	hashCount := make(map[common.Hash]uint32)
@@ -694,11 +695,28 @@ func canGenBlockInCheckPoint(txs map[common.Address]types.Transactions, cnt int3
 		maxHash = hash
 	}
 
-	if float64(maxCount) < math.Ceil(float64(cnt)*2/3) {
-		return false, maxHash, maxCount
+	if int32(maxCount) < (cnt+1)/common.VoteThreshold {
+		return nil, false, maxHash, maxCount
 	}
 
-	return true, maxHash, maxCount
+	// get all txs are same with maxHash
+	pending := make(map[common.Address]types.Transactions)
+	for addr, list := range txs {
+		tempPendingTxs := make(types.Transactions, 0, list.Len())
+		for i := 0; i < list.Len(); i++ {
+			payload := list[i].Data()
+			hash := common.BytesToHash(payload[:common.HashLength])
+			if hash != maxHash {
+				continue
+			}
+			tempPendingTxs = append(tempPendingTxs, list[i])
+		}
+
+		if tempPendingTxs.Len() > 0 {
+			pending[addr] = tempPendingTxs
+		}
+	}
+	return pending, true, maxHash, maxCount
 }
 
 func (self *worker) commitUncle(work *Work, uncle *types.Header) error {

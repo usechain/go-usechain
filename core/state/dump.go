@@ -26,15 +26,15 @@ import (
 )
 
 type DumpAccount struct {
-	Balance  string            `json:"balance"`
-	USGBalance string		   `json:"USGbalance"`
-	Nonce    uint64            `json:"nonce"`
-	Root     string            `json:"root"`
-	CodeHash string            `json:"codeHash"`
-	Code     string            `json:"code"`
-	Storage  map[string]string `json:"storage"`
+	Balance    string            `json:"balance"`
+	USGBalance string            `json:"USGbalance"`
+	Nonce      uint64            `json:"nonce"`
+	Root       string            `json:"root"`
+	CodeHash   string            `json:"codeHash"`
+	Code       string            `json:"code"`
+	Storage    map[string]string `json:"storage"`
 
-	TimePoint	   string	   `json:"timepoint"`
+	TimePoint      string      `json:"timepoint"`
 	TradePoints    uint64      `json:"tradepoints"`
 	Certifications uint64      `json:"certifications"`
 	CertPoints     uint64      `json:"certpoints"`
@@ -64,15 +64,15 @@ func (self *StateDB) RawDump() Dump {
 
 		obj := newObject(nil, common.BytesToAddress(addr), data, nil)
 		account := DumpAccount{
-			Balance:  data.Balance.String(),
+			Balance:    data.Balance.String(),
 			USGBalance: data.USGBalance.String(),
-			Nonce:    data.Nonce,
-			Root:     common.Bytes2Hex(data.Root[:]),
-			CodeHash: common.Bytes2Hex(data.CodeHash),
-			Code:     common.Bytes2Hex(obj.Code(self.db)),
-			Storage:  make(map[string]string),
+			Nonce:      data.Nonce,
+			Root:       common.Bytes2Hex(data.Root[:]),
+			CodeHash:   common.Bytes2Hex(data.CodeHash),
+			Code:       common.Bytes2Hex(obj.Code(self.db)),
+			Storage:    make(map[string]string),
 
-			TimePoint:		data.TimePoint.String(),
+			TimePoint:      data.TimePoint.String(),
 			TradePoints:    data.TradePoints,
 			Certifications: data.Certifications,
 			CertPoints:     data.CertPoints,

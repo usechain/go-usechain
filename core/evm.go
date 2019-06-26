@@ -46,18 +46,18 @@ func NewEVMContext(msg Message, header *types.Header, chain ChainContext, author
 		beneficiary = *author
 	}
 	return vm.Context{
-		CanTransfer: 	CanTransfer,
+		CanTransfer:    CanTransfer,
 		CanUSGTransfer: CanUSGTransfer,
-		Transfer:    	Transfer,
-		USGTransfer: 	USGTransfer,
-		GetHash:     	GetHashFn(header, chain),
-		Origin:      	msg.From(),
-		Coinbase:    	beneficiary,
-		BlockNumber: 	new(big.Int).Set(header.Number),
-		Time:        	new(big.Int).Set(header.Time),
-		Difficulty:  	new(big.Int).Set(header.Difficulty),
-		GasLimit:    	header.GasLimit,
-		GasPrice:    	new(big.Int).Set(msg.GasPrice()),
+		Transfer:       Transfer,
+		USGTransfer:    USGTransfer,
+		GetHash:        GetHashFn(header, chain),
+		Origin:         msg.From(),
+		Coinbase:       beneficiary,
+		BlockNumber:    new(big.Int).Set(header.Number),
+		Time:           new(big.Int).Set(header.Time),
+		Difficulty:     new(big.Int).Set(header.Difficulty),
+		GasLimit:       header.GasLimit,
+		GasPrice:       new(big.Int).Set(msg.GasPrice()),
 	}
 }
 
@@ -85,6 +85,7 @@ func CanTransfer(db vm.StateDB, addr common.Address, recipient *common.Address, 
 func CanUSGTransfer(db vm.StateDB, addr common.Address, recipient *common.Address, amount *big.Int) bool {
 	return db.GetUSGBalance(addr).Cmp(amount) >= 0
 }
+
 // Transfer subtracts amount from sender and adds amount to recipient using the given Db
 func Transfer(db vm.StateDB, sender, recipient common.Address, amount *big.Int) {
 	db.SubBalance(sender, amount)

@@ -27,11 +27,11 @@ import (
 	"github.com/usechain/go-usechain/common/math"
 	"github.com/usechain/go-usechain/core"
 	"github.com/usechain/go-usechain/core/state"
+	"github.com/usechain/go-usechain/core/types"
 	"github.com/usechain/go-usechain/core/vm"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/ethdb"
 	"github.com/usechain/go-usechain/params"
-	"github.com/usechain/go-usechain/core/types"
 )
 
 // VMTest checks EVM execution without block or transaction context.

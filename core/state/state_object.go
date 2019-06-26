@@ -104,13 +104,13 @@ func (s *stateObject) empty() bool {
 // Account is the Ethereum consensus representation of accounts.
 // These objects are stored in the main account trie.
 type Account struct {
-	Nonce    uint64
-	Balance  *big.Int
+	Nonce      uint64
+	Balance    *big.Int
 	USGBalance *big.Int
-	Root     common.Hash // merkle root of the storage trie
-	CodeHash []byte
+	Root       common.Hash // merkle root of the storage trie
+	CodeHash   []byte
 
-	TimePoint	   *big.Int	// block number which contain last tx about USE
+	TimePoint      *big.Int // block number which contain last tx about USE
 	Lock           *common.Lock
 	TradePoints    uint64   // user's trade points
 	Certifications uint64   // user's certifications implements by bits
